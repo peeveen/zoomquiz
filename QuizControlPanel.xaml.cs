@@ -77,6 +77,13 @@ namespace ZoomQuiz
 		public string AnswerText { get; private set; }
 		public string NormalizedAnswer { get; private set; }
 		public AnswerResult AnswerResult { get; set; }
+		public bool IsAcceptedAnswer
+		{
+			get
+			{
+				return AnswerResult == AnswerResult.Correct || AnswerResult == AnswerResult.AlmostCorrect || AnswerResult == AnswerResult.Wrong;
+			}
+		}
 		public Answer(string answer)
 		{
 			AnswerText = answer;
@@ -259,7 +266,7 @@ namespace ZoomQuiz
 		private const string QUESTION_FONT_NAME = "Impact";
 		private const string LEADERBOARD_FONT_NAME = "Bahnschrift SemiBold SemiCondensed";
 		private const float AUDIO_VOLUME = 0.8f;
-		private const float BGM_VOLUME = 0.15f;
+		private const float BGM_VOLUME = 0.10f;
 
 		private bool m_quizEnded = false;
 		private bool m_countdownActive = false;
@@ -296,10 +303,12 @@ namespace ZoomQuiz
 		private float m_questionBGMVolume = 0;
 		private float m_questionAudioVolume = 0;
 		private bool m_scoresDirty = true;
+		public bool StartedOK { get; private set; }
 		private bool m_timeWarnings = true;
 
 		public QuizControlPanel()
 		{
+			StartedOK = false;
 			InitializeComponent();
 			ReadScoresFromFile();
 			countdownWorker.DoWork += countdownWorker_DoWork;
@@ -320,7 +329,17 @@ namespace ZoomQuiz
 			{
 				m_obs.Connect("ws://127.0.0.1:4444", "");
 				if (m_obs.IsConnected)
+				{
 					SetOBSScene("CamScene");
+					File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
+					ScanMediaPath();
+					SetCountdownMedia();
+					SetBGMShuffle();
+					SetLeaderboardsPath();
+					LoadQuiz();
+					faderWorker.RunWorkerAsync();
+					StartedOK = true;
+				}
 				else
 					MessageBox.Show("Could not connect to OBS (is it running?).", ZoomQuizTitle);
 			}
@@ -339,13 +358,6 @@ namespace ZoomQuiz
 				MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
 				EndQuiz();
 			}
-			File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
-			ScanMediaPath();
-			SetCountdownMedia();
-			SetBGMShuffle();
-			SetLeaderboardsPath();
-			LoadQuiz();
-			faderWorker.RunWorkerAsync();
 		}
 
 		private void ClearLeaderboards()
@@ -595,7 +607,7 @@ namespace ZoomQuiz
 			foreach(AnswerResult result in values)
 				m_answerBins[result] = new AnswerBin();
 			AnswerBin correctAnswers = m_answerBins[AnswerResult.Correct];
-			AnswerBin almostCorrectAnswers = m_answerBins[AnswerResult.Correct];
+			AnswerBin almostCorrectAnswers = m_answerBins[AnswerResult.AlmostCorrect];
 			currentQuestion.QuestionAnswers.Select(a => new Answer(a)).ToList().ForEach(a => correctAnswers.Add(a));
 			currentQuestion.QuestionAlmostAnswers.Select(a => new Answer(a)).ToList().ForEach(a => almostCorrectAnswers.Add(a));
 		}
@@ -681,6 +693,7 @@ namespace ZoomQuiz
 		{
 			m_answers = new Dictionary<Contestant, List<Answer>>();
 			HideAnswer();
+			skipQuestionButton.IsEnabled = false;
 			m_currentQuestion = m_quiz[m_nextQuestion];
 			questionTextBox.Text = m_currentQuestion.QuestionText;
 			answerTextBox.Text = m_currentQuestion.AnswerText;
@@ -692,6 +705,8 @@ namespace ZoomQuiz
 			SetVolumes(false, m_currentQuestion);
 			SetChatMode(ChatMode.HostOnly);
 			StartPresenting();
+			HideFullScreenPicture(false);
+			showPictureButton.IsEnabled = false;
 			showAnswerButton.IsEnabled = presentingButton.IsEnabled = false;
 			markingProgressBar.Maximum = 1;
 			markingProgressBar.Value = 0;
@@ -752,6 +767,13 @@ namespace ZoomQuiz
 			return next;
 		}
 
+		private void NextQuestion()
+		{
+			m_nextQuestion = GetNextQuestionNumber();
+			if (m_nextQuestion > 0)
+				startQuestionButtonText.Text = "Start Question " + m_nextQuestion;
+		}
+
 		private void countdownWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⌛ Time is up!");
@@ -760,9 +782,7 @@ namespace ZoomQuiz
 			m_countdownActive = false;
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
 			StopPresenting();
-			m_nextQuestion = GetNextQuestionNumber();
-			if(m_nextQuestion>0)
-				startQuestionButtonText.Text = "Start Question " + m_nextQuestion;
+			NextQuestion();
 			SetChatMode(ChatMode.EveryonePublicly);
 			try
 			{
@@ -796,12 +816,24 @@ namespace ZoomQuiz
 
 		private bool AutoMarkAnswer(AnswerForMarking answer)
 		{
+			// If user has already submitted an answer that was accepted, don't accept this new one as an answer.
+			if (m_answers.ContainsKey(answer.Contestant))
+			{
+				List<Answer> contestantAnswers = m_answers[answer.Contestant];
+				if (contestantAnswers.Any(a => a.IsAcceptedAnswer))
+				{
+					MarkAnswer(answer, AnswerResult.NotAnAnswer);
+					return true;
+				}
+			}
+			// Otherwise, if the user has submitted an answer that has already been marked, use that marking.
 			foreach (KeyValuePair<AnswerResult, AnswerBin> kvp in m_answerBins)
 				if (kvp.Value.Contains(answer.Answer))
 				{
 					MarkAnswer(answer, kvp.Key);
 					return true;
 				}
+			// Otherwise, no, have to do it manually.
 			return false;
 		}
 
@@ -1045,13 +1077,12 @@ namespace ZoomQuiz
 			questionText.Text = "<no answers to mark yet>";
 			SetOBSScene("CamScene");
 			m_questionShowing = false;
-			m_fullScreenPictureShowing = false;
-			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
-			showPictureText.Text = "Fullscreen Picture";
+			HideFullScreenPicture(false);
 
-			showPictureButton.IsEnabled = false;
 			presentingButton.IsEnabled = showLeaderboardButton.IsEnabled = showAnswerButton.IsEnabled=true;
-			newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			showPictureButton.IsEnabled = false;
+
 			restartMarking.IsEnabled = false;
 			markingProgressBar.Value = markingProgressBar.Maximum;
 			ApplyScores();
@@ -1106,7 +1137,7 @@ namespace ZoomQuiz
 			m_countdownActive = true;
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
 			if (m_fullScreenPictureShowing)
-				SetOBSScene("CountdownPictureScene");
+				SetOBSScene("CountdownQuestionPictureScene");
 			else
 				SetOBSScene(hasPic?"CountdownQuestionScene":"CountdownNoPicQuestionScene");
 		}
@@ -1367,7 +1398,6 @@ namespace ZoomQuiz
 			m_countdownCompleteEvent.Reset();
 			markingPump.RunWorkerAsync();
 			answerCounter.RunWorkerAsync();
-			SetOBSAudioSource("QuestionAudio", m_currentQuestion.QuestionAudioFilename);
 
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
 			SetOBSScene(hasPic?"QuestionScene":"NoPicQuestionScene");
@@ -1375,6 +1405,7 @@ namespace ZoomQuiz
 			SetOBSImageSource("AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
 			SetVolumes(true, m_currentQuestion);
+			SetOBSAudioSource("QuestionAudio", m_currentQuestion.QuestionAudioFilename);
 			showPictureButton.IsEnabled = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename.ToLower());
 			showQuestionButton.IsEnabled = false;
 			startCountdownButton.IsEnabled = true;
@@ -1397,6 +1428,7 @@ namespace ZoomQuiz
 				m_volumeMutex.ReleaseMutex();
 			}
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
+			showPictureButton.IsEnabled = hasPic;
 			SetOBSScene(hasPic?"AnswerScene":"NoPicAnswerScene");
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
@@ -1406,8 +1438,10 @@ namespace ZoomQuiz
 		private void HideAnswer()
 		{
 			SetOBSScene("CamScene");
+			HideFullScreenPicture(false);
 			showAnswerButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showAnswerText.Text = "Show Answer";
+			showPictureButton.IsEnabled = false;
 			m_answerShowing = false;
 		}
 
@@ -1455,6 +1489,7 @@ namespace ZoomQuiz
 		{
 			if(MessageBox.Show(this,"Reset Scores?", "Confirm", MessageBoxButton.YesNo)==MessageBoxResult.Yes)
 			{
+				m_scoresDirty = true;
 				m_scores.Clear();
 				WriteScoresToFile();
 				UpdateLeaderboard();
@@ -1517,7 +1552,14 @@ namespace ZoomQuiz
 				//				path = silencePath;
 			}
 			else
+			{
 				SetOBSFileSourceFromPath(sourceName, "local_file", path);
+				JObject settings = new JObject()
+				{
+					{"NonExistent",""+new Random().Next() }
+				};
+				SetOBSSourceSettings(sourceName, settings);
+			}
 		}
 
 		private void GenerateTextImage(string text,string sourceName,System.Drawing.Size size,string filename)
@@ -1610,10 +1652,19 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void HideFullScreenPicture()
+		private void HideFullScreenPicture(bool setScene=true)
 		{
-			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
-			SetOBSScene(m_countdownActive ? (hasPic?"CountdownQuestionScene":"CountdownNoPicQuestionScene") : (hasPic?"QuestionScene":"NoPicQuestionScene"));
+			if(setScene)
+				if (m_answerShowing)
+				{
+					bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
+					SetOBSScene(hasPic ? "AnswerScene" : "NoPicAnswerScene");
+				}
+				else if (m_questionShowing)
+				{
+					bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
+					SetOBSScene(m_countdownActive ? (hasPic ? "CountdownQuestionScene" : "CountdownNoPicQuestionScene") : (hasPic ? "QuestionScene" : "NoPicQuestionScene"));
+				}
 			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showPictureText.Text = "Fullscreen Picture";
 			m_fullScreenPictureShowing = false;
@@ -1621,7 +1672,16 @@ namespace ZoomQuiz
 
 		private void ShowFullScreenPicture()
 		{
-			SetOBSScene(m_countdownActive ? "CountdownPictureScene" : "PictureScene");
+			if (m_answerShowing)
+			{
+				bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
+				SetOBSScene(hasPic ? "AnswerPictureScene" : "NoPicAnswerScene");
+			}
+			else if (m_questionShowing)
+			{
+				bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
+				SetOBSScene(m_countdownActive ? "CountdownQuestionPictureScene" : "QuestionPictureScene");
+			}
 			showPictureButton.Background = System.Windows.Media.Brushes.Pink;
 			showPictureText.Text = "Embedded Picture";
 			m_fullScreenPictureShowing = true;
@@ -1692,7 +1752,7 @@ namespace ZoomQuiz
 
 		private void skipQuestion_Click(object sender, RoutedEventArgs e)
 		{
-
+			NextQuestion();
 		}
 
 		private void replayAudioButton_Click(object sender, RoutedEventArgs e)

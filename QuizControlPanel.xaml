@@ -143,7 +143,7 @@
 		<CheckBox x:Name="muteBGM" Content="Mute BGM" HorizontalAlignment="Left" Height="19" Margin="572,716,0,0" VerticalAlignment="Top" Width="158" Checked="muteBGM_Checked" Unchecked="muteBGM_Unchecked"/>
 		<Button x:Name="viewAnswerHistory" Content="View Answer History" HorizontalAlignment="Left" Height="25" Margin="291,757,0,0" VerticalAlignment="Top" Width="119" Click="viewAnswerHistory_Click"/>
 		<Button x:Name="dummyAnswersButton" Content="Dummy Answers" HorizontalAlignment="Left" Height="25" Margin="611,874,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="dummyAnswersButton_Click"/>
-		<Button x:Name="skipQuestion" Content="Skip Question" HorizontalAlignment="Left" Height="25" Margin="428,697,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="skipQuestion_Click"/>
+		<Button x:Name="skipQuestionButton" Content="Skip Question" HorizontalAlignment="Left" Height="25" Margin="428,697,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="skipQuestion_Click"/>
 		<Button x:Name="replayAudioButton" Content="Replay Audio" HorizontalAlignment="Left" Height="25" Margin="428,727,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="replayAudioButton_Click"/>
 		<CheckBox x:Name="showTimeWarnings" Content="Show Time Warnings" HorizontalAlignment="Left" Height="19" Margin="572,735,0,0" VerticalAlignment="Top" Width="158" IsChecked="True" Checked="showTimeWarnings_Checked" Unchecked="showTimeWarnings_Unchecked"/>
 	</Grid>
