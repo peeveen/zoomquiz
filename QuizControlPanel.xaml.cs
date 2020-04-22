@@ -53,15 +53,17 @@ namespace ZoomQuiz
 		public string QuestionBGMFilename { get; private set; }
 		public string[] QuestionAnswers { get; private set; }
 		public string[] QuestionAlmostAnswers { get; private set; }
+		public string[] QuestionWrongAnswers { get; private set; }
 		public string Info { get; private set; }
 		public int QuestionNumber { get; private set; }
 		public QuestionValidity Validity { get; private set; }
-		public Question(int number,string questionText,string answerText,string[] answers,string[] almostAnswers, string questionImageFile, string answerImageFile, string audioFile,string bgmAudio,string info,QuestionValidity validity)
+		public Question(int number,string questionText,string answerText,string[] answers,string[] almostAnswers, string[] wrongAnswers,string questionImageFile, string answerImageFile, string audioFile,string bgmAudio,string info,QuestionValidity validity)
 		{
 			QuestionNumber=number;
 			QuestionText = questionText.Trim();
 			AnswerText = answerText.Trim();
 			QuestionAnswers = answers;
+			QuestionWrongAnswers = wrongAnswers;
 			QuestionAlmostAnswers = almostAnswers;
 			QuestionImageFilename = questionImageFile.Trim();
 			QuestionBGMFilename = bgmAudio.Trim();
@@ -304,7 +306,7 @@ namespace ZoomQuiz
 		private float m_questionAudioVolume = 0;
 		private bool m_scoresDirty = true;
 		public bool StartedOK { get; private set; }
-		private bool m_timeWarnings = true;
+		private bool m_timeWarnings = false;
 
 		public QuizControlPanel()
 		{
@@ -405,6 +407,7 @@ namespace ZoomQuiz
 					m_volumeMutex.WaitOne();
 					try
 					{
+						float volSpeed = 0.01f;
 						m_obsMutex.WaitOne();
 						VolumeInfo bgmVolInf = m_obs.GetVolume("BGM");
 						VolumeInfo qbgmVolInf = m_obs.GetVolume("QuestionBGM");
@@ -414,23 +417,21 @@ namespace ZoomQuiz
 						float nQAVol = qaVolInf.Volume;
 						float diff = nBGMVol - m_bgmVolume;
 						if (diff < -0.01)
-							m_obs.SetVolume("BGM", nBGMVol + 0.01f);
+							m_obs.SetVolume("BGM", nBGMVol + volSpeed);
 						else if (diff > 0.01)
-							m_obs.SetVolume("BGM", nBGMVol - 0.01f);
+							m_obs.SetVolume("BGM", nBGMVol - volSpeed);
 						else if (nBGMVol != m_bgmVolume)
 							m_obs.SetVolume("BGM", m_bgmVolume);
 						diff = nQBGMVol - m_questionBGMVolume;
 						if (diff < -0.01)
-							m_obs.SetVolume("QuestionBGM", nQBGMVol + 0.01f);
+							m_obs.SetVolume("QuestionBGM", nQBGMVol + volSpeed);
 						else if (diff > 0.01)
-							m_obs.SetVolume("QuestionBGM", nQBGMVol - 0.01f);
+							m_obs.SetVolume("QuestionBGM", nQBGMVol - volSpeed);
 						else if (nQBGMVol != m_questionBGMVolume)
 							m_obs.SetVolume("QuestionBGM", m_questionBGMVolume);
 						diff = nQAVol - m_questionAudioVolume;
-						if (diff < -0.01)
-							m_obs.SetVolume("QuestionAudio", nQAVol + 0.01f);
-						else if (diff > 0.01)
-							m_obs.SetVolume("QuestionAudio", nQAVol - 0.01f);
+						if (diff > 0.01)
+							m_obs.SetVolume("QuestionAudio", nQAVol - volSpeed);
 						else if (nQAVol != m_questionAudioVolume)
 							m_obs.SetVolume("QuestionAudio", m_questionAudioVolume);
 					}
@@ -496,6 +497,7 @@ namespace ZoomQuiz
 						string q = quizIni.Read("Q", numSection).Trim();
 						string a = quizIni.Read("A", numSection).Trim();
 						string aa = quizIni.Read("AA", numSection).Trim();
+						string w = quizIni.Read("W", numSection).Trim();
 						string n = quizIni.Read("Almost", numSection).Trim();
 						string qpic = quizIni.Read("QPic", numSection).ToLower().Trim();
 						string apic = quizIni.Read("APic", numSection).ToLower().Trim();
@@ -503,6 +505,7 @@ namespace ZoomQuiz
 						string qbgm = quizIni.Read("QBGM", numSection).ToLower().Trim();
 						string info = quizIni.Read("Info", numSection).Trim();
 						string[] aArray = ParseDelimitedString(a);
+						string[] wArray = ParseDelimitedString(w);
 						string[] aaArray = ParseDelimitedString(aa);
 						string[] nArray = ParseDelimitedString(n);
 						for (int f = 0; f < aArray.Length; ++f)
@@ -525,7 +528,7 @@ namespace ZoomQuiz
 							validity = QuestionValidity.MissingSupplementary;
 						else if ((!String.IsNullOrEmpty(qbgm)) && (!m_mediaPaths.ContainsKey(qbgm)))
 							validity = QuestionValidity.MissingSupplementary;
-						m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, qpic, apic, qaud, qbgm, info, validity);
+						m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qpic, apic, qaud, qbgm, info, validity);
 					}
 					else
 						break;
@@ -608,8 +611,10 @@ namespace ZoomQuiz
 				m_answerBins[result] = new AnswerBin();
 			AnswerBin correctAnswers = m_answerBins[AnswerResult.Correct];
 			AnswerBin almostCorrectAnswers = m_answerBins[AnswerResult.AlmostCorrect];
+			AnswerBin wrongAnswers = m_answerBins[AnswerResult.Wrong];
 			currentQuestion.QuestionAnswers.Select(a => new Answer(a)).ToList().ForEach(a => correctAnswers.Add(a));
 			currentQuestion.QuestionAlmostAnswers.Select(a => new Answer(a)).ToList().ForEach(a => almostCorrectAnswers.Add(a));
+			currentQuestion.QuestionWrongAnswers.Select(a => new Answer(a)).ToList().ForEach(a => wrongAnswers.Add(a));
 		}
 
 		private void SetChatMode(ChatMode mode)
@@ -1405,12 +1410,30 @@ namespace ZoomQuiz
 			SetOBSImageSource("AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
 			SetVolumes(true, m_currentQuestion);
-			SetOBSAudioSource("QuestionAudio", m_currentQuestion.QuestionAudioFilename);
+			SetQuestionAudio(m_currentQuestion.QuestionAudioFilename);
 			showPictureButton.IsEnabled = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename.ToLower());
 			showQuestionButton.IsEnabled = false;
 			startCountdownButton.IsEnabled = true;
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatMsgNotifcation(OnAnswerReceived);
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is now OFF until the answers are in.");
+		}
+
+		private void SetQuestionAudio(string questionAudioFilename)
+		{
+			bool hasAudio = !String.IsNullOrEmpty(questionAudioFilename) && m_mediaPaths.ContainsKey(questionAudioFilename.ToLower());
+			if (hasAudio)
+			{
+				try
+				{
+					m_obsMutex.WaitOne();
+					m_obs.SetVolume("QuestionAudio", AUDIO_VOLUME);
+				}
+				finally
+				{
+					m_obsMutex.ReleaseMutex();
+				}
+				SetOBSAudioSource("QuestionAudio", questionAudioFilename);
+			}
 		}
 
 		private void ShowAnswer()
@@ -1544,7 +1567,6 @@ namespace ZoomQuiz
 
 		private void SetOBSAudioSource(string sourceName, string mediaName)
 		{
-//			string silencePath = Path.Combine(Directory.GetCurrentDirectory(), "silence.wav");
 			string path = null;
 			m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
