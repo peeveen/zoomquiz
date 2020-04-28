@@ -449,7 +449,7 @@ namespace ZoomQuiz
 
 		private void ScanMediaPath()
 		{
-			string mediaPath = Path.Combine(Directory.GetCurrentDirectory(), "media");
+			string mediaPath = Path.Combine(Directory.GetCurrentDirectory(), "quiz");
 			if (Directory.Exists(mediaPath))
 			{
 				string[] files = Directory.GetFiles(mediaPath, "*.*", SearchOption.AllDirectories);
@@ -484,7 +484,7 @@ namespace ZoomQuiz
 				return new string[0];
 			}
 
-			string dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
+			string dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "quiz");
 			string quizFilePath = Path.Combine(dataFolder, QUIZ_FILENAME);
 			if (File.Exists(quizFilePath))
 			{
@@ -575,7 +575,17 @@ namespace ZoomQuiz
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatStatusChangedNotification(OnChatStatusChanged);
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingWaitingRoomController().EnableWaitingRoomOnEntry(false);
 
-			m_hostID = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController().GetParticipantsList()[0];
+			IMeetingParticipantsControllerDotNetWrap partCon=ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController();
+			uint[] participantIDs = partCon.GetParticipantsList();
+			for(int f = 0; f < participantIDs.Length; ++f)
+			{
+				IUserInfoDotNetWrap user = partCon.GetUserByUserID(participantIDs[f]);
+				if (user.IsHost())
+				{
+					m_hostID = participantIDs[f];
+					break;
+				}
+			}
 
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().JoinVoip();
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "🥂 Welcome to the quiz!");
