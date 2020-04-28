@@ -70,6 +70,18 @@
 		</Button>
 		<Label Content="Leaderboard" HorizontalAlignment="Left" Height="24" Margin="17,673,0,0" VerticalAlignment="Top" Width="237"/>
 		<ListView x:Name="leaderboardList" HorizontalAlignment="Left" Height="194" Margin="17,697,0,0" VerticalAlignment="Top" Width="406" SelectionChanged="leaderboardList_SelectionChanged">
+			<ListView.Resources>
+				<Style TargetType="{x:Type ListViewItem}">
+					<Style.Triggers>
+						<DataTrigger Binding="{Binding LastResult}" Value="0">
+							<Setter Property="Background" Value="LightGreen" />
+						</DataTrigger>
+						<DataTrigger Binding="{Binding LastResult}" Value="1">
+							<Setter Property="Background" Value="Yellow" />
+						</DataTrigger>
+					</Style.Triggers>
+				</Style>
+			</ListView.Resources>
 			<ListView.View>
 				<GridView AllowsColumnReorder="False">
 					<GridViewColumn Header="#" DisplayMemberBinding="{Binding PositionString}" Width="60"/>

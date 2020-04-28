@@ -18,6 +18,12 @@ using System.Drawing.Text;
 
 namespace ZoomQuiz
 {
+	public class Scores
+	{
+		public const int CORRECT_ANSWER_SCORE = 2;
+		public const int ALMOST_CORRECT_ANSWER_SCORE = 1;
+	}
+
 	public enum ChatMode
 	{
 		NoOne = 0,
@@ -176,6 +182,7 @@ namespace ZoomQuiz
 		public bool Joint { get; private set; }
 		public int Position { get; private set; }
 		public string LastScoreString { get; private set; }
+		public AnswerResult LastResult { get; private set; }
 		public string PositionString
 		{
 			get
@@ -190,14 +197,23 @@ namespace ZoomQuiz
 				return "" + Position + (Joint ? "=" : "");
 			}
 		}
-		public ContestantScore(int position, bool joint, int score, Contestant contestant, string lastScore)
+		public ContestantScore(int position, bool joint, int score, Contestant contestant, AnswerResult lastResult)
 		{
 			Joint = joint;
 			Name = contestant.Name;
 			Contestant = contestant;
 			Position = position;
 			Score = score;
-			LastScoreString = lastScore;
+			LastScoreString = GetLastScoreString(lastResult);
+			LastResult = lastResult;
+		}
+		private string GetLastScoreString(AnswerResult result)
+		{
+			if (result == AnswerResult.Correct)
+				return "+" + Scores.CORRECT_ANSWER_SCORE;
+			else if (result == AnswerResult.AlmostCorrect)
+				return "+" + Scores.ALMOST_CORRECT_ANSWER_SCORE;
+			return "";
 		}
 	}
 
@@ -264,8 +280,6 @@ namespace ZoomQuiz
 		public static extern bool SetForegroundWindow(IntPtr hWnd);
 
 		private const int COUNTDOWN_SECONDS = 15;
-		private const int CORRECT_ANSWER_SCORE = 2;
-		private const int ALMOST_CORRECT_ANSWER_SCORE = 1;
 		private const string SCORES_FILENAME = "scores.txt";
 		private const string ANSWERS_FILENAME = "answers.txt";
 		private const string QUIZ_FILENAME = "quiz.ini";
@@ -304,7 +318,7 @@ namespace ZoomQuiz
 		private ManualResetEvent m_countdownCompleteEvent = new ManualResetEvent(true);
 		private ManualResetEvent m_quitAppEvent = new ManualResetEvent(false);
 		private Dictionary<Contestant, int> m_scores = new Dictionary<Contestant, int>();
-		private Dictionary<Contestant, int> m_lastScores = new Dictionary<Contestant, int>();
+		private Dictionary<Contestant, AnswerResult> m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 		private Dictionary<AnswerResult, AnswerBin> m_answerBins = new Dictionary<AnswerResult, AnswerBin>();
 		private OBSWebsocket m_obs= new OBSWebsocket();
 		private Dictionary<int, Question> m_quiz = new Dictionary<int, Question>();
@@ -987,7 +1001,7 @@ namespace ZoomQuiz
 			foreach (KeyValuePair<int, List<Contestant>> kvp in rscores) {
 				foreach (Contestant c in kvp.Value)
 				{
-					ContestantScore cscore = new ContestantScore(pos, kvp.Value.Count > 1, kvp.Key, c, GetLastScore(c));
+					ContestantScore cscore = new ContestantScore(pos, kvp.Value.Count > 1, kvp.Key, c, GetLastAnswerResult(c));
 					if ((contestantToShow != null) && (contestantToShow.Name == c.Name))
 						scrollIntoView = cscore;
 					cscores.Add(cscore);
@@ -1003,14 +1017,11 @@ namespace ZoomQuiz
 			if(drawLeaderboard)
 				DrawLeaderboard(cscores);
 		}
-		private string GetLastScore(Contestant c)
+		private AnswerResult GetLastAnswerResult(Contestant c)
 		{
-			int score = 0;
-			if(m_lastScores.ContainsKey(c))
-				score = m_lastScores[c];
-			if (score <= 0)
-				return score.ToString();
-			return "+" + score.ToString();
+			if(m_lastAnswerResults.ContainsKey(c))
+				return m_lastAnswerResults[c];
+			return AnswerResult.NotAnAnswer;
 		}
 
 		private void DrawScore(Graphics g, Rectangle r, ContestantScore score,bool odd)
@@ -1089,19 +1100,25 @@ namespace ZoomQuiz
 					foreach (KeyValuePair<Contestant, List<Answer>> kvp in m_answers)
 					{
 						m_scoresDirty = true;
+						m_lastAnswerResults[kvp.Key] = AnswerResult.NotAnAnswer;
 						foreach (Answer answer in kvp.Value)
 						{
 							int scoreForAnswer = 0;
 							if (answer.AnswerResult == AnswerResult.Correct)
-								scoreForAnswer = CORRECT_ANSWER_SCORE;
+								scoreForAnswer = Scores.CORRECT_ANSWER_SCORE;
 							else if (answer.AnswerResult == AnswerResult.AlmostCorrect)
-								scoreForAnswer = ALMOST_CORRECT_ANSWER_SCORE;
-							int oldScore;
+								scoreForAnswer = Scores.ALMOST_CORRECT_ANSWER_SCORE;
 							answerBackupStrings.Add(answer.AnswerResult.ToString()+": "+ answer.AnswerText + " (" + kvp.Key.Name + ")");
-							m_scores.TryGetValue(kvp.Key, out oldScore);
-							int newScore = oldScore + scoreForAnswer;
-							m_lastScores[kvp.Key] = scoreForAnswer;
-							m_scores[kvp.Key] = newScore;
+							if (scoreForAnswer > 0)
+							{
+								int oldScore=0;
+								m_scores.TryGetValue(kvp.Key, out oldScore);
+								int newScore = oldScore;
+								newScore += scoreForAnswer;
+								m_scores[kvp.Key] = newScore;
+								m_lastAnswerResults[kvp.Key] = answer.AnswerResult;
+								break;
+							}
 						}
 					}
 					answerBackupStrings.Sort();
