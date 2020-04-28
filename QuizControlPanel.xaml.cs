@@ -558,6 +558,8 @@ namespace ZoomQuiz
 		private void UpdateQuizList()
 		{
 			quizList.ItemsSource = m_quiz.Values;
+			quizList.SelectedIndex = 0;
+			quizList.ScrollIntoView(m_quiz[1]);
 		}
 
 		private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -736,6 +738,7 @@ namespace ZoomQuiz
 			StartPresenting();
 			HideFullScreenPicture(false);
 			showPictureButton.IsEnabled = false;
+			replayAudioButton.IsEnabled = false;
 			showAnswerButton.IsEnabled = presentingButton.IsEnabled = false;
 			markingProgressBar.Maximum = 1;
 			markingProgressBar.Value = 0;
