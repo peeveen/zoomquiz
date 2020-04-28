@@ -175,6 +175,7 @@ namespace ZoomQuiz
 		public int Score { get; private set; }
 		public bool Joint { get; private set; }
 		public int Position { get; private set; }
+		public string LastScoreString { get; private set; }
 		public string PositionString
 		{
 			get
@@ -182,13 +183,21 @@ namespace ZoomQuiz
 				return "" + Position + (Joint ? "=" : "");
 			}
 		}
-		public ContestantScore(int position, bool joint,int score, Contestant contestant)
+		public string LastScore
+		{
+			get
+			{
+				return "" + Position + (Joint ? "=" : "");
+			}
+		}
+		public ContestantScore(int position, bool joint, int score, Contestant contestant, string lastScore)
 		{
 			Joint = joint;
 			Name = contestant.Name;
 			Contestant = contestant;
 			Position = position;
 			Score = score;
+			LastScoreString = lastScore;
 		}
 	}
 
@@ -295,6 +304,7 @@ namespace ZoomQuiz
 		private ManualResetEvent m_countdownCompleteEvent = new ManualResetEvent(true);
 		private ManualResetEvent m_quitAppEvent = new ManualResetEvent(false);
 		private Dictionary<Contestant, int> m_scores = new Dictionary<Contestant, int>();
+		private Dictionary<Contestant, int> m_lastScores = new Dictionary<Contestant, int>();
 		private Dictionary<AnswerResult, AnswerBin> m_answerBins = new Dictionary<AnswerResult, AnswerBin>();
 		private OBSWebsocket m_obs= new OBSWebsocket();
 		private Dictionary<int, Question> m_quiz = new Dictionary<int, Question>();
@@ -307,6 +317,7 @@ namespace ZoomQuiz
 		private bool m_scoresDirty = true;
 		public bool StartedOK { get; private set; }
 		private bool m_timeWarnings = false;
+		private bool m_chatWarnings = false;
 
 		public QuizControlPanel()
 		{
@@ -400,6 +411,10 @@ namespace ZoomQuiz
 
 		private void FaderWorker_DoWork(object sender, DoWorkEventArgs e)
 		{
+			const float bgmVolSpeed = 0.01f;
+			const float qbgmVolSpeed = 0.01f;
+			const float qaudVolSpeed = 0.04f;
+
 			while (!m_quitAppEvent.WaitOne(100))
 			{
 				try
@@ -407,7 +422,6 @@ namespace ZoomQuiz
 					m_volumeMutex.WaitOne();
 					try
 					{
-						float volSpeed = 0.01f;
 						m_obsMutex.WaitOne();
 						VolumeInfo bgmVolInf = m_obs.GetVolume("BGM");
 						VolumeInfo qbgmVolInf = m_obs.GetVolume("QuestionBGM");
@@ -416,22 +430,22 @@ namespace ZoomQuiz
 						float nQBGMVol = qbgmVolInf.Volume;
 						float nQAVol = qaVolInf.Volume;
 						float diff = nBGMVol - m_bgmVolume;
-						if (diff < -0.01)
-							m_obs.SetVolume("BGM", nBGMVol + volSpeed);
-						else if (diff > 0.01)
-							m_obs.SetVolume("BGM", nBGMVol - volSpeed);
+						if (diff < -bgmVolSpeed)
+							m_obs.SetVolume("BGM", nBGMVol + bgmVolSpeed);
+						else if (diff > bgmVolSpeed)
+							m_obs.SetVolume("BGM", nBGMVol - bgmVolSpeed);
 						else if (nBGMVol != m_bgmVolume)
 							m_obs.SetVolume("BGM", m_bgmVolume);
 						diff = nQBGMVol - m_questionBGMVolume;
-						if (diff < -0.01)
-							m_obs.SetVolume("QuestionBGM", nQBGMVol + volSpeed);
-						else if (diff > 0.01)
-							m_obs.SetVolume("QuestionBGM", nQBGMVol - volSpeed);
+						if (diff < -qbgmVolSpeed)
+							m_obs.SetVolume("QuestionBGM", nQBGMVol + qbgmVolSpeed);
+						else if (diff > qbgmVolSpeed)
+							m_obs.SetVolume("QuestionBGM", nQBGMVol - qbgmVolSpeed);
 						else if (nQBGMVol != m_questionBGMVolume)
 							m_obs.SetVolume("QuestionBGM", m_questionBGMVolume);
 						diff = nQAVol - m_questionAudioVolume;
-						if (diff > 0.01)
-							m_obs.SetVolume("QuestionAudio", nQAVol - volSpeed);
+						if (diff > qaudVolSpeed)
+							m_obs.SetVolume("QuestionAudio", nQAVol - qaudVolSpeed);
 						else if (nQAVol != m_questionAudioVolume)
 							m_obs.SetVolume("QuestionAudio", m_questionAudioVolume);
 					}
@@ -575,7 +589,7 @@ namespace ZoomQuiz
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatStatusChangedNotification(OnChatStatusChanged);
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingWaitingRoomController().EnableWaitingRoomOnEntry(false);
 
-			IMeetingParticipantsControllerDotNetWrap partCon=ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController();
+			IMeetingParticipantsControllerDotNetWrap partCon =ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController();
 			uint[] participantIDs = partCon.GetParticipantsList();
 			for(int f = 0; f < participantIDs.Length; ++f)
 			{
@@ -786,17 +800,22 @@ namespace ZoomQuiz
 		{
 			m_nextQuestion = GetNextQuestionNumber();
 			if (m_nextQuestion > 0)
+			{
 				startQuestionButtonText.Text = "Start Question " + m_nextQuestion;
+				quizList.SelectedIndex = m_nextQuestion-1;
+				quizList.ScrollIntoView(quizList.Items.GetItemAt(m_nextQuestion-1));
+			}
 		}
 
 		private void countdownWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⌛ Time is up!");
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is ON");
+			if(m_timeWarnings)
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⌛ Time is up!");
+			if (m_chatWarnings)
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is ON");
 			m_countdownCompleteEvent.Set();
 			m_countdownActive = false;
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
-			StopPresenting();
 			NextQuestion();
 			SetChatMode(ChatMode.EveryonePublicly);
 			try
@@ -965,7 +984,7 @@ namespace ZoomQuiz
 			foreach (KeyValuePair<int, List<Contestant>> kvp in rscores) {
 				foreach (Contestant c in kvp.Value)
 				{
-					ContestantScore cscore = new ContestantScore(pos, kvp.Value.Count > 1, kvp.Key, c);
+					ContestantScore cscore = new ContestantScore(pos, kvp.Value.Count > 1, kvp.Key, c, GetLastScore(c));
 					if ((contestantToShow != null) && (contestantToShow.Name == c.Name))
 						scrollIntoView = cscore;
 					cscores.Add(cscore);
@@ -980,6 +999,15 @@ namespace ZoomQuiz
 			}
 			if(drawLeaderboard)
 				DrawLeaderboard(cscores);
+		}
+		private string GetLastScore(Contestant c)
+		{
+			int score = 0;
+			if(m_lastScores.ContainsKey(c))
+				score = m_lastScores[c];
+			if (score <= 0)
+				return score.ToString();
+			return "+" + score.ToString();
 		}
 
 		private void DrawScore(Graphics g, Rectangle r, ContestantScore score,bool odd)
@@ -1069,6 +1097,7 @@ namespace ZoomQuiz
 							answerBackupStrings.Add(answer.AnswerResult.ToString()+": "+ answer.AnswerText + " (" + kvp.Key.Name + ")");
 							m_scores.TryGetValue(kvp.Key, out oldScore);
 							int newScore = oldScore + scoreForAnswer;
+							m_lastScores[kvp.Key] = scoreForAnswer;
 							m_scores[kvp.Key] = newScore;
 						}
 					}
@@ -1415,17 +1444,21 @@ namespace ZoomQuiz
 			answerCounter.RunWorkerAsync();
 
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
+			bool hasAudio = !String.IsNullOrEmpty(m_currentQuestion.QuestionAudioFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionAudioFilename);
 			SetOBSScene(hasPic?"QuestionScene":"NoPicQuestionScene");
 			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", ANSWER_SIZE, "answer.png");
 			SetOBSImageSource("AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
+			// Set question audio to silence, wait for play button
+			SetQuestionAudio(null);
 			SetVolumes(true, m_currentQuestion);
-			SetQuestionAudio(m_currentQuestion.QuestionAudioFilename);
+			replayAudioButton.IsEnabled = hasAudio;
 			showPictureButton.IsEnabled = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename.ToLower());
 			showQuestionButton.IsEnabled = false;
 			startCountdownButton.IsEnabled = true;
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatMsgNotifcation(OnAnswerReceived);
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is now OFF until the answers are in.");
+			if (m_chatWarnings)
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is now OFF until the answers are in.");
 		}
 
 		private void SetQuestionAudio(string questionAudioFilename)
@@ -1442,8 +1475,8 @@ namespace ZoomQuiz
 				{
 					m_obsMutex.ReleaseMutex();
 				}
-				SetOBSAudioSource("QuestionAudio", questionAudioFilename);
 			}
+			SetOBSAudioSource("QuestionAudio", questionAudioFilename);
 		}
 
 		private void ShowAnswer()
@@ -1578,20 +1611,19 @@ namespace ZoomQuiz
 		private void SetOBSAudioSource(string sourceName, string mediaName)
 		{
 			string path = null;
-			m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
+			if(mediaName!=null)
+				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
 			{
-				//				path = silencePath;
+				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+				path = Path.Combine(presFolder, "silence.wav");
 			}
-			else
+			SetOBSFileSourceFromPath(sourceName, "local_file", path);
+			JObject settings = new JObject()
 			{
-				SetOBSFileSourceFromPath(sourceName, "local_file", path);
-				JObject settings = new JObject()
-				{
-					{"NonExistent",""+new Random().Next() }
-				};
-				SetOBSSourceSettings(sourceName, settings);
-			}
+				{"NonExistent",""+new Random().Next() }
+			};
+			SetOBSSourceSettings(sourceName, settings);
 		}
 
 		private void GenerateTextImage(string text,string sourceName,System.Drawing.Size size,string filename)
@@ -1789,13 +1821,7 @@ namespace ZoomQuiz
 
 		private void replayAudioButton_Click(object sender, RoutedEventArgs e)
 		{
-			// Setting a property to anything causes the audio to restart.
-			JObject settings = new JObject()
-			{
-				{"nonExistent",""+new Random().Next() }
-			};
-			SetOBSSourceSettings("QuestionAudio", settings);
-
+			SetQuestionAudio(m_currentQuestion.QuestionAudioFilename);
 		}
 
 		private void dummyAnswersButton_Click(object sender, RoutedEventArgs e)
@@ -1813,6 +1839,16 @@ namespace ZoomQuiz
 		private void showTimeWarnings_Unchecked(object sender, RoutedEventArgs e)
 		{
 			m_timeWarnings = false;
+		}
+
+		private void showChatWarnings_Checked(object sender, RoutedEventArgs e)
+		{
+			m_chatWarnings = true;
+		}
+
+		private void showChatWarnings_Unchecked(object sender, RoutedEventArgs e)
+		{
+			m_chatWarnings = false;
 		}
 	}
 }

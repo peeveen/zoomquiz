@@ -38,7 +38,7 @@
 				<TextBlock TextWrapping="Wrap" Text="Not an Answer" HorizontalAlignment="Center" FontSize="18"/>
 			</StackPanel>
 		</Button>
-		<Button x:Name="newQuestionButton" HorizontalAlignment="Left" Background="LightGreen" Height="111" Margin="10,302,0,0" VerticalAlignment="Top" Width="169" Click="StartQuestionButtonClick">
+		<Button x:Name="newQuestionButton" HorizontalAlignment="Left" Background="LightGreen" Height="81" Margin="10,302,0,0" VerticalAlignment="Top" Width="169" Click="StartQuestionButtonClick">
 			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
 				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="❓" HorizontalAlignment="Center" FontSize="28"/>
 				<TextBlock x:Name="startQuestionButtonText" TextWrapping="Wrap" Text="Start Question 1" HorizontalAlignment="Center" FontSize="18"/>
@@ -69,12 +69,13 @@
 			</StackPanel>
 		</Button>
 		<Label Content="Leaderboard" HorizontalAlignment="Left" Height="24" Margin="17,673,0,0" VerticalAlignment="Top" Width="237"/>
-		<ListView x:Name="leaderboardList" HorizontalAlignment="Left" Height="194" Margin="17,697,0,0" VerticalAlignment="Top" Width="268" SelectionChanged="leaderboardList_SelectionChanged">
+		<ListView x:Name="leaderboardList" HorizontalAlignment="Left" Height="194" Margin="17,697,0,0" VerticalAlignment="Top" Width="406" SelectionChanged="leaderboardList_SelectionChanged">
 			<ListView.View>
 				<GridView AllowsColumnReorder="False">
-					<GridViewColumn Header="#" DisplayMemberBinding="{Binding PositionString}" Width="40"/>
-					<GridViewColumn Header="Score" DisplayMemberBinding="{Binding Score}" Width="40"/>
-					<GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="160"/>
+					<GridViewColumn Header="#" DisplayMemberBinding="{Binding PositionString}" Width="60"/>
+					<GridViewColumn Header="Score" DisplayMemberBinding="{Binding Score}" Width="60"/>
+					<GridViewColumn Header="Last Score" DisplayMemberBinding="{Binding LastScoreString}" Width="60"/>
+					<GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="200"/>
 				</GridView>
 			</ListView.View>
 		</ListView>
@@ -83,7 +84,7 @@
 			<ProgressBar x:Name="markingProgressBar"/>
 			<TextBlock x:Name="markingProgressText" HorizontalAlignment="Center" VerticalAlignment="Center" Text=""/>
 		</Grid>
-		<Button x:Name="showQuestionButton" HorizontalAlignment="Left" Background="LightGreen" Height="111" Margin="184,302,0,0" VerticalAlignment="Top" Width="176" IsEnabled="False" Click="showQuestionButton_Click">
+		<Button x:Name="showQuestionButton" HorizontalAlignment="Left" Background="LightGreen" Height="81" Margin="184,302,0,0" VerticalAlignment="Top" Width="176" IsEnabled="False" Click="showQuestionButton_Click">
 			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
 				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="📺" HorizontalAlignment="Center" FontSize="28"/>
 				<TextBlock TextWrapping="Wrap" Text="Show Question" HorizontalAlignment="Center" FontSize="18"/>
@@ -101,8 +102,8 @@
 				<TextBlock x:Name="showLeaderboardText" TextWrapping="Wrap" Text="Show Leaderboard" HorizontalAlignment="Center" FontSize="18"/>
 			</StackPanel>
 		</Button>
-		<Button Content="Reset Scores" HorizontalAlignment="Left" Height="25" Margin="291,727,0,0" VerticalAlignment="Top" Width="119" Click="Button_Click"/>
-		<ListView x:Name="quizList" HorizontalAlignment="Left" Height="149" Margin="15,516,0,0" VerticalAlignment="Top" Width="715">
+		<Button Content="Reset Scores" HorizontalAlignment="Left" Height="25" Margin="428,836,0,0" VerticalAlignment="Top" Width="119" Click="Button_Click"/>
+		<ListView x:Name="quizList" HorizontalAlignment="Left" Height="149" Margin="15,524,0,0" VerticalAlignment="Top" Width="715">
 			<ListView.Resources>
 				<Style TargetType="{x:Type ListViewItem}">
 					<Setter Property="IsEnabled" Value="False"/>
@@ -124,12 +125,12 @@
 				</GridView>
 			</ListView.View>
 		</ListView>
-		<TextBox x:Name="questionTextBox" HorizontalAlignment="Left" Height="27" Margin="83,418,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="647" IsReadOnly="True" VerticalContentAlignment="Center"/>
-		<TextBox x:Name="answerTextBox" HorizontalAlignment="Left" Height="27" Margin="83,450,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="647" IsReadOnly="True" VerticalContentAlignment="Center"/>
+		<TextBox x:Name="questionTextBox" HorizontalAlignment="Left" Height="37" Margin="83,418,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="647" IsReadOnly="True" VerticalContentAlignment="Center"/>
+		<TextBox x:Name="answerTextBox" HorizontalAlignment="Left" Height="27" Margin="83,460,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="647" IsReadOnly="True" VerticalContentAlignment="Center"/>
 		<Label Content="Question" HorizontalAlignment="Left" Height="27" Margin="10,418,0,0" VerticalAlignment="Top" Width="68" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
-		<Label Content="Answer" HorizontalAlignment="Left" Height="27" Margin="10,450,0,0" VerticalAlignment="Top" Width="68" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
-		<TextBox x:Name="infoTextBox" HorizontalAlignment="Left" Height="27" Margin="83,482,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="648" IsReadOnly="True" VerticalContentAlignment="Center"/>
-		<Label Content="Info" HorizontalAlignment="Left" Height="27" Margin="11,482,0,0" VerticalAlignment="Top" Width="67" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
+		<Label Content="Answer" HorizontalAlignment="Left" Height="27" Margin="10,460,0,0" VerticalAlignment="Top" Width="68" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
+		<TextBox x:Name="infoTextBox" HorizontalAlignment="Left" Height="27" Margin="83,492,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="648" IsReadOnly="True" VerticalContentAlignment="Center"/>
+		<Label Content="Info" HorizontalAlignment="Left" Height="27" Margin="11,492,0,0" VerticalAlignment="Top" Width="67" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
 		<Button x:Name="showPictureButton" HorizontalAlignment="Left" Background="LightGreen" Height="57" Margin="184,240,0,0" VerticalAlignment="Top" Width="176" Click="showPictureButton_Click" IsEnabled="False">
 			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
 				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="🖼️" HorizontalAlignment="Center" FontSize="18"/>
@@ -138,13 +139,14 @@
 		</Button>
 		<CheckBox x:Name="muteDuringQuestions" Content="Mute During Questions
 							" HorizontalAlignment="Left" Height="19" Margin="572,697,0,0" VerticalAlignment="Top" Width="158"/>
-		<Button x:Name="decreaseScoreButton" Content="-" HorizontalAlignment="Left" Height="22" Margin="291,700,0,0" VerticalAlignment="Top" Width="51" RenderTransformOrigin="0.2,0.364" Click="decreaseScoreButton_Click" IsEnabled="False"/>
-		<Button x:Name="increaseScoreButton" Content="+" HorizontalAlignment="Left" Height="22" Margin="356,700,0,0" VerticalAlignment="Top" Width="54" RenderTransformOrigin="0.2,0.364" Click="increaseScoreButton_Click" IsEnabled="False"/>
+		<Button x:Name="decreaseScoreButton" Content="-" HorizontalAlignment="Left" Height="22" Margin="428,809,0,0" VerticalAlignment="Top" Width="51" RenderTransformOrigin="0.2,0.364" Click="decreaseScoreButton_Click" IsEnabled="False"/>
+		<Button x:Name="increaseScoreButton" Content="+" HorizontalAlignment="Left" Height="22" Margin="493,809,0,0" VerticalAlignment="Top" Width="54" RenderTransformOrigin="0.2,0.364" Click="increaseScoreButton_Click" IsEnabled="False"/>
 		<CheckBox x:Name="muteBGM" Content="Mute BGM" HorizontalAlignment="Left" Height="19" Margin="572,716,0,0" VerticalAlignment="Top" Width="158" Checked="muteBGM_Checked" Unchecked="muteBGM_Unchecked"/>
-		<Button x:Name="viewAnswerHistory" Content="View Answer History" HorizontalAlignment="Left" Height="25" Margin="291,757,0,0" VerticalAlignment="Top" Width="119" Click="viewAnswerHistory_Click"/>
-		<Button x:Name="dummyAnswersButton" Content="Dummy Answers" HorizontalAlignment="Left" Height="25" Margin="611,874,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="dummyAnswersButton_Click"/>
-		<Button x:Name="skipQuestionButton" Content="Skip Question" HorizontalAlignment="Left" Height="25" Margin="428,697,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="skipQuestion_Click"/>
-		<Button x:Name="replayAudioButton" Content="Replay Audio" HorizontalAlignment="Left" Height="25" Margin="428,727,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="replayAudioButton_Click"/>
+		<Button x:Name="viewAnswerHistory" Content="View Answer History" HorizontalAlignment="Left" Height="25" Margin="428,866,0,0" VerticalAlignment="Top" Width="119" Click="viewAnswerHistory_Click"/>
+		<Button x:Name="dummyAnswersButton" Content="Dummy Answers" HorizontalAlignment="Left" Height="25" Margin="611,866,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="dummyAnswersButton_Click"/>
+		<Button x:Name="skipQuestionButton" Background="LightGreen" Content="⏭️ Skip Question" HorizontalAlignment="Left" Height="25" Margin="11,388,0,0" VerticalAlignment="Top" Width="168" RenderTransformOrigin="0.58,0.52" Click="skipQuestion_Click"/>
+		<Button x:Name="replayAudioButton" Background="LightGreen" Content="▶️ Play Audio" HorizontalAlignment="Left" Height="25" Margin="184,388,0,0" VerticalAlignment="Top" Width="176" RenderTransformOrigin="0.58,0.52" Click="replayAudioButton_Click" IsEnabled="False"/>
 		<CheckBox x:Name="showTimeWarnings" Content="Show Time Warnings" HorizontalAlignment="Left" Height="19" Margin="572,735,0,0" VerticalAlignment="Top" Width="158" Checked="showTimeWarnings_Checked" Unchecked="showTimeWarnings_Unchecked"/>
+		<CheckBox x:Name="showChatWarnings" Content="Show Chat Warnings" HorizontalAlignment="Left" Height="19" Margin="572,754,0,0" VerticalAlignment="Top" Width="158" Checked="showChatWarnings_Checked" Unchecked="showChatWarnings_Unchecked"/>
 	</Grid>
 </Window>
