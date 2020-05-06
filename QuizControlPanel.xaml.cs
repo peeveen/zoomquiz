@@ -5,16 +5,17 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Interop;
 using ZOOM_SDK_DOTNET_WRAP;
-using System.Windows.Threading;
 using System.ComponentModel;
 using System.Linq;
 using System.IO;
+using Microsoft.Win32;
 using OBSWebsocketDotNet;
 using OBSWebsocketDotNet.Types;
 using Newtonsoft.Json.Linq;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
+using System.Windows.Data;
 
 namespace ZoomQuiz
 {
@@ -303,7 +304,7 @@ namespace ZoomQuiz
 		private readonly BackgroundWorker answerCounter = new BackgroundWorker();
 		private readonly BackgroundWorker markingPump = new BackgroundWorker();
 		private readonly BackgroundWorker faderWorker = new BackgroundWorker();
-		private uint m_hostID = 0;
+		private uint m_myID = 0;
 		private bool m_presenting = false;
 		private Dictionary<Contestant, List<Answer>> m_answers = new Dictionary<Contestant, List<Answer>>();
 		private Mutex m_obsMutex = new Mutex();
@@ -333,8 +334,11 @@ namespace ZoomQuiz
 		private bool m_timeWarnings = false;
 		private bool m_chatWarnings = false;
 
-		public QuizControlPanel()
+		private bool PresentationOnly { get; set; }
+
+		public QuizControlPanel(bool presentationOnly)
 		{
+			PresentationOnly = presentationOnly;
 			StartedOK = false;
 			InitializeComponent();
 			ReadScoresFromFile();
@@ -359,11 +363,11 @@ namespace ZoomQuiz
 				{
 					SetOBSScene("CamScene");
 					File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
-					ScanMediaPath();
+					//ScanMediaPath();
 					SetCountdownMedia();
 					SetBGMShuffle();
 					SetLeaderboardsPath();
-					LoadQuiz();
+					//LoadQuiz();
 					faderWorker.RunWorkerAsync();
 					StartedOK = true;
 				}
@@ -475,18 +479,6 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void ScanMediaPath()
-		{
-			string mediaPath = Path.Combine(Directory.GetCurrentDirectory(), "quiz");
-			if (Directory.Exists(mediaPath))
-			{
-				string[] files = Directory.GetFiles(mediaPath, "*.*", SearchOption.AllDirectories);
-				foreach (string file in files)
-					if (!Directory.Exists(file))
-						m_mediaPaths[Path.GetFileName(file).ToLower()] = file;
-			}
-		}
-
 		private void SetBGMShuffle()
 		{
 			string mediaPath = Path.Combine(Directory.GetCurrentDirectory(), "bgm");
@@ -498,7 +490,7 @@ namespace ZoomQuiz
 			m_obs.SetSourceSettings("BGM", bgmSourceSettings);
 		}
 
-		private void LoadQuiz()
+		private void LoadQuiz(string quizFilePath)
 		{
 			string[] ParseDelimitedString(string s)
 			{
@@ -512,73 +504,82 @@ namespace ZoomQuiz
 				return new string[0];
 			}
 
-			string dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "quiz");
-			string quizFilePath = Path.Combine(dataFolder, QUIZ_FILENAME);
-			if (File.Exists(quizFilePath))
+			m_mediaPaths.Clear();
+			string mediaPath = new FileInfo(quizFilePath).DirectoryName;
+			if (Directory.Exists(mediaPath))
 			{
-				IniFile quizIni = new IniFile(quizFilePath);
-				for (int qNum = 1; ; ++qNum)
-				{
-					string numSection = "" + qNum;
-					if (quizIni.KeyExists("Q", numSection))
-					{
-						string q = quizIni.Read("Q", numSection).Trim();
-						string a = quizIni.Read("A", numSection).Trim();
-						string aa = quizIni.Read("AA", numSection).Trim();
-						string w = quizIni.Read("W", numSection).Trim();
-						string n = quizIni.Read("Almost", numSection).Trim();
-						string qpic = quizIni.Read("QPic", numSection).ToLower().Trim();
-						string apic = quizIni.Read("APic", numSection).ToLower().Trim();
-						string qaud = quizIni.Read("QAud", numSection).ToLower().Trim();
-						string qbgm = quizIni.Read("QBGM", numSection).ToLower().Trim();
-						string info = quizIni.Read("Info", numSection).Trim();
-						string[] aArray = ParseDelimitedString(a);
-						string[] wArray = ParseDelimitedString(w);
-						string[] aaArray = ParseDelimitedString(aa);
-						string[] nArray = ParseDelimitedString(n);
-						for (int f = 0; f < aArray.Length; ++f)
-							aArray[f] = Answer.NormalizeAnswer(aArray[f]);
-						for (int f = 0; f < aaArray.Length; ++f)
-							aaArray[f] = Answer.NormalizeAnswer(aaArray[f]);
-						for (int f = 0; f < nArray.Length; ++f)
-							nArray[f] = Answer.NormalizeAnswer(nArray[f]);
-						List<string> allAnswers = new List<string>();
-						allAnswers.AddRange(aArray);
-						allAnswers.AddRange(aaArray);
-						QuestionValidity validity = QuestionValidity.Valid;
-						if ((!String.IsNullOrEmpty(qaud)) && (!m_mediaPaths.ContainsKey(qaud)))
-							validity = QuestionValidity.MissingQuestionOrAnswer;
-						else if ((String.IsNullOrEmpty(q)) || (allAnswers.Count == 0))
-							validity = QuestionValidity.MissingQuestionOrAnswer;
-						else if ((!String.IsNullOrEmpty(qpic)) && (!m_mediaPaths.ContainsKey(qpic)))
-							validity = QuestionValidity.MissingSupplementary;
-						else if ((!String.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
-							validity = QuestionValidity.MissingSupplementary;
-						else if ((!String.IsNullOrEmpty(qbgm)) && (!m_mediaPaths.ContainsKey(qbgm)))
-							validity = QuestionValidity.MissingSupplementary;
-						m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qpic, apic, qaud, qbgm, info, validity);
-					}
-					else
-						break;
-				}
-				UpdateQuizList();
-				if (m_quiz.Values.Any(q => q.Validity != QuestionValidity.Valid))
-					MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
+				string[] files = Directory.GetFiles(mediaPath, "*.*", SearchOption.AllDirectories);
+				foreach (string file in files)
+					if (!Directory.Exists(file))
+						m_mediaPaths[Path.GetFileName(file).ToLower()] = file;
 			}
-			else
-				MessageBox.Show("Warning: no quiz found!", ZoomQuizTitle);
+
+			m_quiz.Clear();
+			IniFile quizIni = new IniFile(quizFilePath);
+			for (int qNum = 1; ; ++qNum)
+			{
+				string numSection = "" + qNum;
+				if (quizIni.KeyExists("Q", numSection))
+				{
+					string q = quizIni.Read("Q", numSection).Trim();
+					string a = quizIni.Read("A", numSection).Trim();
+					string aa = quizIni.Read("AA", numSection).Trim();
+					string w = quizIni.Read("W", numSection).Trim();
+					string n = quizIni.Read("Almost", numSection).Trim();
+					string qpic = quizIni.Read("QPic", numSection).ToLower().Trim();
+					string apic = quizIni.Read("APic", numSection).ToLower().Trim();
+					string qaud = quizIni.Read("QAud", numSection).ToLower().Trim();
+					string qbgm = quizIni.Read("QBGM", numSection).ToLower().Trim();
+					string info = quizIni.Read("Info", numSection).Trim();
+					string[] aArray = ParseDelimitedString(a);
+					string[] wArray = ParseDelimitedString(w);
+					string[] aaArray = ParseDelimitedString(aa);
+					string[] nArray = ParseDelimitedString(n);
+					for (int f = 0; f < aArray.Length; ++f)
+						aArray[f] = Answer.NormalizeAnswer(aArray[f]);
+					for (int f = 0; f < aaArray.Length; ++f)
+						aaArray[f] = Answer.NormalizeAnswer(aaArray[f]);
+					for (int f = 0; f < nArray.Length; ++f)
+						nArray[f] = Answer.NormalizeAnswer(nArray[f]);
+					List<string> allAnswers = new List<string>();
+					allAnswers.AddRange(aArray);
+					allAnswers.AddRange(aaArray);
+					QuestionValidity validity = QuestionValidity.Valid;
+					if ((!String.IsNullOrEmpty(qaud)) && (!m_mediaPaths.ContainsKey(qaud)))
+						validity = QuestionValidity.MissingQuestionOrAnswer;
+					else if ((String.IsNullOrEmpty(q)) || (allAnswers.Count == 0))
+						validity = QuestionValidity.MissingQuestionOrAnswer;
+					else if ((!String.IsNullOrEmpty(qpic)) && (!m_mediaPaths.ContainsKey(qpic)))
+						validity = QuestionValidity.MissingSupplementary;
+					else if ((!String.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
+						validity = QuestionValidity.MissingSupplementary;
+					else if ((!String.IsNullOrEmpty(qbgm)) && (!m_mediaPaths.ContainsKey(qbgm)))
+						validity = QuestionValidity.MissingSupplementary;
+					m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qpic, apic, qaud, qbgm, info, validity);
+				}
+				else
+					break;
+			}
+			UpdateQuizList();
+			if (m_quiz.Values.Any(q => q.Validity != QuestionValidity.Valid))
+				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
+			m_nextQuestion = 0;
+			NextQuestion(m_nextQuestion);
+			skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = m_nextQuestion != -1;
 		}
 
 		private void UpdateQuizList()
 		{
 			quizList.ItemsSource = m_quiz.Values;
+			ICollectionView view = CollectionViewSource.GetDefaultView(quizList.ItemsSource);
+			view.Refresh();
 			quizList.SelectedIndex = 0;
 			quizList.ScrollIntoView(m_quiz[1]);
 		}
 
 		private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
 		{
-			if (!m_quizEnded)
+			if (!PresentationOnly && !m_quizEnded)
 				e.Cancel = true;
 			else
 				m_quitAppEvent.Set();
@@ -602,45 +603,34 @@ namespace ZoomQuiz
 
 		public void StartQuiz()
 		{
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatStatusChangedNotification(OnChatStatusChanged);
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingWaitingRoomController().EnableWaitingRoomOnEntry(false);
-
-			IMeetingParticipantsControllerDotNetWrap partCon =ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController();
-			uint[] participantIDs = partCon.GetParticipantsList();
-			for(int f = 0; f < participantIDs.Length; ++f)
+			if (!PresentationOnly)
 			{
-				IUserInfoDotNetWrap user = partCon.GetUserByUserID(participantIDs[f]);
-				if (user.IsHost())
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatStatusChangedNotification(OnChatStatusChanged);
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingWaitingRoomController().EnableWaitingRoomOnEntry(false);
+
+				IMeetingParticipantsControllerDotNetWrap partCon = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController();
+				uint[] participantIDs = partCon.GetParticipantsList();
+				for (int f = 0; f < participantIDs.Length; ++f)
 				{
-					m_hostID = participantIDs[f];
-					break;
+					IUserInfoDotNetWrap user = partCon.GetUserByUserID(participantIDs[f]);
+					if (user.IsMySelf())
+					{
+						m_myID = participantIDs[f];
+						break;
+					}
 				}
+
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().JoinVoip();
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "🥂 Welcome to the quiz!");
+
+				ZOOM_SDK_DOTNET_WRAP.ShowChatDlgParam showDlgParam = new ZOOM_SDK_DOTNET_WRAP.ShowChatDlgParam();
+				showDlgParam.rect = new System.Drawing.Rectangle(10, 10, 200, 200);
+				ValueType dlgParam = showDlgParam;
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetUIController().ShowChatDlg(ref dlgParam);
+
+				SetChatMode(ChatMode.EveryonePubliclyAndPrivately);
 			}
-
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().JoinVoip();
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "🥂 Welcome to the quiz!");
-
-			ZOOM_SDK_DOTNET_WRAP.ShowChatDlgParam showDlgParam = new ZOOM_SDK_DOTNET_WRAP.ShowChatDlgParam();
-			showDlgParam.rect = new System.Drawing.Rectangle(10, 10, 200, 200);
-			ValueType dlgParam = showDlgParam;
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetUIController().ShowChatDlg(ref dlgParam);
-
-			SetChatMode(ChatMode.EveryonePubliclyAndPrivately);
-
 			Show();
-		}
-
-		public static void DoEvents()
-		{
-			var frame = new DispatcherFrame();
-			Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background,
-					new DispatcherOperationCallback(
-							delegate (object f)
-							{
-								((DispatcherFrame)f).Continue = false;
-								return null;
-							}), frame);
-			Dispatcher.PushFrame(frame);
 		}
 
 		private void ResetAnswerBins(Question currentQuestion)
@@ -659,26 +649,32 @@ namespace ZoomQuiz
 
 		private void SetChatMode(ChatMode mode)
 		{
-			IntPtr hChatWnd = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "ZPConfChatWndClass", "Zoom Group Chat");
-			if (hChatWnd != IntPtr.Zero)
+			if (!PresentationOnly)
 			{
-				SetForegroundWindow(hChatWnd);
-				Keyboard kb = new Keyboard();
+				IntPtr hChatWnd = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "ZPConfChatWndClass", "Zoom Group Chat");
+				if (hChatWnd != IntPtr.Zero)
+				{
+					SetForegroundWindow(hChatWnd);
+					Keyboard kb = new Keyboard();
 
-				// Three down for HostOnly, four for Public chat
-				for (int f = 0; f < (int)mode + 3; ++f)
-					kb.Send(Keyboard.VirtualKeyShort.DOWN);
-				kb.Send(Keyboard.VirtualKeyShort.RETURN);
+					// Three down for HostOnly, four for Public chat
+					for (int f = 0; f < (int)mode + 3; ++f)
+						kb.Send(Keyboard.VirtualKeyShort.DOWN);
+					kb.Send(Keyboard.VirtualKeyShort.RETURN);
+				}
+				else
+					MessageBox.Show("Can't find chat window (it must be separated from the main app).");
 			}
-			else
-				MessageBox.Show("Can't find chat window (it must be separated from the main app).");
 		}
 
 		public void OnChatStatusChanged(ValueType status)
 		{
-			IntPtr hwnd = new WindowInteropHelper(this).Handle;
-			SetForegroundWindow(hwnd);
-			BringWindowToTop(hwnd);
+			if (!PresentationOnly)
+			{
+				IntPtr hwnd = new WindowInteropHelper(this).Handle;
+				SetForegroundWindow(hwnd);
+				BringWindowToTop(hwnd);
+			}
 		}
 
 		private void AddAnswer(Contestant contestant,Answer answer)
@@ -705,7 +701,7 @@ namespace ZoomQuiz
 		public void OnAnswerReceived(IChatMsgInfoDotNetWrap chatMsg)
 		{
 			uint senderID = chatMsg.GetSenderUserId();
-			if (senderID != m_hostID)
+			if (senderID != m_myID)
 			{
 				string sender = chatMsg.GetSenderDisplayName();
 				string answer = chatMsg.GetContent();
@@ -715,23 +711,29 @@ namespace ZoomQuiz
 
 		private void StartPresenting()
 		{
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(true, m_hostID);
-			if (muteDuringQuestions.IsChecked == true)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, false);
-			presentingText.Text = "Stop Presenting";
-			presentingButton.Background = System.Windows.Media.Brushes.Pink;
-			m_presenting = true;
+			if (!PresentationOnly)
+			{
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(true, m_myID);
+				if (muteDuringQuestions.IsChecked == true)
+					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, false);
+				presentingText.Text = "Stop Presenting";
+				presentingButton.Background = System.Windows.Media.Brushes.Pink;
+				m_presenting = true;
+			}
 		}
 
 		private void StopPresenting()
 		{
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(false, m_hostID);
-			if (muteDuringQuestions.IsChecked == true)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, true);
-			m_presenting = false;
-			presentingText.Text = "Start Presenting";
-			presentingButton.Background = System.Windows.Media.Brushes.LightGreen;
-			presentingButton.IsEnabled = true;
+			if (!PresentationOnly)
+			{
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(false, m_myID);
+				if (muteDuringQuestions.IsChecked == true)
+					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, true);
+				m_presenting = false;
+				presentingText.Text = "Start Presenting";
+				presentingButton.Background = System.Windows.Media.Brushes.LightGreen;
+				presentingButton.IsEnabled = true;
+			}
 		}
 
 		private void StartQuestionButtonClick(object sender, RoutedEventArgs e)
@@ -757,9 +759,12 @@ namespace ZoomQuiz
 			markingProgressBar.Maximum = 1;
 			markingProgressBar.Value = 0;
 			markingProgressText.Text = "";
-			newQuestionButton.IsEnabled = showLeaderboardButton.IsEnabled = false;
+			loadQuizButton.IsEnabled = newQuestionButton.IsEnabled = showLeaderboardButton.IsEnabled = false;
 			showQuestionButton.IsEnabled = true;
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "✏️ Here comes the next question ...");
+			if (!PresentationOnly)
+			{
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "✏️ Here comes the next question ...");
+			}
 		}
 
 		private void countdownWorker_DoWork(object sender, DoWorkEventArgs e)
@@ -802,9 +807,9 @@ namespace ZoomQuiz
 			UpdateMarkingProgressUI((MarkingProgress)e.UserState);
 		}
 
-		private int GetNextQuestionNumber()
+		private int GetNextQuestionNumber(int currentQuestion)
 		{
-			int next=m_nextQuestion;
+			int next= currentQuestion;
 			while (m_quiz.ContainsKey(++next))
 				if (m_quiz[next].Validity!=QuestionValidity.MissingQuestionOrAnswer)
 					break;
@@ -813,15 +818,18 @@ namespace ZoomQuiz
 			return next;
 		}
 
-		private void NextQuestion()
+		private int NextQuestion(int currentQuestion)
 		{
-			m_nextQuestion = GetNextQuestionNumber();
+			m_nextQuestion = GetNextQuestionNumber(currentQuestion);
 			if (m_nextQuestion > 0)
 			{
 				startQuestionButtonText.Text = "Start Question " + m_nextQuestion;
-				quizList.SelectedIndex = m_nextQuestion-1;
-				quizList.ScrollIntoView(quizList.Items.GetItemAt(m_nextQuestion-1));
+				quizList.SelectedIndex = m_nextQuestion - 1;
+				quizList.ScrollIntoView(quizList.Items.GetItemAt(m_nextQuestion - 1));
 			}
+			else
+				loadQuizButton.IsEnabled = newQuestionButton.IsEnabled = false;
+			return m_nextQuestion;
 		}
 
 		private void countdownWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
@@ -833,7 +841,7 @@ namespace ZoomQuiz
 			m_countdownCompleteEvent.Set();
 			m_countdownActive = false;
 			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
-			NextQuestion();
+			NextQuestion(m_nextQuestion);
 			SetChatMode(ChatMode.EveryonePublicly);
 			try
 			{
@@ -1144,7 +1152,7 @@ namespace ZoomQuiz
 			HideFullScreenPicture(false);
 
 			presentingButton.IsEnabled = showLeaderboardButton.IsEnabled = showAnswerButton.IsEnabled=true;
-			skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = m_nextQuestion != -1;
 			showPictureButton.IsEnabled = false;
 
 			restartMarking.IsEnabled = false;
@@ -1459,9 +1467,12 @@ namespace ZoomQuiz
 
 		private void showQuestionButton_Click(object sender, RoutedEventArgs e)
 		{
-			m_countdownCompleteEvent.Reset();
-			markingPump.RunWorkerAsync();
-			answerCounter.RunWorkerAsync();
+			if (!PresentationOnly)
+			{
+				m_countdownCompleteEvent.Reset();
+				markingPump.RunWorkerAsync();
+				answerCounter.RunWorkerAsync();
+			}
 
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
 			bool hasAudio = !String.IsNullOrEmpty(m_currentQuestion.QuestionAudioFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionAudioFilename);
@@ -1475,10 +1486,18 @@ namespace ZoomQuiz
 			replayAudioButton.IsEnabled = hasAudio;
 			showPictureButton.IsEnabled = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename.ToLower());
 			showQuestionButton.IsEnabled = false;
-			startCountdownButton.IsEnabled = true;
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatMsgNotifcation(OnAnswerReceived);
-			if (m_chatWarnings)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is now OFF until the answers are in.");
+			if (!PresentationOnly)
+			{
+				startCountdownButton.IsEnabled = true;
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatMsgNotifcation(OnAnswerReceived);
+				if (m_chatWarnings)
+					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is now OFF until the answers are in.");
+			}
+			else
+			{
+				loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = showAnswerButton.IsEnabled = true;
+				NextQuestion(m_nextQuestion);
+			}
 		}
 
 		private void SetQuestionAudio(string questionAudioFilename)
@@ -1836,7 +1855,7 @@ namespace ZoomQuiz
 
 		private void skipQuestion_Click(object sender, RoutedEventArgs e)
 		{
-			NextQuestion();
+			NextQuestion(m_nextQuestion);
 		}
 
 		private void replayAudioButton_Click(object sender, RoutedEventArgs e)
@@ -1869,6 +1888,16 @@ namespace ZoomQuiz
 		private void showChatWarnings_Unchecked(object sender, RoutedEventArgs e)
 		{
 			m_chatWarnings = false;
+		}
+
+		private void Button_Click_1(object sender, RoutedEventArgs e)
+		{
+			OpenFileDialog openFileDialog = new OpenFileDialog();
+			openFileDialog.Filter = "INI files (*.ini)|*.ini";
+			if (openFileDialog.ShowDialog() == true)
+			{
+				LoadQuiz(openFileDialog.FileName);
+			}
 		}
 	}
 }

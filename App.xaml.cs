@@ -35,7 +35,7 @@ namespace ZoomQuiz
 				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Login(loginParam);
 			}
 			else
-				MessageBox.Show("Failed to authenticate SDK key/secret.");
+				MessageBox.Show("Failed to authenticate SDK key/secret.", "ZoomQuiz");
 		}
 
 		public void onMeetingStatusChanged(MeetingStatus status, int iResult)
@@ -77,7 +77,7 @@ namespace ZoomQuiz
 					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().Add_CB_onMeetingStatusChanged(onMeetingStatusChanged);
 			}
 			else if (ZOOM_SDK_DOTNET_WRAP.LOGINSTATUS.LOGIN_FAILED == ret)
-				MessageBox.Show("Failed to login.");
+				MessageBox.Show("Failed to login.", "ZoomQuiz");
 		}
 
 		public void onLogout()
@@ -87,7 +87,9 @@ namespace ZoomQuiz
 
 		private void Application_Startup(object sender, StartupEventArgs e)
 		{
-			if (e.Args.Length >= 5)
+			bool presentationOnly = e.Args.Length < 5;
+			quizControlPanelWindow = new QuizControlPanel(presentationOnly);
+			if (!presentationOnly)
 			{
 				m_zoomDomain = e.Args[0];
 				m_sdkKey = e.Args[1];
@@ -96,7 +98,6 @@ namespace ZoomQuiz
 				m_loginPassword = e.Args[4];
 				m_meetingID = e.Args[5];
 
-				quizControlPanelWindow = new QuizControlPanel();
 				if (quizControlPanelWindow.StartedOK)
 				{
 					ZOOM_SDK_DOTNET_WRAP.InitParam initParam = new ZOOM_SDK_DOTNET_WRAP.InitParam();
@@ -114,13 +115,16 @@ namespace ZoomQuiz
 						ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
 					}
 					else
-						MessageBox.Show("Failed to initialize Zoom SDK.");
+						MessageBox.Show("Failed to initialize Zoom SDK.", "ZoomQuiz");
 				}
 				else
 					Shutdown();
 			}
 			else
-				MessageBox.Show("To run this program, use the command line to supply arguments.\nquizhost.exe zoomDomain sdkKey sdkSecret loginName loginPassword");
+			{
+				MessageBox.Show("Running in presentation only mode. To run this program with Zoom, use the command line to supply arguments.\nquizhost.exe zoomDomain sdkKey sdkSecret loginName loginPassword", "ZoomQuiz");
+				quizControlPanelWindow.StartQuiz();
+			}
 		}
 	}
 }
