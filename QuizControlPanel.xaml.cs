@@ -497,6 +497,7 @@ namespace ZoomQuiz
 		private string FixUnicode(string strIn)
 		{
 			strIn=strIn.Replace("Â£", "£");
+			strIn = strIn.Replace("Ã©", "é");
 			return strIn;
 		}
 
