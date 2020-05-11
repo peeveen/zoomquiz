@@ -86,6 +86,7 @@ namespace ZoomQuiz
 		public string AnswerText { get; private set; }
 		public string NormalizedAnswer { get; private set; }
 		public AnswerResult AnswerResult { get; set; }
+		public DateTime AnswerTime { get; }
 		public bool IsAcceptedAnswer
 		{
 			get
@@ -95,6 +96,7 @@ namespace ZoomQuiz
 		}
 		public Answer(string answer)
 		{
+			AnswerTime = DateTime.Now;
 			AnswerText = answer;
 			AnswerResult= AnswerResult.Unmarked;
 			NormalizedAnswer = NormalizeAnswer(answer);
@@ -256,7 +258,7 @@ namespace ZoomQuiz
 		{
 			int result = x.CompareTo(y);
 			if (result == 0)
-				return 1;   // Handle equality as beeing greater
+				return 1;   // Handle equality as being greater
 			else
 				return -result;
 		}
@@ -292,7 +294,7 @@ namespace ZoomQuiz
 		private const string QUESTION_FONT_NAME = "Impact";
 		private const string LEADERBOARD_FONT_NAME = "Bahnschrift SemiBold SemiCondensed";
 		private const float AUDIO_VOLUME = 0.8f;
-		private const float BGM_VOLUME = 0.10f;
+		private const float BGM_VOLUME = 0.05f;
 
 		private bool m_quizEnded = false;
 		private bool m_countdownActive = false;
@@ -362,7 +364,7 @@ namespace ZoomQuiz
 				if (m_obs.IsConnected)
 				{
 					SetOBSScene("CamScene");
-					File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
+					//File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
 					//ScanMediaPath();
 					SetCountdownMedia();
 					SetBGMShuffle();
@@ -490,6 +492,12 @@ namespace ZoomQuiz
 			m_obs.SetSourceSettings("BGM", bgmSourceSettings);
 		}
 
+		private string FixUnicode(string strIn)
+		{
+			strIn=strIn.Replace("Â£", "£");
+			return strIn;
+		}
+
 		private void LoadQuiz(string quizFilePath)
 		{
 			string[] ParseDelimitedString(string s)
@@ -521,16 +529,16 @@ namespace ZoomQuiz
 				string numSection = "" + qNum;
 				if (quizIni.KeyExists("Q", numSection))
 				{
-					string q = quizIni.Read("Q", numSection).Trim();
-					string a = quizIni.Read("A", numSection).Trim();
-					string aa = quizIni.Read("AA", numSection).Trim();
-					string w = quizIni.Read("W", numSection).Trim();
-					string n = quizIni.Read("Almost", numSection).Trim();
+					string q = FixUnicode(quizIni.Read("Q", numSection).Trim());
+					string a = FixUnicode(quizIni.Read("A", numSection).Trim());
+					string aa = FixUnicode(quizIni.Read("AA", numSection).Trim());
+					string w = FixUnicode(quizIni.Read("W", numSection).Trim());
+					string n = FixUnicode(quizIni.Read("Almost", numSection).Trim());
 					string qpic = quizIni.Read("QPic", numSection).ToLower().Trim();
 					string apic = quizIni.Read("APic", numSection).ToLower().Trim();
 					string qaud = quizIni.Read("QAud", numSection).ToLower().Trim();
 					string qbgm = quizIni.Read("QBGM", numSection).ToLower().Trim();
-					string info = quizIni.Read("Info", numSection).Trim();
+					string info = FixUnicode(quizIni.Read("Info", numSection).Trim());
 					string[] aArray = ParseDelimitedString(a);
 					string[] wArray = ParseDelimitedString(w);
 					string[] aaArray = ParseDelimitedString(aa);
@@ -828,7 +836,10 @@ namespace ZoomQuiz
 				quizList.ScrollIntoView(quizList.Items.GetItemAt(m_nextQuestion - 1));
 			}
 			else
-				loadQuizButton.IsEnabled = newQuestionButton.IsEnabled = false;
+			{
+				skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = false;
+				loadQuizButton.IsEnabled = true;
+			}
 			return m_nextQuestion;
 		}
 
@@ -1094,6 +1105,29 @@ namespace ZoomQuiz
 					break;
 			}
 		}
+		class AnswerBackupString:IComparable
+		{
+			public string AnswerString { get; private set; }
+			public DateTime AnswerTime { get; private set; }
+			public AnswerBackupString(Answer answer,string contestantName)
+			{
+				AnswerTime = answer.AnswerTime;
+				AnswerString = AnswerTime.ToLongTimeString()+": "+ contestantName + " answered \""+ answer.AnswerText+"\" ("+ answer.AnswerResult.ToString()+")";
+			}
+
+			public int CompareTo(object obj)
+			{
+				if(obj is AnswerBackupString){
+					return AnswerTime.CompareTo(((AnswerBackupString)obj).AnswerTime);
+				}
+				return 1;
+			}
+			public override string ToString()
+			{
+				return AnswerString;
+			}
+		}
+
 
 		private void ApplyScores()
 		{
@@ -1104,34 +1138,35 @@ namespace ZoomQuiz
 				string answersFilePath = Path.Combine(dataFolder, ANSWERS_FILENAME);
 				using (StreamWriter sw = File.AppendText(answersFilePath))
 				{
-					List<String> answerBackupStrings = new List<String>();
+					List<AnswerBackupString> answerBackupStrings = new List<AnswerBackupString>();
 					foreach (KeyValuePair<Contestant, List<Answer>> kvp in m_answers)
 					{
 						m_scoresDirty = true;
 						m_lastAnswerResults[kvp.Key] = AnswerResult.NotAnAnswer;
 						foreach (Answer answer in kvp.Value)
 						{
+							answerBackupStrings.Add(new AnswerBackupString(answer, kvp.Key.Name));
 							int scoreForAnswer = 0;
 							if (answer.AnswerResult == AnswerResult.Correct)
 								scoreForAnswer = Scores.CORRECT_ANSWER_SCORE;
 							else if (answer.AnswerResult == AnswerResult.AlmostCorrect)
 								scoreForAnswer = Scores.ALMOST_CORRECT_ANSWER_SCORE;
-							answerBackupStrings.Add(answer.AnswerResult.ToString()+": "+ answer.AnswerText + " (" + kvp.Key.Name + ")");
-							if (scoreForAnswer > 0)
-							{
-								int oldScore=0;
-								m_scores.TryGetValue(kvp.Key, out oldScore);
-								int newScore = oldScore;
-								newScore += scoreForAnswer;
-								m_scores[kvp.Key] = newScore;
-								m_lastAnswerResults[kvp.Key] = answer.AnswerResult;
-								break;
-							}
+							else if (answer.AnswerResult == AnswerResult.Wrong)
+								scoreForAnswer = 0;
+							else
+								continue;
+							int oldScore=0;
+							m_scores.TryGetValue(kvp.Key, out oldScore);
+							int newScore = oldScore;
+							newScore += scoreForAnswer;
+							m_scores[kvp.Key] = newScore;
+							m_lastAnswerResults[kvp.Key] = answer.AnswerResult;
+							break;
 						}
 					}
 					answerBackupStrings.Sort();
-					foreach (string s in answerBackupStrings)
-						sw.WriteLine(s);
+					foreach (AnswerBackupString s in answerBackupStrings)
+						sw.WriteLine(s.ToString());
 					sw.WriteLine("----------------------------------------------------------------------------");
 				}
 			}
@@ -1534,7 +1569,7 @@ namespace ZoomQuiz
 			}
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
 			showPictureButton.IsEnabled = hasPic;
-			SetOBSScene(hasPic?"AnswerScene":"NoPicAnswerScene");
+			SetOBSScene(hasPic?(m_fullScreenPictureShowing?"AnswerPictureScene":"AnswerScene"):"NoPicAnswerScene");
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
 			m_answerShowing = true;
