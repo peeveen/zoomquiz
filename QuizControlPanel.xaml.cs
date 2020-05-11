@@ -391,6 +391,8 @@ namespace ZoomQuiz
 				MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
 				EndQuiz();
 			}
+			if (PresentationOnly)
+				presentingButton.IsEnabled = false;
 		}
 
 		private void ClearLeaderboards()
