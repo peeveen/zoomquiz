@@ -157,9 +157,10 @@
 		<Button x:Name="viewAnswerHistory" Content="View Answer History" HorizontalAlignment="Left" Height="25" Margin="428,866,0,0" VerticalAlignment="Top" Width="119" Click="viewAnswerHistory_Click"/>
 		<Button x:Name="dummyAnswersButton" Content="Dummy Answers" HorizontalAlignment="Left" Height="25" Margin="611,866,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="dummyAnswersButton_Click"/>
 		<Button x:Name="skipQuestionButton" Background="LightGreen" Content="⏭️ Skip Question" HorizontalAlignment="Left" Height="25" Margin="11,388,0,0" VerticalAlignment="Top" Width="168" RenderTransformOrigin="0.58,0.52" Click="skipQuestion_Click" IsEnabled="False"/>
-		<Button x:Name="replayAudioButton" Background="LightGreen" Content="▶️ Play Audio" HorizontalAlignment="Left" Height="25" Margin="184,388,0,0" VerticalAlignment="Top" Width="176" RenderTransformOrigin="0.58,0.52" Click="replayAudioButton_Click" IsEnabled="False"/>
+		<Button x:Name="replayAudioButton" Background="LightGreen" Content="▶️ Play Media" HorizontalAlignment="Left" Height="25" Margin="184,388,0,0" VerticalAlignment="Top" Width="176" RenderTransformOrigin="0.58,0.52" Click="replayAudioButton_Click" IsEnabled="False"/>
 		<CheckBox x:Name="showTimeWarnings" Content="Show Time Warnings" HorizontalAlignment="Left" Height="19" Margin="572,735,0,0" VerticalAlignment="Top" Width="158" Checked="showTimeWarnings_Checked" Unchecked="showTimeWarnings_Unchecked"/>
 		<CheckBox x:Name="showChatWarnings" Content="Show Chat Warnings" HorizontalAlignment="Left" Height="19" Margin="572,754,0,0" VerticalAlignment="Top" Width="158" Checked="showChatWarnings_Checked" Unchecked="showChatWarnings_Unchecked"/>
 		<Button x:Name="loadQuizButton" Content="💾 Load Quiz" HorizontalAlignment="Left" Height="57" Margin="428,697,0,0" VerticalAlignment="Top" Width="119" Click="Button_Click_1"/>
+		<CheckBox x:Name="autoCountdown" Content="Auto Countdown" HorizontalAlignment="Left" Height="19" Margin="572,773,0,0" VerticalAlignment="Top" Width="158" Checked="showChatWarnings_Checked" Unchecked="showChatWarnings_Unchecked" IsChecked="True"/>
 	</Grid>
 </Window>

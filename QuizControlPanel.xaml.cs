@@ -16,6 +16,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Windows.Data;
+using System.Net.Http.Headers;
 
 namespace ZoomQuiz
 {
@@ -23,6 +24,14 @@ namespace ZoomQuiz
 	{
 		public const int CORRECT_ANSWER_SCORE = 2;
 		public const int ALMOST_CORRECT_ANSWER_SCORE = 1;
+	}
+
+	public enum MediaType
+	{
+		Audio,
+		Image,
+		Video,
+		Unknown
 	}
 
 	public enum ChatMode
@@ -54,28 +63,35 @@ namespace ZoomQuiz
 	{
 		public string QuestionText { get; private set; }
 		public string AnswerText { get; private set; }
-		public string QuestionImageFilename { get; private set; }
+		public string QuestionMediaFilename { get; private set; }
+		public string QuestionSupplementaryMediaFilename { get; private set; }
 		public string AnswerImageFilename { get; private set; }
-		public string QuestionAudioFilename { get; private set; }
-		public string QuestionBGMFilename { get; private set; }
+		public MediaType QuestionMediaType { get; private set; }
+		public MediaType QuestionSupplementaryMediaType { get; private set; }
+		public string QuestionAudioFilename { get { return QuestionMediaType == MediaType.Audio ? QuestionMediaFilename : null; } }
+		public string QuestionVideoFilename { get { return QuestionMediaType == MediaType.Video ? QuestionMediaFilename : null; } }
+		public string QuestionImageFilename { get { return QuestionMediaType == MediaType.Image ? QuestionMediaFilename : QuestionSupplementaryImageFilename; } }
+		public string QuestionBGMFilename { get { return QuestionSupplementaryMediaType == MediaType.Audio ? QuestionSupplementaryMediaFilename : null; } }
+		public string QuestionSupplementaryImageFilename { get { return QuestionSupplementaryMediaType == MediaType.Image ? QuestionSupplementaryMediaFilename : null; } }
 		public string[] QuestionAnswers { get; private set; }
 		public string[] QuestionAlmostAnswers { get; private set; }
 		public string[] QuestionWrongAnswers { get; private set; }
 		public string Info { get; private set; }
 		public int QuestionNumber { get; private set; }
 		public QuestionValidity Validity { get; private set; }
-		public Question(int number,string questionText,string answerText,string[] answers,string[] almostAnswers, string[] wrongAnswers,string questionImageFile, string answerImageFile, string audioFile,string bgmAudio,string info,QuestionValidity validity)
+		public Question(int number,string questionText,string answerText,string[] answers,string[] almostAnswers, string[] wrongAnswers,string questionMediaFile, MediaType questionMediaType,string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerImageFile,string info,QuestionValidity validity)
 		{
 			QuestionNumber=number;
 			QuestionText = questionText.Trim();
+			QuestionMediaFilename = questionMediaFile.Trim();
+			QuestionMediaType = questionMediaType;
+			QuestionSupplementaryMediaFilename = questionSupplementaryMediaFile.Trim();
+			QuestionSupplementaryMediaType = questionSupplementaryMediaType;
 			AnswerText = answerText.Trim();
 			QuestionAnswers = answers;
 			QuestionWrongAnswers = wrongAnswers;
 			QuestionAlmostAnswers = almostAnswers;
-			QuestionImageFilename = questionImageFile.Trim();
-			QuestionBGMFilename = bgmAudio.Trim();
 			AnswerImageFilename = answerImageFile.Trim();
-			QuestionAudioFilename = audioFile.Trim();
 			Validity = validity;
 			Info = info.Trim();
 		}
@@ -294,6 +310,7 @@ namespace ZoomQuiz
 		private const string QUESTION_FONT_NAME = "Impact";
 		private const string LEADERBOARD_FONT_NAME = "Bahnschrift SemiBold SemiCondensed";
 		private const float AUDIO_VOLUME = 0.8f;
+		private const float VIDEO_VOLUME = 1.0f;
 		private const float BGM_VOLUME = 0.05f;
 
 		private bool m_quizEnded = false;
@@ -331,6 +348,7 @@ namespace ZoomQuiz
 		private float m_bgmVolume = BGM_VOLUME;
 		private float m_questionBGMVolume = 0;
 		private float m_questionAudioVolume = 0;
+		private float m_questionVideoVolume = 0;
 		private bool m_scoresDirty = true;
 		public bool StartedOK { get; private set; }
 		private bool m_timeWarnings = false;
@@ -436,6 +454,7 @@ namespace ZoomQuiz
 			const float bgmVolSpeed = 0.01f;
 			const float qbgmVolSpeed = 0.01f;
 			const float qaudVolSpeed = 0.04f;
+			const float qvidVolSpeed = 0.04f;
 
 			while (!m_quitAppEvent.WaitOne(100))
 			{
@@ -448,9 +467,11 @@ namespace ZoomQuiz
 						VolumeInfo bgmVolInf = m_obs.GetVolume("BGM");
 						VolumeInfo qbgmVolInf = m_obs.GetVolume("QuestionBGM");
 						VolumeInfo qaVolInf = m_obs.GetVolume("QuestionAudio");
+						VolumeInfo qvVolInf = m_obs.GetVolume("QuestionVid");
 						float nBGMVol = bgmVolInf.Volume;
 						float nQBGMVol = qbgmVolInf.Volume;
 						float nQAVol = qaVolInf.Volume;
+						float nQVVol = qvVolInf.Volume;
 						float diff = nBGMVol - m_bgmVolume;
 						if (diff < -bgmVolSpeed)
 							m_obs.SetVolume("BGM", nBGMVol + bgmVolSpeed);
@@ -470,6 +491,11 @@ namespace ZoomQuiz
 							m_obs.SetVolume("QuestionAudio", nQAVol - qaudVolSpeed);
 						else if (nQAVol != m_questionAudioVolume)
 							m_obs.SetVolume("QuestionAudio", m_questionAudioVolume);
+						diff = nQVVol - m_questionVideoVolume;
+						if (diff > qvidVolSpeed)
+							m_obs.SetVolume("QuestionVid", nQVVol - qvidVolSpeed);
+						else if (nQVVol != m_questionVideoVolume)
+							m_obs.SetVolume("QuestionVid", m_questionVideoVolume);
 					}
 					finally
 					{
@@ -499,6 +525,21 @@ namespace ZoomQuiz
 			strIn=strIn.Replace("Â£", "£");
 			strIn = strIn.Replace("Ã©", "é");
 			return strIn;
+		}
+
+		private MediaType GetMediaTypeFromFilename(string filename)
+		{
+			if (!String.IsNullOrEmpty(filename))
+			{
+				string ext = Path.GetExtension(filename).ToLower().Trim('.');
+				if (ext == "jpg" || ext == "png" || ext == "bmp" || ext == "tif" || ext == "tiff" || ext == "jpeg" || ext == "gif")
+					return MediaType.Image;
+				if (ext == "mp3" || ext == "wav" || ext == "ogg" || ext == "m4a" || ext == "wma")
+					return MediaType.Audio;
+				if (ext == "mp4" || ext == "mkv" || ext == "avi" || ext == "mov" || ext == "m4v")
+					return MediaType.Video;
+			}
+			return MediaType.Unknown;
 		}
 
 		private void LoadQuiz(string quizFilePath)
@@ -537,10 +578,26 @@ namespace ZoomQuiz
 					string aa = FixUnicode(quizIni.Read("AA", numSection).Trim());
 					string w = FixUnicode(quizIni.Read("W", numSection).Trim());
 					string n = FixUnicode(quizIni.Read("Almost", numSection).Trim());
-					string qpic = quizIni.Read("QPic", numSection).ToLower().Trim();
+					string qmed = quizIni.Read("QMed", numSection).ToLower().Trim();
+					if (String.IsNullOrEmpty(qmed))
+					{
+						// Backwards compat.
+						qmed = quizIni.Read("QPic", numSection).ToLower().Trim();
+						if (String.IsNullOrEmpty(qmed))
+							qmed = quizIni.Read("QAud", numSection).ToLower().Trim();
+					}
+					MediaType qmedType = GetMediaTypeFromFilename(qmed);
+					string qsup = quizIni.Read("QSupMed", numSection).ToLower().Trim();
+					if (String.IsNullOrEmpty(qsup))
+					{
+						// Backwards compat.
+						// Can't have TWO images.
+						qsup = qmedType != MediaType.Image ? quizIni.Read("QPic", numSection).ToLower().Trim() : null;
+						if (String.IsNullOrEmpty(qsup))
+							qsup = quizIni.Read("QBGM", numSection).ToLower().Trim();
+					}
+					MediaType qsupType = GetMediaTypeFromFilename(qsup);
 					string apic = quizIni.Read("APic", numSection).ToLower().Trim();
-					string qaud = quizIni.Read("QAud", numSection).ToLower().Trim();
-					string qbgm = quizIni.Read("QBGM", numSection).ToLower().Trim();
 					string info = FixUnicode(quizIni.Read("Info", numSection).Trim());
 					string[] aArray = ParseDelimitedString(a);
 					string[] wArray = ParseDelimitedString(w);
@@ -556,17 +613,24 @@ namespace ZoomQuiz
 					allAnswers.AddRange(aArray);
 					allAnswers.AddRange(aaArray);
 					QuestionValidity validity = QuestionValidity.Valid;
-					if ((!String.IsNullOrEmpty(qaud)) && (!m_mediaPaths.ContainsKey(qaud)))
+					if ((!String.IsNullOrEmpty(qmed)) && (!m_mediaPaths.ContainsKey(qmed)))
+						validity = QuestionValidity.MissingQuestionOrAnswer;
+					else if ((!String.IsNullOrEmpty(qmed)) && qmedType == MediaType.Unknown)
+						validity = QuestionValidity.MissingQuestionOrAnswer;
+					else if ((!String.IsNullOrEmpty(qmed)) && qmedType == qsupType)
 						validity = QuestionValidity.MissingQuestionOrAnswer;
 					else if ((String.IsNullOrEmpty(q)) || (allAnswers.Count == 0))
 						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((!String.IsNullOrEmpty(qpic)) && (!m_mediaPaths.ContainsKey(qpic)))
+					else if ((!String.IsNullOrEmpty(qsup)) && (!m_mediaPaths.ContainsKey(qsup)))
+						validity = QuestionValidity.MissingSupplementary;
+					// Can't have supplementary video
+					else if (qsupType == MediaType.Video)
+						validity = QuestionValidity.MissingSupplementary;
+					else if ((!String.IsNullOrEmpty(qsup)) && qsupType == MediaType.Unknown)
 						validity = QuestionValidity.MissingSupplementary;
 					else if ((!String.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
 						validity = QuestionValidity.MissingSupplementary;
-					else if ((!String.IsNullOrEmpty(qbgm)) && (!m_mediaPaths.ContainsKey(qbgm)))
-						validity = QuestionValidity.MissingSupplementary;
-					m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qpic, apic, qaud, qbgm, info, validity);
+					m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType,qsup,qsupType,apic, info, validity);
 				}
 				else
 					break;
@@ -749,6 +813,7 @@ namespace ZoomQuiz
 
 		private void StartQuestionButtonClick(object sender, RoutedEventArgs e)
 		{
+			m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 			m_answers = new Dictionary<Contestant, List<Answer>>();
 			HideAnswer();
 			skipQuestionButton.IsEnabled = false;
@@ -759,6 +824,8 @@ namespace ZoomQuiz
 			ResetAnswerBins(m_currentQuestion);
 			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", QUESTION_SIZE, "question.png");
 			SetOBSImageSource("QuestionPic", m_currentQuestion.QuestionImageFilename);
+			// Show no video until it's ready.
+			SetOBSVideoSource("QuestionVid", null);
 			SetOBSAudioSource("QuestionBGM", m_currentQuestion.QuestionBGMFilename);
 			SetVolumes(false, m_currentQuestion);
 			SetChatMode(ChatMode.HostOnly);
@@ -770,7 +837,8 @@ namespace ZoomQuiz
 			markingProgressBar.Maximum = 1;
 			markingProgressBar.Value = 0;
 			markingProgressText.Text = "";
-			loadQuizButton.IsEnabled = newQuestionButton.IsEnabled = showLeaderboardButton.IsEnabled = false;
+			loadQuizButton.IsEnabled =
+				newQuestionButton.IsEnabled = showLeaderboardButton.IsEnabled = false;
 			showQuestionButton.IsEnabled = true;
 			if (!PresentationOnly)
 			{
@@ -880,8 +948,13 @@ namespace ZoomQuiz
 			AnswerBin bin = m_answerBins[result];
 			if (bin != null)
 				bin.Add(answer.Answer);
-			if (result == AnswerResult.Funny)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "😂 Answer from "+answer.Contestant.Name+": \""+answer.Answer.AnswerText+"\"");
+			if (result == AnswerResult.Correct)
+			{
+				if (autoCountdown.IsChecked==true && startCountdownButton.IsEnabled)
+					StartCountdown();
+			}
+			else if (result == AnswerResult.Funny)
+				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "😂 Answer from " + answer.Contestant.Name + ": \"" + answer.Answer.AnswerText + "\"");
 			else if (result != AnswerResult.NotAnAnswer)
 				// Once a valid answer is accepted (right or wrong), all other answers from that user cannot be considered.
 				MarkUserAnswers(answer.Contestant, AnswerResult.NotAnAnswer);
@@ -889,13 +962,14 @@ namespace ZoomQuiz
 
 		private bool AutoMarkAnswer(AnswerForMarking answer)
 		{
+			bool startsWithDot = answer.Answer.AnswerText.StartsWith(".");
 			// If user has already submitted an answer that was accepted, don't accept this new one as an answer.
 			if (m_answers.ContainsKey(answer.Contestant))
 			{
 				List<Answer> contestantAnswers = m_answers[answer.Contestant];
 				if (contestantAnswers.Any(a => a.IsAcceptedAnswer))
 				{
-					MarkAnswer(answer, AnswerResult.NotAnAnswer);
+					MarkAnswer(answer, startsWithDot? AnswerResult.Funny: AnswerResult.NotAnAnswer);
 					return true;
 				}
 			}
@@ -906,6 +980,12 @@ namespace ZoomQuiz
 					MarkAnswer(answer, kvp.Key);
 					return true;
 				}
+			// Check for dot marker here rather than earlier, in case an answer starting with a dot WAS the actual answer.
+			if (startsWithDot)
+			{
+				MarkAnswer(answer, AnswerResult.Funny);
+				return true;
+			}
 			// Otherwise, no, have to do it manually.
 			return false;
 		}
@@ -1190,7 +1270,8 @@ namespace ZoomQuiz
 			HideFullScreenPicture(false);
 
 			presentingButton.IsEnabled = showLeaderboardButton.IsEnabled = showAnswerButton.IsEnabled=true;
-			loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			loadQuizButton.IsEnabled = true;
 			showPictureButton.IsEnabled = false;
 
 			restartMarking.IsEnabled = false;
@@ -1237,19 +1318,24 @@ namespace ZoomQuiz
 			}
 		}
 
-
-		private void StartCountdownButtonClick(object sender, RoutedEventArgs e)
+		private void StartCountdown()
 		{
 			startCountdownButton.IsEnabled = false;
 			if (m_timeWarnings)
 				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
 			countdownWorker.RunWorkerAsync();
 			m_countdownActive = true;
-			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
+			bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
+			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
 			if (m_fullScreenPictureShowing)
 				SetOBSScene("CountdownQuestionPictureScene");
 			else
-				SetOBSScene(hasPic?"CountdownQuestionScene":"CountdownNoPicQuestionScene");
+				SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "CountdownQuestionScene" : "CountdownNoPicQuestionScene");
+		}
+
+		private void StartCountdownButtonClick(object sender, RoutedEventArgs e)
+		{
+			StartCountdown();
 		}
 
 		private void FakeAnswersWorker_DoWork(object sender, DoWorkEventArgs e)
@@ -1478,23 +1564,27 @@ namespace ZoomQuiz
 			try
 			{
 				m_volumeMutex.WaitOne();
-				if (questionShowing && !String.IsNullOrEmpty(currentQuestion.QuestionAudioFilename) && m_mediaPaths.ContainsKey(currentQuestion.QuestionAudioFilename.ToLower()))
+				bool hasAudioOrVideo = (currentQuestion.QuestionMediaType == MediaType.Audio|| currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(currentQuestion.QuestionMediaFilename.ToLower());
+				if (questionShowing && hasAudioOrVideo)
 				{
 					m_bgmVolume = 0;
 					m_questionBGMVolume = 0;
 					m_questionAudioVolume = AUDIO_VOLUME;
+					m_questionVideoVolume = VIDEO_VOLUME;
 				}
 				else if (!String.IsNullOrEmpty(currentQuestion.QuestionBGMFilename) && m_mediaPaths.ContainsKey(currentQuestion.QuestionBGMFilename.ToLower()))
 				{
 					m_bgmVolume = 0;
 					m_questionBGMVolume = BGM_VOLUME;
 					m_questionAudioVolume = 0;
+					m_questionVideoVolume = 0;
 				}
 				else
 				{
 					m_bgmVolume = BGM_VOLUME;
 					m_questionBGMVolume = 0;
 					m_questionAudioVolume = 0;
+					m_questionVideoVolume = 0;
 				}
 			}
 			finally
@@ -1512,17 +1602,19 @@ namespace ZoomQuiz
 				answerCounter.RunWorkerAsync();
 			}
 
-			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
+			bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
+			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
 			bool hasAudio = !String.IsNullOrEmpty(m_currentQuestion.QuestionAudioFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionAudioFilename);
-			SetOBSScene(hasPic?"QuestionScene":"NoPicQuestionScene");
+			bool hasVideo = m_currentQuestion.QuestionMediaType == MediaType.Video && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
+			SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene":"NoPicQuestionScene");
 			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", ANSWER_SIZE, "answer.png");
 			SetOBSImageSource("AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
 			// Set question audio to silence, wait for play button
 			SetQuestionAudio(null);
 			SetVolumes(true, m_currentQuestion);
-			replayAudioButton.IsEnabled = hasAudio;
-			showPictureButton.IsEnabled = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename.ToLower());
+			replayAudioButton.IsEnabled = hasAudio | hasVideo;
+			showPictureButton.IsEnabled = hasPicOrVid || hasSupPicOrVid;
 			showQuestionButton.IsEnabled = false;
 			if (!PresentationOnly)
 			{
@@ -1565,6 +1657,7 @@ namespace ZoomQuiz
 				m_bgmVolume = BGM_VOLUME;
 				m_questionBGMVolume = 0;
 				m_questionAudioVolume = 0;
+				m_questionVideoVolume = 0;
 			}
 			finally
 			{
@@ -1652,15 +1745,59 @@ namespace ZoomQuiz
 			}
 		}
 
+		private void SetOBSSourceVisibility(string sourceName,string sceneName,bool visible)
+		{
+			try
+			{
+				m_obsMutex.WaitOne();
+				m_obs.SetSourceRender(sourceName, visible,sceneName);
+			}
+			finally
+			{
+				m_obsMutex.ReleaseMutex();
+			}
+		}
+
+		private void HideOBSSource(string sourceName,string sceneName)
+		{
+			SetOBSSourceVisibility(sourceName, sceneName,false);
+		}
+
+		private void ShowOBSSource(string sourceName,string sceneName)
+		{
+			SetOBSSourceVisibility(sourceName, sceneName,true);
+		}
+
 		private void SetOBSImageSource(string sourceName, string mediaName)
 		{
-			string presFolder= Path.Combine(Directory.GetCurrentDirectory(), "presentation");
-			string transparentImagePath = Path.Combine(presFolder, "transparent.png");
-			string path = null;
-			m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
+			string path=null;
+			if (mediaName != null)
+				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
-				path = transparentImagePath;
-			SetOBSFileSourceFromPath(sourceName, "file",path);
+			{
+				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+				path = Path.Combine(presFolder, "transparent.png");
+			}
+			SetOBSFileSourceFromPath(sourceName, "file", path);
+		}
+
+		private void SetOBSVideoSource(string sourceName, string mediaName)
+		{
+			string[] scenes = new string[] { "QuestionScene", "QuestionPictureScene", "CountdownQuestionPictureScene" };
+			string path=null;
+			if (mediaName != null)
+				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
+			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
+			{
+				foreach (string sceneName in scenes)
+					HideOBSSource(sourceName,sceneName);
+			}
+			else
+			{
+				SetOBSFileSourceFromPath(sourceName, "local_file", path);
+				foreach (string sceneName in scenes)
+					ShowOBSSource(sourceName,sceneName);
+			}
 		}
 
 		private void SetOBSSourceSettings(string sourceName,JObject settings)
@@ -1687,7 +1824,7 @@ namespace ZoomQuiz
 
 		private void SetOBSAudioSource(string sourceName, string mediaName)
 		{
-			string path = null;
+			string path=null;
 			if(mediaName!=null)
 				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
@@ -1803,8 +1940,9 @@ namespace ZoomQuiz
 				}
 				else if (m_questionShowing)
 				{
-					bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
-					SetOBSScene(m_countdownActive ? (hasPic ? "CountdownQuestionScene" : "CountdownNoPicQuestionScene") : (hasPic ? "QuestionScene" : "NoPicQuestionScene"));
+					bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
+					bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
+					SetOBSScene(m_countdownActive ? (hasPicOrVid || hasSupPicOrVid ? "CountdownQuestionScene" : "CountdownNoPicQuestionScene") : (hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene"));
 				}
 			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showPictureText.Text = "Fullscreen Picture";
@@ -1896,9 +2034,18 @@ namespace ZoomQuiz
 			NextQuestion(m_nextQuestion);
 		}
 
+		private void SetQuestionVideo(string filename)
+		{
+			SetOBSVideoSource("QuestionVid", filename);
+			m_obs.SetVolume("QuestionVid", VIDEO_VOLUME);
+		}
+
 		private void replayAudioButton_Click(object sender, RoutedEventArgs e)
 		{
-			SetQuestionAudio(m_currentQuestion.QuestionAudioFilename);
+			if (m_currentQuestion.QuestionMediaType == MediaType.Audio)
+				SetQuestionAudio(m_currentQuestion.QuestionAudioFilename);
+			else if (m_currentQuestion.QuestionMediaType == MediaType.Video)
+				SetQuestionVideo(m_currentQuestion.QuestionVideoFilename);
 		}
 
 		private void dummyAnswersButton_Click(object sender, RoutedEventArgs e)
