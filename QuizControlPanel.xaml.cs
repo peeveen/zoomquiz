@@ -16,7 +16,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Windows.Data;
-using System.Net.Http.Headers;
 
 namespace ZoomQuiz
 {
@@ -77,9 +76,10 @@ namespace ZoomQuiz
 		public string[] QuestionAlmostAnswers { get; private set; }
 		public string[] QuestionWrongAnswers { get; private set; }
 		public string Info { get; private set; }
+		public bool UseLevenshtein { get; private set; }
 		public int QuestionNumber { get; private set; }
 		public QuestionValidity Validity { get; private set; }
-		public Question(int number,string questionText,string answerText,string[] answers,string[] almostAnswers, string[] wrongAnswers,string questionMediaFile, MediaType questionMediaType,string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerImageFile,string info,QuestionValidity validity)
+		public Question(int number,string questionText,string answerText,string[] answers,string[] almostAnswers, string[] wrongAnswers,string questionMediaFile, MediaType questionMediaType,string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerImageFile,string info,bool useLevenshtein,QuestionValidity validity)
 		{
 			QuestionNumber=number;
 			QuestionText = questionText.Trim();
@@ -94,6 +94,7 @@ namespace ZoomQuiz
 			AnswerImageFilename = answerImageFile.Trim();
 			Validity = validity;
 			Info = info.Trim();
+			UseLevenshtein = useLevenshtein;
 		}
 	}
 
@@ -236,22 +237,77 @@ namespace ZoomQuiz
 		}
 	}
 
+	public class Levenshtein
+	{
+		private const double ACCEPTABLE_LEVENSHTEIN_THRESHOLD = 0.2;
+		public static bool LevMatch(string acceptableAnswer, string answer, out double levValue)
+		{
+			double x = CalculateLevenshtein(acceptableAnswer, answer);
+			x /= acceptableAnswer.Length;
+			levValue = x;
+			return x <= ACCEPTABLE_LEVENSHTEIN_THRESHOLD;
+		}
+		public static int CalculateLevenshtein(string s, string t)
+		{
+			int n = s.Length;
+			int m = t.Length;
+			int[,] d = new int[n + 1, m + 1];
+
+			// Step 1
+			if (n == 0)
+			{
+				return m;
+			}
+
+			if (m == 0)
+			{
+				return n;
+			}
+
+			// Step 2
+			for (int i = 0; i <= n; d[i, 0] = i++)
+			{
+			}
+
+			for (int j = 0; j <= m; d[0, j] = j++)
+			{
+			}
+
+			// Step 3
+			for (int i = 1; i <= n; i++)
+			{
+				//Step 4
+				for (int j = 1; j <= m; j++)
+				{
+					// Step 5
+					int cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
+
+					// Step 6
+					d[i, j] = Math.Min(
+							Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+							d[i - 1, j - 1] + cost);
+				}
+			}
+			// Step 7
+			return d[n, m];
+		}
+	}
+
 	public class AnswerBin
 	{
 		private Mutex m_answersMutex = new Mutex();
-		private HashSet<string> m_answers=new HashSet<string>();
+		private Dictionary<string,double> m_ratedAnswers=new Dictionary<string, double>();
 		public AnswerBin()
 		{
-
 		}
 		~AnswerBin()
 		{
 			m_answersMutex.Dispose();
 		}
-		public void Add(Answer answer)
+		public void Add(Answer answer,double levValue)
 		{
 			m_answersMutex.WaitOne();
-			m_answers.Add(answer.NormalizedAnswer);
+			m_ratedAnswers[answer.NormalizedAnswer]=levValue;
 			m_answersMutex.ReleaseMutex();
 		}
 		public bool Contains(Answer answer)
@@ -259,12 +315,36 @@ namespace ZoomQuiz
 			try
 			{
 				m_answersMutex.WaitOne();
-				return m_answers.Contains(answer.NormalizedAnswer);
+				return m_ratedAnswers.Keys.Contains(answer.NormalizedAnswer);
 			}
 			finally
 			{
 				m_answersMutex.ReleaseMutex();
 			}
+		}
+		public void GetLevenshteinRange(out double min,out double max)
+		{
+			min = m_ratedAnswers.Min(ra => ra.Value);
+			max = m_ratedAnswers.Max(ra => ra.Value);
+		}
+		public bool LevContains(Answer answer,out double levValue)
+		{
+			levValue = 0.0;
+			try
+			{
+				m_answersMutex.WaitOne();
+				string norm = answer.NormalizedAnswer;
+				foreach (string acceptableAnswer in m_ratedAnswers.Keys)
+				{
+					if (Levenshtein.LevMatch(norm, acceptableAnswer,out levValue))
+						return true;
+				}
+			}
+			finally
+			{
+				m_answersMutex.ReleaseMutex();
+			}
+			return false;
 		}
 	}
 
@@ -612,6 +692,11 @@ namespace ZoomQuiz
 					List<string> allAnswers = new List<string>();
 					allAnswers.AddRange(aArray);
 					allAnswers.AddRange(aaArray);
+					bool useLev;
+					string useLevStr = quizIni.Read("Lev", numSection).ToLower().Trim();
+					int unusedInt;
+					if (!bool.TryParse(useLevStr, out useLev))
+						useLev = !allAnswers.Any(answerString => answerString.Length<4 || int.TryParse(answerString, out unusedInt));
 					QuestionValidity validity = QuestionValidity.Valid;
 					if ((!String.IsNullOrEmpty(qmed)) && (!m_mediaPaths.ContainsKey(qmed)))
 						validity = QuestionValidity.MissingQuestionOrAnswer;
@@ -630,7 +715,7 @@ namespace ZoomQuiz
 						validity = QuestionValidity.MissingSupplementary;
 					else if ((!String.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
 						validity = QuestionValidity.MissingSupplementary;
-					m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType,qsup,qsupType,apic, info, validity);
+					m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType,qsup,qsupType,apic, info, useLev,validity);
 				}
 				else
 					break;
@@ -717,9 +802,9 @@ namespace ZoomQuiz
 			AnswerBin correctAnswers = m_answerBins[AnswerResult.Correct];
 			AnswerBin almostCorrectAnswers = m_answerBins[AnswerResult.AlmostCorrect];
 			AnswerBin wrongAnswers = m_answerBins[AnswerResult.Wrong];
-			currentQuestion.QuestionAnswers.Select(a => new Answer(a)).ToList().ForEach(a => correctAnswers.Add(a));
-			currentQuestion.QuestionAlmostAnswers.Select(a => new Answer(a)).ToList().ForEach(a => almostCorrectAnswers.Add(a));
-			currentQuestion.QuestionWrongAnswers.Select(a => new Answer(a)).ToList().ForEach(a => wrongAnswers.Add(a));
+			currentQuestion.QuestionAnswers.Select(a => new Answer(a)).ToList().ForEach(a => correctAnswers.Add(a, 0.0));
+			currentQuestion.QuestionAlmostAnswers.Select(a => new Answer(a)).ToList().ForEach(a => almostCorrectAnswers.Add(a, 0.0));
+			currentQuestion.QuestionWrongAnswers.Select(a => new Answer(a)).ToList().ForEach(a => wrongAnswers.Add(a, 0.0));
 		}
 
 		private void SetChatMode(ChatMode mode)
@@ -942,12 +1027,12 @@ namespace ZoomQuiz
 				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + e.ProgressPercentage + " seconds remaining ...");
 		}
 
-		private void MarkAnswer(AnswerForMarking answer,AnswerResult result)
+		private void MarkAnswer(AnswerForMarking answer,AnswerResult result,double levValue)
 		{
 			answer.Answer.AnswerResult = result;
 			AnswerBin bin = m_answerBins[result];
 			if (bin != null)
-				bin.Add(answer.Answer);
+				bin.Add(answer.Answer,levValue);
 			if (result == AnswerResult.Correct)
 			{
 				if (autoCountdown.IsChecked==true && startCountdownButton.IsEnabled)
@@ -957,10 +1042,10 @@ namespace ZoomQuiz
 				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "😂 Answer from " + answer.Contestant.Name + ": \"" + answer.Answer.AnswerText + "\"");
 			else if (result != AnswerResult.NotAnAnswer)
 				// Once a valid answer is accepted (right or wrong), all other answers from that user cannot be considered.
-				MarkUserAnswers(answer.Contestant, AnswerResult.NotAnAnswer);
+				MarkOtherUserAnswers(answer.Contestant);
 		}
 
-		private bool AutoMarkAnswer(AnswerForMarking answer)
+		private bool AutoMarkAnswer(AnswerForMarking answer,bool useLev)
 		{
 			bool startsWithDot = answer.Answer.AnswerText.StartsWith(".");
 			// If user has already submitted an answer that was accepted, don't accept this new one as an answer.
@@ -969,21 +1054,22 @@ namespace ZoomQuiz
 				List<Answer> contestantAnswers = m_answers[answer.Contestant];
 				if (contestantAnswers.Any(a => a.IsAcceptedAnswer))
 				{
-					MarkAnswer(answer, startsWithDot? AnswerResult.Funny: AnswerResult.NotAnAnswer);
+					MarkAnswer(answer, startsWithDot? AnswerResult.Funny: AnswerResult.NotAnAnswer,0.0);
 					return true;
 				}
 			}
 			// Otherwise, if the user has submitted an answer that has already been marked, use that marking.
+			double levValue=0.0;
 			foreach (KeyValuePair<AnswerResult, AnswerBin> kvp in m_answerBins)
-				if (kvp.Value.Contains(answer.Answer))
+				if (kvp.Value.Contains(answer.Answer) || (useLev && kvp.Value.LevContains(answer.Answer,out levValue)))
 				{
-					MarkAnswer(answer, kvp.Key);
+					MarkAnswer(answer, kvp.Key, levValue);
 					return true;
 				}
 			// Check for dot marker here rather than earlier, in case an answer starting with a dot WAS the actual answer.
 			if (startsWithDot)
 			{
-				MarkAnswer(answer, AnswerResult.Funny);
+				MarkAnswer(answer, AnswerResult.Funny,0.0);
 				return true;
 			}
 			// Otherwise, no, have to do it manually.
@@ -992,6 +1078,7 @@ namespace ZoomQuiz
 
 		private void markingPump_DoWork(object sender, DoWorkEventArgs e)
 		{
+			bool lev = (bool)e.Argument;
 			void UpdateMarkingProgress(AnswerForMarking nextAnswerForMarking = null)
 			{
 				int answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count());
@@ -1019,7 +1106,7 @@ namespace ZoomQuiz
 						if (unmarkedAnswer != null)
 						{
 							AnswerForMarking answerForMarking = new AnswerForMarking(kvp.Key, unmarkedAnswer);
-							if (!AutoMarkAnswer(answerForMarking))
+							if (!AutoMarkAnswer(answerForMarking, lev))
 							{
 								waitingForMarking = true;
 								SetAnswerForMarking(answerForMarking);
@@ -1211,6 +1298,13 @@ namespace ZoomQuiz
 			}
 		}
 
+		private string GetLevenshteinReport(AnswerResult result)
+		{
+			AnswerBin bin = m_answerBins[result];
+			double minLev, maxLev;
+			bin.GetLevenshteinRange(out minLev, out maxLev);
+			return result.ToString() + " answer Levenshtein values ranged from " + string.Format("{0:0.00}", minLev) + " to " + string.Format("{0:0.00}", maxLev);
+		}
 
 		private void ApplyScores()
 		{
@@ -1238,7 +1332,7 @@ namespace ZoomQuiz
 								scoreForAnswer = 0;
 							else
 								continue;
-							int oldScore=0;
+							int oldScore;
 							m_scores.TryGetValue(kvp.Key, out oldScore);
 							int newScore = oldScore;
 							newScore += scoreForAnswer;
@@ -1250,6 +1344,9 @@ namespace ZoomQuiz
 					answerBackupStrings.Sort();
 					foreach (AnswerBackupString s in answerBackupStrings)
 						sw.WriteLine(s.ToString());
+					sw.WriteLine(GetLevenshteinReport(AnswerResult.Correct));
+					sw.WriteLine(GetLevenshteinReport(AnswerResult.AlmostCorrect));
+					sw.WriteLine(GetLevenshteinReport(AnswerResult.Wrong));
 					sw.WriteLine("----------------------------------------------------------------------------");
 				}
 			}
@@ -1428,7 +1525,7 @@ namespace ZoomQuiz
 				StartPresenting();
 		}
 
-		private void MarkUserAnswers(Contestant contestant,AnswerResult result) {
+		private void MarkOtherUserAnswers(Contestant contestant) {
 			// All other unmarked answers from the contestant must now be marked wrong,
 			// in case they're guessing numeric answers.
 			try
@@ -1439,7 +1536,15 @@ namespace ZoomQuiz
 				{
 					IEnumerable<Answer> unmarkedAnswers = answers.Where(a => a.AnswerResult == AnswerResult.Unmarked);
 					foreach (Answer a in unmarkedAnswers)
-						a.AnswerResult = result;
+					{
+						if (a.AnswerText.StartsWith("."))
+						{
+							ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "😂 Answer from " + contestant.Name + ": \"" + a.AnswerText + "\"");
+							a.AnswerResult = AnswerResult.Funny;
+						}
+						else
+							a.AnswerResult = AnswerResult.NotAnAnswer;
+					}
 				}
 			}
 			finally
@@ -1468,6 +1573,21 @@ namespace ZoomQuiz
 			}
 		}
 
+		private double GetBestLevenshtein(AnswerResult result,string normAnswer)
+		{
+			string[] comparisonStrings;
+			if (result == AnswerResult.Correct)
+				comparisonStrings = m_currentQuestion.QuestionAnswers;
+			else if (result == AnswerResult.AlmostCorrect)
+				comparisonStrings = m_currentQuestion.QuestionAlmostAnswers;
+			else if (result == AnswerResult.Wrong)
+				comparisonStrings = m_currentQuestion.QuestionWrongAnswers;
+			else
+				return 0.0;
+			double bestLev=comparisonStrings.Min(str => Levenshtein.CalculateLevenshtein(str, normAnswer) / (double)str.Length);
+			return bestLev;
+		}
+
 		private void MarkAnswerViaUI(AnswerResult result)
 		{
 			try
@@ -1476,7 +1596,7 @@ namespace ZoomQuiz
 				if (m_answerForMarking != null)
 				{
 					restartMarking.IsEnabled = true;
-					MarkAnswer(m_answerForMarking, result);
+					MarkAnswer(m_answerForMarking, result,GetBestLevenshtein(result,m_answerForMarking.Answer.NormalizedAnswer));
 					ClearAnswerForMarking();
 					m_answerMarkedEvent.Set();
 				}
@@ -1598,7 +1718,7 @@ namespace ZoomQuiz
 			if (!PresentationOnly)
 			{
 				m_countdownCompleteEvent.Reset();
-				markingPump.RunWorkerAsync();
+				markingPump.RunWorkerAsync(m_currentQuestion.UseLevenshtein);
 				answerCounter.RunWorkerAsync();
 			}
 
@@ -2080,9 +2200,7 @@ namespace ZoomQuiz
 			OpenFileDialog openFileDialog = new OpenFileDialog();
 			openFileDialog.Filter = "INI files (*.ini)|*.ini";
 			if (openFileDialog.ShowDialog() == true)
-			{
 				LoadQuiz(openFileDialog.FileName);
-			}
 		}
 	}
 }
