@@ -360,6 +360,51 @@ namespace ZoomQuiz
 		}
 	}
 
+	class MarkingPumpArgs
+	{
+		public bool UseLevenshtein { get; private set; }
+		public bool AutoCountdown { get; private set; }
+		public MarkingPumpArgs(bool useLevenshtein, bool autoCountdown)
+		{
+			UseLevenshtein = useLevenshtein;
+			AutoCountdown = autoCountdown;
+		}
+	}
+
+	class CountdownStartArgs
+	{
+		public CountdownStartArgs()
+		{
+		}
+	}
+
+	class FunnyAnswerArgs
+	{
+		public Answer Answer { get; private set; }
+		public Contestant Contestant { get; private set; }
+		public FunnyAnswerArgs(Answer answer, Contestant contestant)
+		{
+			Answer = answer;
+			Contestant = contestant;
+		}
+		public override string ToString()
+		{
+			return "😂 Answer from " + Contestant.Name + ": \"" + Answer.AnswerText.Trim('.') + "\"";
+		}
+	}
+
+	class ScoreReportEntry
+	{
+		public Contestant Contestant { get; private set; }
+		public AnswerResult Result { get; private set; }
+		public ScoreReportEntry(Contestant contestant,AnswerResult result)
+		{
+			Contestant = contestant;
+			Result = result;
+		}
+	}
+
+
 	/// <summary>
 	/// Interaction logic for QuizControlPanel.xaml
 	/// </summary>
@@ -430,6 +475,7 @@ namespace ZoomQuiz
 		private float m_questionAudioVolume = 0;
 		private float m_questionVideoVolume = 0;
 		private bool m_scoresDirty = true;
+		private List<ScoreReportEntry> m_scoreReport = new List<ScoreReportEntry>();
 		public bool StartedOK { get; private set; }
 		private bool m_timeWarnings = false;
 		private bool m_chatWarnings = false;
@@ -898,6 +944,8 @@ namespace ZoomQuiz
 
 		private void StartQuestionButtonClick(object sender, RoutedEventArgs e)
 		{
+			m_scoreReport.Clear();
+			UpdateScoreReport();
 			m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 			m_answers = new Dictionary<Contestant, List<Answer>>();
 			HideAnswer();
@@ -1027,6 +1075,17 @@ namespace ZoomQuiz
 				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + e.ProgressPercentage + " seconds remaining ...");
 		}
 
+		private void UpdateScoreReport()
+		{
+			// TODO
+		}
+
+		private void AddToScoreReport(Contestant contestant,AnswerResult result)
+		{
+			m_scoreReport.Add(new ScoreReportEntry(contestant, result));
+			UpdateScoreReport();
+		}
+
 		private void MarkAnswer(AnswerForMarking answer,AnswerResult result,double levValue,bool autoCountdown)
 		{
 			answer.Answer.AnswerResult = result;
@@ -1035,11 +1094,14 @@ namespace ZoomQuiz
 				bin.Add(answer.Answer,levValue);
 			if (result == AnswerResult.Correct)
 			{
+				AddToScoreReport(answer.Contestant, result);
 				if (autoCountdown)
-					markingPump.ReportProgress(1000000, null);
+					markingPump.ReportProgress(0, new CountdownStartArgs());
 			}
+			else if (result == AnswerResult.AlmostCorrect)
+				AddToScoreReport(answer.Contestant, result);
 			else if (result == AnswerResult.Funny)
-				markingPump.ReportProgress(1000001, "😂 Answer from " + answer.Contestant.Name + ": \"" + answer.Answer.AnswerText + "\"");
+				markingPump.ReportProgress(0, new FunnyAnswerArgs(answer.Answer,answer.Contestant));
 			else if (result != AnswerResult.NotAnAnswer)
 				// Once a valid answer is accepted (right or wrong), all other answers from that user cannot be considered.
 				MarkOtherUserAnswers(answer.Contestant);
@@ -1076,17 +1138,6 @@ namespace ZoomQuiz
 			}
 			// Otherwise, no, have to do it manually.
 			return false;
-		}
-
-		class MarkingPumpArgs
-		{
-			public bool UseLevenshtein { get; private set; }
-			public bool AutoCountdown { get; private set; }
-			public MarkingPumpArgs(bool useLevenshtein,bool autoCountdown)
-			{
-				UseLevenshtein = useLevenshtein;
-				AutoCountdown = autoCountdown;
-			}
 		}
 
 		private void markingPump_DoWork(object sender, DoWorkEventArgs e)
@@ -1409,19 +1460,12 @@ namespace ZoomQuiz
 			{
 				m_answerForMarkingMutex.WaitOne();
 				object o = e.UserState;
-				if (e.ProgressPercentage == 1000000)
-				{
+				if (o is CountdownStartArgs)
 					StartCountdown();
-				}
-				else if (e.ProgressPercentage == 1000001)
-				{
+				else if (o is FunnyAnswerArgs)
 					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, o.ToString());
-				}
 				else if (o is MarkingProgress)
-				{
-					MarkingProgress progress = (MarkingProgress)o;
-					UpdateMarkingProgressUI(progress);
-				}
+					UpdateMarkingProgressUI((MarkingProgress)o);
 				else if (o is AnswerForMarking)
 				{
 					m_answerForMarking = (AnswerForMarking)o;
@@ -1566,7 +1610,7 @@ namespace ZoomQuiz
 					{
 						if (a.AnswerText.StartsWith("."))
 						{
-							markingPump.ReportProgress(1000001, "😂 Answer from " + contestant.Name + ": \"" + a.AnswerText + "\"");
+							markingPump.ReportProgress(0, new FunnyAnswerArgs(a,contestant));
 							a.AnswerResult = AnswerResult.Funny;
 						}
 						else
