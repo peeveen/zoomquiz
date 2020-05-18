@@ -662,9 +662,9 @@ namespace ZoomQuiz
 					if (String.IsNullOrEmpty(qmed))
 					{
 						// Backwards compat.
-						qmed = quizIni.Read("QPic", numSection).ToLower().Trim();
+						qmed = quizIni.Read("QAud", numSection).ToLower().Trim();
 						if (String.IsNullOrEmpty(qmed))
-							qmed = quizIni.Read("QAud", numSection).ToLower().Trim();
+							qmed = quizIni.Read("QPic", numSection).ToLower().Trim();
 					}
 					MediaType qmedType = GetMediaTypeFromFilename(qmed);
 					string qsup = quizIni.Read("QSupMed", numSection).ToLower().Trim();
@@ -1027,7 +1027,7 @@ namespace ZoomQuiz
 				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + e.ProgressPercentage + " seconds remaining ...");
 		}
 
-		private void MarkAnswer(AnswerForMarking answer,AnswerResult result,double levValue)
+		private void MarkAnswer(AnswerForMarking answer,AnswerResult result,double levValue,bool autoCountdown)
 		{
 			answer.Answer.AnswerResult = result;
 			AnswerBin bin = m_answerBins[result];
@@ -1035,50 +1035,65 @@ namespace ZoomQuiz
 				bin.Add(answer.Answer,levValue);
 			if (result == AnswerResult.Correct)
 			{
-				if (autoCountdown.IsChecked==true && startCountdownButton.IsEnabled)
-					StartCountdown();
+				if (autoCountdown)
+					markingPump.ReportProgress(1000000, null);
 			}
 			else if (result == AnswerResult.Funny)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "😂 Answer from " + answer.Contestant.Name + ": \"" + answer.Answer.AnswerText + "\"");
+				markingPump.ReportProgress(1000001, "😂 Answer from " + answer.Contestant.Name + ": \"" + answer.Answer.AnswerText + "\"");
 			else if (result != AnswerResult.NotAnAnswer)
 				// Once a valid answer is accepted (right or wrong), all other answers from that user cannot be considered.
 				MarkOtherUserAnswers(answer.Contestant);
 		}
 
-		private bool AutoMarkAnswer(AnswerForMarking answer,bool useLev)
+		private bool AutoMarkAnswer(AnswerForMarking answer,bool useLev,bool autoCountdown)
 		{
 			bool startsWithDot = answer.Answer.AnswerText.StartsWith(".");
 			// If user has already submitted an answer that was accepted, don't accept this new one as an answer.
-			if (m_answers.ContainsKey(answer.Contestant))
+			if (!startsWithDot)
 			{
-				List<Answer> contestantAnswers = m_answers[answer.Contestant];
-				if (contestantAnswers.Any(a => a.IsAcceptedAnswer))
+				if (m_answers.ContainsKey(answer.Contestant))
 				{
-					MarkAnswer(answer, startsWithDot? AnswerResult.Funny: AnswerResult.NotAnAnswer,0.0);
-					return true;
+					List<Answer> contestantAnswers = m_answers[answer.Contestant];
+					if (contestantAnswers.Any(a => a.IsAcceptedAnswer))
+					{
+						MarkAnswer(answer, startsWithDot ? AnswerResult.Funny : AnswerResult.NotAnAnswer, 0.0, autoCountdown);
+						return true;
+					}
 				}
+				// Otherwise, if the user has submitted an answer that has already been marked, use that marking.
+				double levValue = 0.0;
+				foreach (KeyValuePair<AnswerResult, AnswerBin> kvp in m_answerBins)
+					if (kvp.Value.Contains(answer.Answer) || (useLev && kvp.Value.LevContains(answer.Answer, out levValue)))
+					{
+						MarkAnswer(answer, kvp.Key, levValue, autoCountdown);
+						return true;
+					}
 			}
-			// Otherwise, if the user has submitted an answer that has already been marked, use that marking.
-			double levValue=0.0;
-			foreach (KeyValuePair<AnswerResult, AnswerBin> kvp in m_answerBins)
-				if (kvp.Value.Contains(answer.Answer) || (useLev && kvp.Value.LevContains(answer.Answer,out levValue)))
-				{
-					MarkAnswer(answer, kvp.Key, levValue);
-					return true;
-				}
-			// Check for dot marker here rather than earlier, in case an answer starting with a dot WAS the actual answer.
-			if (startsWithDot)
+			else
 			{
-				MarkAnswer(answer, AnswerResult.Funny,0.0);
+				MarkAnswer(answer, AnswerResult.Funny,0.0, autoCountdown);
 				return true;
 			}
 			// Otherwise, no, have to do it manually.
 			return false;
 		}
 
+		class MarkingPumpArgs
+		{
+			public bool UseLevenshtein { get; private set; }
+			public bool AutoCountdown { get; private set; }
+			public MarkingPumpArgs(bool useLevenshtein,bool autoCountdown)
+			{
+				UseLevenshtein = useLevenshtein;
+				AutoCountdown = autoCountdown;
+			}
+		}
+
 		private void markingPump_DoWork(object sender, DoWorkEventArgs e)
 		{
-			bool lev = (bool)e.Argument;
+			MarkingPumpArgs markingPumpArgs= (MarkingPumpArgs)e.Argument;
+			bool lev = (bool)markingPumpArgs.UseLevenshtein;
+			bool autoCountdown = (bool)markingPumpArgs.AutoCountdown;
 			void UpdateMarkingProgress(AnswerForMarking nextAnswerForMarking = null)
 			{
 				int answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count());
@@ -1107,7 +1122,7 @@ namespace ZoomQuiz
 						if (unmarkedAnswer != null)
 						{
 							AnswerForMarking answerForMarking = new AnswerForMarking(kvp.Key, unmarkedAnswer);
-							if (!AutoMarkAnswer(answerForMarking, lev))
+							if (!AutoMarkAnswer(answerForMarking, lev,autoCountdown))
 							{
 								waitingForMarking = true;
 								SetAnswerForMarking(answerForMarking);
@@ -1394,7 +1409,15 @@ namespace ZoomQuiz
 			{
 				m_answerForMarkingMutex.WaitOne();
 				object o = e.UserState;
-				if (o is MarkingProgress)
+				if (e.ProgressPercentage == 1000000)
+				{
+					StartCountdown();
+				}
+				else if (e.ProgressPercentage == 1000001)
+				{
+					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, o.ToString());
+				}
+				else if (o is MarkingProgress)
 				{
 					MarkingProgress progress = (MarkingProgress)o;
 					UpdateMarkingProgressUI(progress);
@@ -1418,17 +1441,20 @@ namespace ZoomQuiz
 
 		private void StartCountdown()
 		{
-			startCountdownButton.IsEnabled = false;
-			if (m_timeWarnings)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
-			countdownWorker.RunWorkerAsync();
-			m_countdownActive = true;
-			bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
-			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
-			if (m_fullScreenPictureShowing)
-				SetOBSScene("CountdownQuestionPictureScene");
-			else
-				SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "CountdownQuestionScene" : "CountdownNoPicQuestionScene");
+			if (startCountdownButton.IsEnabled)
+			{
+				startCountdownButton.IsEnabled = false;
+				if (m_timeWarnings)
+					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
+				countdownWorker.RunWorkerAsync();
+				m_countdownActive = true;
+				bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
+				bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
+				if (m_fullScreenPictureShowing)
+					SetOBSScene("CountdownQuestionPictureScene");
+				else
+					SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "CountdownQuestionScene" : "CountdownNoPicQuestionScene");
+			}
 		}
 
 		private void StartCountdownButtonClick(object sender, RoutedEventArgs e)
@@ -1540,7 +1566,7 @@ namespace ZoomQuiz
 					{
 						if (a.AnswerText.StartsWith("."))
 						{
-							ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "😂 Answer from " + contestant.Name + ": \"" + a.AnswerText + "\"");
+							markingPump.ReportProgress(1000001, "😂 Answer from " + contestant.Name + ": \"" + a.AnswerText + "\"");
 							a.AnswerResult = AnswerResult.Funny;
 						}
 						else
@@ -1585,7 +1611,7 @@ namespace ZoomQuiz
 				comparisonStrings = m_currentQuestion.QuestionWrongAnswers;
 			else
 				return 0.0;
-			double bestLev=comparisonStrings.Min(str => Levenshtein.CalculateLevenshtein(str, normAnswer) / (double)str.Length);
+			double bestLev=(comparisonStrings.Count()==0?0.0:comparisonStrings.Min(str => Levenshtein.CalculateLevenshtein(str, normAnswer) / (double)str.Length));
 			return bestLev;
 		}
 
@@ -1597,7 +1623,7 @@ namespace ZoomQuiz
 				if (m_answerForMarking != null)
 				{
 					restartMarking.IsEnabled = true;
-					MarkAnswer(m_answerForMarking, result,GetBestLevenshtein(result,m_answerForMarking.Answer.NormalizedAnswer));
+					MarkAnswer(m_answerForMarking, result,GetBestLevenshtein(result,m_answerForMarking.Answer.NormalizedAnswer),autoCountdown.IsChecked==true);
 					ClearAnswerForMarking();
 					m_answerMarkedEvent.Set();
 				}
@@ -1719,7 +1745,7 @@ namespace ZoomQuiz
 			if (!PresentationOnly)
 			{
 				m_countdownCompleteEvent.Reset();
-				markingPump.RunWorkerAsync(m_currentQuestion.UseLevenshtein);
+				markingPump.RunWorkerAsync(new MarkingPumpArgs(m_currentQuestion.UseLevenshtein,autoCountdown.IsChecked==true));
 				answerCounter.RunWorkerAsync();
 			}
 
