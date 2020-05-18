@@ -324,8 +324,8 @@ namespace ZoomQuiz
 		}
 		public void GetLevenshteinRange(out double min,out double max)
 		{
-			min = m_ratedAnswers.Min(ra => ra.Value);
-			max = m_ratedAnswers.Max(ra => ra.Value);
+			min = m_ratedAnswers.Count == 0 ? 0.0 : m_ratedAnswers.Min(ra => ra.Value);
+			max = m_ratedAnswers.Count == 0 ? 0.0 : m_ratedAnswers.Max(ra => ra.Value);
 		}
 		public bool LevContains(Answer answer,out double levValue)
 		{
@@ -1001,7 +1001,7 @@ namespace ZoomQuiz
 
 		private void countdownWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
-			if(m_timeWarnings)
+			if (m_timeWarnings)
 				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⌛ Time is up!");
 			if (m_chatWarnings)
 				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is ON");
@@ -1083,7 +1083,8 @@ namespace ZoomQuiz
 			{
 				int answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count());
 				int markedAnswerCount = m_answers.Sum(kvp2 => kvp2.Value.Count(a => a.AnswerResult != AnswerResult.Unmarked));
-				markingPump.ReportProgress((int)((double)markedAnswerCount / answerCount) * 100, new MarkingProgress(answerCount, markedAnswerCount));
+				int percentage = answerCount==0?0:(int)((double)markedAnswerCount / answerCount);
+				markingPump.ReportProgress(percentage * 100, new MarkingProgress(answerCount, markedAnswerCount));
 			}
 			void SetAnswerForMarking(AnswerForMarking nextAnswerForMarking)
 			{
