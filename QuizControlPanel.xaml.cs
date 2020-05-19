@@ -397,10 +397,34 @@ namespace ZoomQuiz
 	{
 		public Contestant Contestant { get; private set; }
 		public AnswerResult Result { get; private set; }
+		public Brush Colour {
+			get
+			{
+				if (Result == AnswerResult.Correct)
+					return Brushes.LawnGreen;
+				if (Result == AnswerResult.AlmostCorrect)
+					return Brushes.Yellow;
+				if (Result == AnswerResult.Wrong)
+					return Brushes.Red;
+				return Brushes.LightGray;
+			}
+		}
 		public ScoreReportEntry(Contestant contestant,AnswerResult result)
 		{
 			Contestant = contestant;
 			Result = result;
+		}
+		public override string ToString()
+		{
+			string str="";
+			if (Result == AnswerResult.Correct)
+				str = "✓✓";
+			if (Result == AnswerResult.AlmostCorrect)
+				str = "✓";
+			if (Result == AnswerResult.Wrong)
+				str = "✕";
+			str += " " + Contestant.Name;
+			return str;
 		}
 	}
 
@@ -424,6 +448,7 @@ namespace ZoomQuiz
 		public static extern bool SetForegroundWindow(IntPtr hWnd);
 
 		private const int COUNTDOWN_SECONDS = 15;
+		private const string SCORE_REPORT_FILENAME = "scoreReport.png";
 		private const string SCORES_FILENAME = "scores.txt";
 		private const string ANSWERS_FILENAME = "answers.txt";
 		private const string QUIZ_FILENAME = "quiz.ini";
@@ -431,9 +456,11 @@ namespace ZoomQuiz
 		private readonly System.Drawing.Size QUESTION_SIZE = new System.Drawing.Size(1600, 360);
 		private readonly System.Drawing.Size ANSWER_SIZE = new System.Drawing.Size(1600, 360);
 		private readonly System.Drawing.Size LEADERBOARD_SIZE = new System.Drawing.Size(1860, 1000);
+		private readonly System.Drawing.Size SCORE_REPORT_SIZE = new System.Drawing.Size(300,300);
 		private const int TEXT_OUTLINE_THICKNESS = 5;
 		private const string QUESTION_FONT_NAME = "Impact";
 		private const string LEADERBOARD_FONT_NAME = "Bahnschrift SemiBold SemiCondensed";
+		private const string SCORE_REPORT_FONT_NAME = "Bahnschrift SemiBold SemiCondensed";
 		private const float AUDIO_VOLUME = 0.8f;
 		private const float VIDEO_VOLUME = 1.0f;
 		private const float BGM_VOLUME = 0.05f;
@@ -511,6 +538,8 @@ namespace ZoomQuiz
 					//File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
 					//ScanMediaPath();
 					SetCountdownMedia();
+					UpdateScoreReport();
+					SetScoreReportMedia();
 					SetBGMShuffle();
 					SetLeaderboardsPath();
 					//LoadQuiz();
@@ -555,6 +584,12 @@ namespace ZoomQuiz
 			JObject lbSettings = lbSourceSettings.sourceSettings;
 			lbSettings["files"][0]["value"] = lbFolder;
 			m_obs.SetSourceSettings("Leaderboard", lbSettings);
+		}
+
+		private void SetScoreReportMedia()
+		{
+			string lbFolder = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
+			SetOBSFileSourceFromPath("ScoreReport", "file", Path.Combine(lbFolder, SCORE_REPORT_FILENAME));
 		}
 
 		private void SetCountdownMedia()
@@ -1077,12 +1112,46 @@ namespace ZoomQuiz
 
 		private void UpdateScoreReport()
 		{
-			// TODO
+			using (Bitmap b = new Bitmap(SCORE_REPORT_SIZE.Width, SCORE_REPORT_SIZE.Height))
+			{
+				using (Graphics g = Graphics.FromImage(b))
+				{
+					g.TextRenderingHint = TextRenderingHint.AntiAlias;
+					g.Clear(Color.Transparent);
+					Rectangle headerRect = new Rectangle(0, 0, LEADERBOARD_SIZE.Width, 100);
+					int xMargin = 4, yMargin = 4, ySpacing = 4;
+					using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20,System.Drawing.FontStyle.Regular))
+					{
+						SizeF rowSize=g.MeasureString("Wg", scoreReportFont);
+						int currentY = (int)(SCORE_REPORT_SIZE.Height - rowSize.Height)-yMargin;
+						foreach (ScoreReportEntry sre in m_scoreReport)
+						{
+							StringFormat sf = new StringFormat();
+							sf.Trimming = StringTrimming.EllipsisCharacter;
+							for (int x = -1; x < 2; ++x)
+								for (int y = -1; y < 2; ++y)
+									if(!(x==0 && y==0))
+									{
+										RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
+										g.DrawString(sre.ToString(), scoreReportFont, Brushes.Black, blackRect, sf);
+									}
+							RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
+							g.DrawString(sre.ToString(), scoreReportFont, sre.Colour , rect, sf);
+							currentY -= (int)(rowSize.Height+ySpacing);
+							if (currentY < -rowSize.Height)
+								break;
+						}
+					}
+				}
+				string path = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
+				path = Path.Combine(path, "scoreReport.png");
+				b.Save(path, ImageFormat.Png);
+			}
 		}
 
 		private void AddToScoreReport(Contestant contestant,AnswerResult result)
 		{
-			m_scoreReport.Add(new ScoreReportEntry(contestant, result));
+			m_scoreReport.Insert(0,new ScoreReportEntry(contestant, result));
 			UpdateScoreReport();
 		}
 
