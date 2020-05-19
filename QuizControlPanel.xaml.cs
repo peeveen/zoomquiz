@@ -418,7 +418,7 @@ namespace ZoomQuiz
 		{
 			string str="";
 			if (Result == AnswerResult.Correct)
-				str = "✓✓";
+				str = "✓";
 			if (Result == AnswerResult.AlmostCorrect)
 				str = "✓";
 			if (Result == AnswerResult.Wrong)
@@ -459,8 +459,8 @@ namespace ZoomQuiz
 		private readonly System.Drawing.Size SCORE_REPORT_SIZE = new System.Drawing.Size(300,300);
 		private const int TEXT_OUTLINE_THICKNESS = 5;
 		private const string QUESTION_FONT_NAME = "Impact";
-		private const string LEADERBOARD_FONT_NAME = "Bahnschrift SemiBold SemiCondensed";
-		private const string SCORE_REPORT_FONT_NAME = "Bahnschrift SemiBold SemiCondensed";
+		private const string LEADERBOARD_FONT_NAME = "Bahnschrift Condensed";
+		private const string SCORE_REPORT_FONT_NAME = "Bahnschrift Condensed";
 		private const float AUDIO_VOLUME = 0.8f;
 		private const float VIDEO_VOLUME = 1.0f;
 		private const float BGM_VOLUME = 0.05f;
@@ -588,8 +588,8 @@ namespace ZoomQuiz
 
 		private void SetScoreReportMedia()
 		{
-			string lbFolder = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
-			SetOBSFileSourceFromPath("ScoreReport", "file", Path.Combine(lbFolder, SCORE_REPORT_FILENAME));
+			string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+			SetOBSFileSourceFromPath("ScoreReport", "file", Path.Combine(presFolder, SCORE_REPORT_FILENAME));
 		}
 
 		private void SetCountdownMedia()
@@ -846,10 +846,10 @@ namespace ZoomQuiz
 		{
 			if (!PresentationOnly)
 			{
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatStatusChangedNotification(OnChatStatusChanged);
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingWaitingRoomController().EnableWaitingRoomOnEntry(false);
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatStatusChangedNotification(OnChatStatusChanged);
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingWaitingRoomController().EnableWaitingRoomOnEntry(false);
 
-				IMeetingParticipantsControllerDotNetWrap partCon = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController();
+				IMeetingParticipantsControllerDotNetWrap partCon = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController();
 				uint[] participantIDs = partCon.GetParticipantsList();
 				for (int f = 0; f < participantIDs.Length; ++f)
 				{
@@ -861,13 +861,13 @@ namespace ZoomQuiz
 					}
 				}
 
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().JoinVoip();
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "🥂 Welcome to the quiz!");
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().JoinVoip();
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "🥂 Welcome to the quiz!");
 
-				ZOOM_SDK_DOTNET_WRAP.ShowChatDlgParam showDlgParam = new ZOOM_SDK_DOTNET_WRAP.ShowChatDlgParam();
+				ShowChatDlgParam showDlgParam = new ShowChatDlgParam();
 				showDlgParam.rect = new System.Drawing.Rectangle(10, 10, 200, 200);
 				ValueType dlgParam = showDlgParam;
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetUIController().ShowChatDlg(ref dlgParam);
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetUIController().ShowChatDlg(ref dlgParam);
 
 				SetChatMode(ChatMode.EveryonePubliclyAndPrivately);
 			}
@@ -954,9 +954,9 @@ namespace ZoomQuiz
 		{
 			if (!PresentationOnly)
 			{
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(true, m_myID);
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(true, m_myID);
 				if (muteDuringQuestions.IsChecked == true)
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, false);
+					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, false);
 				presentingText.Text = "Stop Presenting";
 				presentingButton.Background = System.Windows.Media.Brushes.Pink;
 				m_presenting = true;
@@ -967,9 +967,9 @@ namespace ZoomQuiz
 		{
 			if (!PresentationOnly)
 			{
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(false, m_myID);
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(false, m_myID);
 				if (muteDuringQuestions.IsChecked == true)
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, true);
+					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, true);
 				m_presenting = false;
 				presentingText.Text = "Start Presenting";
 				presentingButton.Background = System.Windows.Media.Brushes.LightGreen;
@@ -1010,7 +1010,7 @@ namespace ZoomQuiz
 			showQuestionButton.IsEnabled = true;
 			if (!PresentationOnly)
 			{
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "✏️ Here comes the next question ...");
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "✏️ Here comes the next question ...");
 			}
 		}
 
@@ -1085,12 +1085,12 @@ namespace ZoomQuiz
 		private void countdownWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			if (m_timeWarnings)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⌛ Time is up!");
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⌛ Time is up!");
 			if (m_chatWarnings)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is ON");
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is ON");
 			m_countdownCompleteEvent.Set();
 			m_countdownActive = false;
-			ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
+			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
 			NextQuestion(m_nextQuestion);
 			SetChatMode(ChatMode.EveryonePublicly);
 			try
@@ -1107,7 +1107,7 @@ namespace ZoomQuiz
 		private void countdownWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			if (m_timeWarnings)
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + e.ProgressPercentage + " seconds remaining ...");
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + e.ProgressPercentage + " seconds remaining ...");
 		}
 
 		private void UpdateScoreReport()
@@ -1120,14 +1120,15 @@ namespace ZoomQuiz
 					g.Clear(Color.Transparent);
 					Rectangle headerRect = new Rectangle(0, 0, LEADERBOARD_SIZE.Width, 100);
 					int xMargin = 4, yMargin = 4, ySpacing = 4;
-					using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20,System.Drawing.FontStyle.Regular))
+					StringFormat sf = new StringFormat();
+					sf.Alignment = StringAlignment.Center;
+					sf.Trimming = StringTrimming.EllipsisCharacter;
+					using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20,System.Drawing.FontStyle.Bold))
 					{
 						SizeF rowSize=g.MeasureString("Wg", scoreReportFont);
 						int currentY = (int)(SCORE_REPORT_SIZE.Height - rowSize.Height)-yMargin;
 						foreach (ScoreReportEntry sre in m_scoreReport)
 						{
-							StringFormat sf = new StringFormat();
-							sf.Trimming = StringTrimming.EllipsisCharacter;
 							for (int x = -1; x < 2; ++x)
 								for (int y = -1; y < 2; ++y)
 									if(!(x==0 && y==0))
@@ -1143,8 +1144,8 @@ namespace ZoomQuiz
 						}
 					}
 				}
-				string path = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
-				path = Path.Combine(path, "scoreReport.png");
+				string path = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+				path = Path.Combine(path, SCORE_REPORT_FILENAME);
 				b.Save(path, ImageFormat.Png);
 			}
 		}
@@ -1406,6 +1407,7 @@ namespace ZoomQuiz
 					string path = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
 					path = Path.Combine(path, "leaderboard" + leaderboardCount + ".png");
 					b.Save(path, ImageFormat.Png);
+					++leaderboardCount;
 				}
 				if (n >= scores.Count)
 					break;
@@ -1532,7 +1534,7 @@ namespace ZoomQuiz
 				if (o is CountdownStartArgs)
 					StartCountdown();
 				else if (o is FunnyAnswerArgs)
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, o.ToString());
+					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, o.ToString());
 				else if (o is MarkingProgress)
 					UpdateMarkingProgressUI((MarkingProgress)o);
 				else if (o is AnswerForMarking)
@@ -1558,7 +1560,7 @@ namespace ZoomQuiz
 			{
 				startCountdownButton.IsEnabled = false;
 				if (m_timeWarnings)
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
+					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
 				countdownWorker.RunWorkerAsync();
 				m_countdownActive = true;
 				bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
@@ -1879,9 +1881,9 @@ namespace ZoomQuiz
 			if (!PresentationOnly)
 			{
 				startCountdownButton.IsEnabled = true;
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatMsgNotifcation(OnAnswerReceived);
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatMsgNotifcation(OnAnswerReceived);
 				if (m_chatWarnings)
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is now OFF until the answers are in.");
+					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is now OFF until the answers are in.");
 			}
 			else
 			{
