@@ -482,6 +482,7 @@ namespace ZoomQuiz
 		private Mutex m_volumeMutex = new Mutex();
 		private Mutex m_answerListMutex = new Mutex();
 		private Mutex m_answerFileMutex = new Mutex();
+		private Mutex m_scoreReportMutex = new Mutex();
 		private AnswerForMarking m_answerForMarking = null;
 		private Mutex m_answerForMarkingMutex = new Mutex();
 		private AutoResetEvent m_answerReceivedEvent1 = new AutoResetEvent(false);
@@ -979,7 +980,15 @@ namespace ZoomQuiz
 
 		private void StartQuestionButtonClick(object sender, RoutedEventArgs e)
 		{
-			m_scoreReport.Clear();
+			try
+			{
+				m_scoreReportMutex.WaitOne();
+				m_scoreReport.Clear();
+			}
+			finally
+			{
+				m_scoreReportMutex.ReleaseMutex();
+			}
 			UpdateScoreReport();
 			m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 			m_answers = new Dictionary<Contestant, List<Answer>>();
@@ -1127,20 +1136,28 @@ namespace ZoomQuiz
 					{
 						SizeF rowSize=g.MeasureString("Wg", scoreReportFont);
 						int currentY = (int)(SCORE_REPORT_SIZE.Height - rowSize.Height)-yMargin;
-						foreach (ScoreReportEntry sre in m_scoreReport)
+						try
 						{
-							for (int x = -1; x < 2; ++x)
-								for (int y = -1; y < 2; ++y)
-									if(!(x==0 && y==0))
-									{
-										RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
-										g.DrawString(sre.ToString(), scoreReportFont, Brushes.Black, blackRect, sf);
-									}
-							RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
-							g.DrawString(sre.ToString(), scoreReportFont, sre.Colour , rect, sf);
-							currentY -= (int)(rowSize.Height+ySpacing);
-							if (currentY < -rowSize.Height)
-								break;
+							m_scoreReportMutex.WaitOne();
+							foreach (ScoreReportEntry sre in m_scoreReport)
+							{
+								for (int x = -1; x < 2; ++x)
+									for (int y = -1; y < 2; ++y)
+										if(!(x==0 && y==0))
+										{
+											RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
+											g.DrawString(sre.ToString(), scoreReportFont, Brushes.Black, blackRect, sf);
+										}
+								RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
+								g.DrawString(sre.ToString(), scoreReportFont, sre.Colour , rect, sf);
+								currentY -= (int)(rowSize.Height+ySpacing);
+								if (currentY < -rowSize.Height)
+									break;
+							}
+						}
+						finally
+						{
+							m_scoreReportMutex.ReleaseMutex();
 						}
 					}
 				}
@@ -1152,7 +1169,15 @@ namespace ZoomQuiz
 
 		private void AddToScoreReport(Contestant contestant,AnswerResult result)
 		{
-			m_scoreReport.Insert(0,new ScoreReportEntry(contestant, result));
+			try
+			{
+				m_scoreReportMutex.WaitOne();
+				m_scoreReport.Insert(0,new ScoreReportEntry(contestant, result));
+			}
+			finally
+			{
+				m_scoreReportMutex.ReleaseMutex();
+			}
 			UpdateScoreReport();
 		}
 
