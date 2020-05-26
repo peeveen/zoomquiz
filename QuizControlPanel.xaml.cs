@@ -543,6 +543,7 @@ namespace ZoomQuiz
 					SetScoreReportMedia();
 					SetBGMShuffle();
 					SetLeaderboardsPath();
+					HideCountdownOverlay();
 					//LoadQuiz();
 					faderWorker.RunWorkerAsync();
 					StartedOK = true;
@@ -761,19 +762,16 @@ namespace ZoomQuiz
 					MediaType qsupType = GetMediaTypeFromFilename(qsup);
 					string apic = quizIni.Read("APic", numSection).ToLower().Trim();
 					string info = FixUnicode(quizIni.Read("Info", numSection).Trim());
-					string[] aArray = ParseDelimitedString(a);
 					string[] wArray = ParseDelimitedString(w);
 					string[] aaArray = ParseDelimitedString(aa);
 					string[] nArray = ParseDelimitedString(n);
-					for (int f = 0; f < aArray.Length; ++f)
-						aArray[f] = Answer.NormalizeAnswer(aArray[f]);
 					for (int f = 0; f < aaArray.Length; ++f)
 						aaArray[f] = Answer.NormalizeAnswer(aaArray[f]);
 					for (int f = 0; f < nArray.Length; ++f)
 						nArray[f] = Answer.NormalizeAnswer(nArray[f]);
 					List<string> allAnswers = new List<string>();
-					allAnswers.AddRange(aArray);
 					allAnswers.AddRange(aaArray);
+					allAnswers.Add(Answer.NormalizeAnswer(a));
 					bool useLev;
 					string useLevStr = quizIni.Read("Lev", numSection).ToLower().Trim();
 					int unusedInt;
@@ -1005,6 +1003,7 @@ namespace ZoomQuiz
 			SetOBSVideoSource("QuestionVid", null);
 			SetOBSAudioSource("QuestionBGM", m_currentQuestion.QuestionBGMFilename);
 			SetVolumes(false, m_currentQuestion);
+			HideCountdownOverlay();
 			SetChatMode(ChatMode.HostOnly);
 			StartPresenting();
 			HideFullScreenPicture(false);
@@ -1579,6 +1578,20 @@ namespace ZoomQuiz
 			}
 		}
 
+		private void HideCountdownOverlay()
+		{
+			HideOBSSource("CountdownOverlay", "CamScene");
+			HideOBSSource("CountdownOverlay", "FullScreenPictureQuestionScene");
+			HideOBSSource("CountdownOverlay", "FullScreenPictureAnswerScene");
+		}
+
+		private void ShowCountdownOverlay()
+		{
+			ShowOBSSource("CountdownOverlay", "CamScene");
+			ShowOBSSource("CountdownOverlay", "FullScreenPictureQuestionScene");
+			ShowOBSSource("CountdownOverlay", "FullScreenPictureAnswerScene");
+		}
+
 		private void StartCountdown()
 		{
 			if (startCountdownButton.IsEnabled)
@@ -1588,12 +1601,7 @@ namespace ZoomQuiz
 					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
 				countdownWorker.RunWorkerAsync();
 				m_countdownActive = true;
-				bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
-				bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
-				if (m_fullScreenPictureShowing)
-					SetOBSScene("CountdownQuestionPictureScene");
-				else
-					SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "CountdownQuestionScene" : "CountdownNoPicQuestionScene");
+				ShowCountdownOverlay();
 			}
 		}
 
@@ -1952,7 +1960,7 @@ namespace ZoomQuiz
 			}
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
 			showPictureButton.IsEnabled = hasPic;
-			SetOBSScene(hasPic?(m_fullScreenPictureShowing?"AnswerPictureScene":"AnswerScene"):"NoPicAnswerScene");
+			SetOBSScene(hasPic?(m_fullScreenPictureShowing?"FullScreenPictureAnswerScene":"AnswerScene"):"NoPicAnswerScene");
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
 			m_answerShowing = true;
@@ -2070,7 +2078,7 @@ namespace ZoomQuiz
 
 		private void SetOBSVideoSource(string sourceName, string mediaName)
 		{
-			string[] scenes = new string[] { "QuestionScene", "QuestionPictureScene", "CountdownQuestionPictureScene" };
+			string[] scenes = new string[] { "QuestionScene", "FullScreenPictureQuestionScene" };
 			string path=null;
 			if (mediaName != null)
 				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
@@ -2241,12 +2249,12 @@ namespace ZoomQuiz
 			if (m_answerShowing)
 			{
 				bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
-				SetOBSScene(hasPic ? "AnswerPictureScene" : "NoPicAnswerScene");
+				SetOBSScene(hasPic ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
 			}
 			else if (m_questionShowing)
 			{
 				bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
-				SetOBSScene(m_countdownActive ? "CountdownQuestionPictureScene" : "QuestionPictureScene");
+				SetOBSScene("FullScreenPictureQuestionScene");
 			}
 			showPictureButton.Background = System.Windows.Media.Brushes.Pink;
 			showPictureText.Text = "Embedded Picture";
