@@ -456,7 +456,7 @@ namespace ZoomQuiz
 		private readonly System.Drawing.Size QUESTION_SIZE = new System.Drawing.Size(1600, 360);
 		private readonly System.Drawing.Size ANSWER_SIZE = new System.Drawing.Size(1600, 360);
 		private readonly System.Drawing.Size LEADERBOARD_SIZE = new System.Drawing.Size(1860, 1000);
-		private readonly System.Drawing.Size SCORE_REPORT_SIZE = new System.Drawing.Size(300,300);
+		private readonly System.Drawing.Size SCORE_REPORT_SIZE = new System.Drawing.Size(386,585);
 		private const int TEXT_OUTLINE_THICKNESS = 5;
 		private const string QUESTION_FONT_NAME = "Impact";
 		private const string LEADERBOARD_FONT_NAME = "Bahnschrift Condensed";
@@ -1131,10 +1131,14 @@ namespace ZoomQuiz
 					StringFormat sf = new StringFormat();
 					sf.Alignment = StringAlignment.Center;
 					sf.Trimming = StringTrimming.EllipsisCharacter;
+					int rows = m_scoreReport.Count();
 					using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20,System.Drawing.FontStyle.Bold))
 					{
 						SizeF rowSize=g.MeasureString("Wg", scoreReportFont);
-						int currentY = (int)(SCORE_REPORT_SIZE.Height - rowSize.Height)-yMargin;
+						int initialRowOffset = 9 - rows;
+						if (initialRowOffset < 0)
+							initialRowOffset = 0;
+						int currentY = yMargin + (initialRowOffset * (int)(rowSize.Height + ySpacing));
 						try
 						{
 							m_scoreReportMutex.WaitOne();
@@ -1149,8 +1153,8 @@ namespace ZoomQuiz
 										}
 								RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
 								g.DrawString(sre.ToString(), scoreReportFont, sre.Colour , rect, sf);
-								currentY -= (int)(rowSize.Height+ySpacing);
-								if (currentY < -rowSize.Height)
+								currentY += (int)(rowSize.Height+ySpacing);
+								if (currentY > SCORE_REPORT_SIZE.Height)
 									break;
 							}
 						}
