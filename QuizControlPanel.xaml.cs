@@ -16,6 +16,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Windows.Data;
+using System.Windows.Media.Animation;
 
 namespace ZoomQuiz
 {
@@ -393,7 +394,7 @@ namespace ZoomQuiz
 		}
 	}
 
-	class ScoreReportEntry
+	class ScoreReportEntry:IComparable
 	{
 		public Contestant Contestant { get; private set; }
 		public AnswerResult Result { get; private set; }
@@ -418,7 +419,7 @@ namespace ZoomQuiz
 			Contestant = contestant;
 			Result = result;
 		}
-		public override string ToString()
+		public string GetScoreReportString(bool includeTime)
 		{
 			string str="";
 			if (Result == AnswerResult.Correct)
@@ -428,9 +429,16 @@ namespace ZoomQuiz
 			if (Result == AnswerResult.Wrong)
 				str = "✕";
 			str += " " + Contestant.Name;
-			if (AnswerTimeOffset.TotalSeconds > 0)
-				str += " (+" + AnswerTimeOffset.TotalSeconds + "s)";
+			if(includeTime)
+				if (AnswerTimeOffset.TotalSeconds > 0)
+					str += " (+" + string.Format("{0:0.00}", AnswerTimeOffset.TotalSeconds) + "s)";
 			return str;
+		}
+		public int CompareTo(object obj)
+		{
+			if (obj is ScoreReportEntry)
+				return -AnswerTimeOffset.CompareTo(((ScoreReportEntry)obj).AnswerTimeOffset);
+			return 1;
 		}
 	}
 
@@ -455,7 +463,7 @@ namespace ZoomQuiz
 
 		private const int COUNTDOWN_SECONDS = 15;
 		private const string SCORE_REPORT_FILENAME = "scoreReport.png";
-		private const string SCROLLING_SCORE_REPORT_FILENAME = "scrollingScoreReport.png";
+		private const string SCORE_REPORT_WITH_TIMES_FILENAME = "scoreReportWithTimes.png";
 		private const string SCORES_FILENAME = "scores.txt";
 		private const string ANSWERS_FILENAME = "answers.txt";
 		private const string QUIZ_FILENAME = "quiz.ini";
@@ -546,7 +554,7 @@ namespace ZoomQuiz
 					//File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
 					//ScanMediaPath();
 					SetCountdownMedia();
-					UpdateScoreReport();
+					UpdateScoreReports();
 					SetScoreReportMedia();
 					SetBGMShuffle();
 					SetLeaderboardsPath();
@@ -994,7 +1002,7 @@ namespace ZoomQuiz
 			{
 				m_scoreReportMutex.ReleaseMutex();
 			}
-			UpdateScoreReport();
+			UpdateScoreReports();
 			m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 			m_answers = new Dictionary<Contestant, List<Answer>>();
 			HideAnswer();
@@ -1125,63 +1133,83 @@ namespace ZoomQuiz
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + e.ProgressPercentage + " seconds remaining ...");
 		}
 
-		private void UpdateScoreReport()
+		private void UpdateScoreReports()
 		{
-			using (Bitmap nonScrollingBitmap = new Bitmap(SCORE_REPORT_SIZE.Width, SCORE_REPORT_SIZE.Height))
+			UpdateScoreReport(false, SCORE_REPORT_FILENAME,SCORE_REPORT_SIZE.Height);
+			UpdateScoreReport(true, SCORE_REPORT_WITH_TIMES_FILENAME);
+		}
+
+		SizeF rowSize = new SizeF(0,0);
+		private void UpdateScoreReport(bool times,string outputFilename,int fixedHeight=0)
+		{
+			if (rowSize.IsEmpty)
 			{
-				using (Graphics nonScrollingGraphics = Graphics.FromImage(nonScrollingBitmap))
+				using (Bitmap testBitmap = new Bitmap(100, 100))
 				{
-					nonScrollingGraphics.TextRenderingHint = TextRenderingHint.AntiAlias;
-					nonScrollingGraphics.Clear(Color.Transparent);
-					int xMargin = 4, yMargin = 4, ySpacing = 4;
+					using (Graphics testGraphics = Graphics.FromImage(testBitmap))
+					{
+						testGraphics.TextRenderingHint = TextRenderingHint.AntiAlias;
+						using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20, System.Drawing.FontStyle.Bold))
+						{
+							rowSize = testGraphics.MeasureString("Wg", scoreReportFont);
+						}
+					}
+				}
+			}
+
+			int xMargin = 4, yMargin = 4, ySpacing = 4;
+			int rows = m_scoreReport.Count;
+			int initialRowOffset = 9 - rows;
+			if (initialRowOffset < 0 || times)
+				initialRowOffset = 0;
+			int currentY = yMargin + (initialRowOffset * (int)(rowSize.Height + ySpacing));
+			int scoreReportHeight = ((int)(rowSize.Height + ySpacing) * (rows + 1 + initialRowOffset)) + yMargin;
+
+			using (Bitmap bitmap = new Bitmap(SCORE_REPORT_SIZE.Width,fixedHeight==0?scoreReportHeight:fixedHeight))
+			{
+				using (Graphics graphics = Graphics.FromImage(bitmap))
+				{
+					graphics.TextRenderingHint = TextRenderingHint.AntiAlias;
+					graphics.Clear(Color.Transparent);
 					StringFormat sf = new StringFormat
 					{
 						Alignment = StringAlignment.Center,
 						Trimming = StringTrimming.EllipsisCharacter
 					};
-					int rows = m_scoreReport.Count;
-					using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20,System.Drawing.FontStyle.Bold))
+					using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20, System.Drawing.FontStyle.Bold))
 					{
-						SizeF rowSize= nonScrollingGraphics.MeasureString("Wg", scoreReportFont);
-						int initialRowOffset = 9 - rows;
-						if (initialRowOffset < 0)
-							initialRowOffset = 0;
-						int currentY = yMargin + (initialRowOffset * (int)(rowSize.Height + ySpacing));
-						int scoreReportHeight = ((int)(rowSize.Height + ySpacing) * (rows +1+initialRowOffset)) + yMargin;
-						using (Bitmap scrollingBitmap = new Bitmap(SCORE_REPORT_SIZE.Width,scoreReportHeight))
+						try
 						{
-							using (Graphics scrollingGraphics = Graphics.FromImage(scrollingBitmap))
+							m_scoreReportMutex.WaitOne();
+							List<ScoreReportEntry> workingScoreReport=new List<ScoreReportEntry>(m_scoreReport);
+							if (times)
 							{
-								try
-								{
-									m_scoreReportMutex.WaitOne();
-									foreach (ScoreReportEntry sre in m_scoreReport)
-									{
-										for (int x = -1; x < 2; ++x)
-											for (int y = -1; y < 2; ++y)
-												if (!(x == 0 && y == 0))
-												{
-													RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
-													scrollingGraphics.DrawString(sre.ToString(), scoreReportFont, Brushes.Black, blackRect, sf);
-												}
-										RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
-										scrollingGraphics.DrawString(sre.ToString(), scoreReportFont, sre.Colour, rect, sf);
-										currentY += (int)(rowSize.Height + ySpacing);
-									}
-								}
-								finally
-								{
-									m_scoreReportMutex.ReleaseMutex();
-								}
-								nonScrollingGraphics.DrawImage(scrollingBitmap, new PointF(0, 0));
+								workingScoreReport.Sort();
+								workingScoreReport.Reverse();
 							}
-							string path = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
-							string nonScrollingBitmapPath = Path.Combine(path, SCORE_REPORT_FILENAME);
-							string scrollingBitmapPath = Path.Combine(path, SCROLLING_SCORE_REPORT_FILENAME);
-							nonScrollingBitmap.Save(nonScrollingBitmapPath, ImageFormat.Png);
-							scrollingBitmap.Save(scrollingBitmapPath, ImageFormat.Png);
+							foreach (ScoreReportEntry sre in workingScoreReport)
+							{
+								string sreString = sre.GetScoreReportString(times);
+								for (int x = -1; x < 2; ++x)
+									for (int y = -1; y < 2; ++y)
+										if (!(x == 0 && y == 0))
+										{
+											RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
+											graphics.DrawString(sreString, scoreReportFont, Brushes.Black, blackRect, sf);
+										}
+								RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
+								graphics.DrawString(sreString, scoreReportFont, sre.Colour, rect, sf);
+								currentY += (int)(rowSize.Height + ySpacing);
+							}
+						}
+						finally
+						{
+							m_scoreReportMutex.ReleaseMutex();
 						}
 					}
+					string path = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+					string bitmapPath = Path.Combine(path, outputFilename);
+					bitmap.Save(bitmapPath, ImageFormat.Png);
 				}
 			}
 		}
@@ -1199,7 +1227,7 @@ namespace ZoomQuiz
 			{
 				m_scoreReportMutex.ReleaseMutex();
 			}
-			UpdateScoreReport();
+			UpdateScoreReports();
 		}
 
 		private void MarkAnswer(AnswerForMarking answer,AnswerResult result,double levValue,bool autoCountdown)
@@ -1605,8 +1633,9 @@ namespace ZoomQuiz
 			HideOBSSource("CountdownOverlay", "CamScene");
 			HideOBSSource("CountdownOverlay", "FullScreenPictureQuestionScene");
 			HideOBSSource("CountdownOverlay", "FullScreenPictureAnswerScene");
-			SetOBSSourceVisibility("ScoreReport", "CountdownOverlay", true);
-			SetOBSSourceVisibility("ScrollingScoreReport", "CountdownOverlay", false);
+			SetOBSSourceVisibility("ScoreReport", "ScoreReportOverlay", true);
+			SetOBSSourceVisibility("ScoreReportWithTimes", "ScoreReportOverlay", false);
+			SetOBSSourceVisibility("ScrollingScoreReportWithTimes", "ScoreReportOverlay", false);
 		}
 
 		private void ShowCountdownOverlay()
@@ -1662,27 +1691,27 @@ namespace ZoomQuiz
 			};
 			foreach (string name in contestantNames)
 				contestants.Add(new Contestant(un++, name));
-			Answer[] answers = new Answer[]
+			string[] answers = new string[]
 			{
-				new Answer("alan shearer"),
-				new Answer("Shearer"),
-				new Answer("Alan Sharrer"),
-				new Answer("alan shearer"),
-				new Answer("Bobby moore"),
-				new Answer("diego maradona"),
-				new Answer("Bobby Ball 😂"),
-				new Answer("i've got a pot noodle!"),
-				new Answer("Alan shearer"),
-				new Answer("alan shearer"),
-				new Answer("alan shearer"),
-				new Answer("a shearer"),
-				new Answer("giggsy"),
-				new Answer("paul scholes"),
-				new Answer("allan shearer"),
-				new Answer("bananaman"),
-				new Answer("alan shearer"),
-				new Answer("shearer"),
-				new Answer("ALAN SHERER")
+				"alan shearer",
+				"Shearer",
+				"Alan Sharrer",
+				"alan shearer",
+				"Bobby moore",
+				"diego maradona",
+				"Bobby Ball 😂",
+				"i've got a pot noodle!",
+				"Alan shearer",
+				"alan shearer",
+				"alan shearer",
+				"a shearer",
+				"giggsy",
+				"paul scholes",
+				"allan shearer",
+				"bananaman",
+				"alan shearer",
+				"shearer",
+				"ALAN SHERER"
 			};
 			int[] timings = new int[]
 			{
@@ -1710,7 +1739,7 @@ namespace ZoomQuiz
 			foreach(int timing in timings)
 			{
 				Thread.Sleep(timing);
-				AddAnswer(contestants[n],answers[n]);
+				AddAnswer(contestants[n],new Answer(answers[n]));
 				++n;
 			}
 		}
@@ -1987,11 +2016,10 @@ namespace ZoomQuiz
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
 			// The score report can show a maximum of 17 names. More than that requires a scrolling report.
-			if (m_scoreReport.Count > 17)
-			{
-				SetOBSSourceVisibility("ScoreReport", "CountdownOverlay", false);
-				SetOBSSourceVisibility("ScrollingScoreReport", "CountdownOverlay", true);
-			}
+			bool scrollingRequired = m_scoreReport.Count > 17;
+			SetOBSSourceVisibility("ScoreReport", "ScoreReportOverlay", false);
+			SetOBSSourceVisibility("ScoreReportWithTimes", "ScoreReportOverlay", !scrollingRequired);
+			SetOBSSourceVisibility("ScrollingScoreReportWithTimes", "ScoreReportOverlay", scrollingRequired);
 			m_answerShowing = true;
 		}
 
@@ -2266,7 +2294,7 @@ namespace ZoomQuiz
 				{
 					bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
 					bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
-					SetOBSScene(m_countdownActive ? (hasPicOrVid || hasSupPicOrVid ? "CountdownQuestionScene" : "CountdownNoPicQuestionScene") : (hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene"));
+					SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
 				}
 			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showPictureText.Text = "Fullscreen Picture";
