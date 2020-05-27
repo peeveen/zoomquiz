@@ -397,6 +397,8 @@ namespace ZoomQuiz
 	{
 		public Contestant Contestant { get; private set; }
 		public AnswerResult Result { get; private set; }
+		public TimeSpan AnswerTimeOffset { get; private set; }
+		public DateTime AnswerTime { get; private set; }
 		public Brush Colour {
 			get
 			{
@@ -409,8 +411,10 @@ namespace ZoomQuiz
 				return Brushes.LightGray;
 			}
 		}
-		public ScoreReportEntry(Contestant contestant,AnswerResult result)
+		public ScoreReportEntry(DateTime answerTime,Contestant contestant,AnswerResult result,TimeSpan answerTimeOffset)
 		{
+			AnswerTime = answerTime;
+			AnswerTimeOffset = answerTimeOffset;
 			Contestant = contestant;
 			Result = result;
 		}
@@ -424,6 +428,8 @@ namespace ZoomQuiz
 			if (Result == AnswerResult.Wrong)
 				str = "✕";
 			str += " " + Contestant.Name;
+			if (AnswerTimeOffset.TotalSeconds > 0)
+				str += " (+" + AnswerTimeOffset.TotalSeconds + "s)";
 			return str;
 		}
 	}
@@ -449,6 +455,7 @@ namespace ZoomQuiz
 
 		private const int COUNTDOWN_SECONDS = 15;
 		private const string SCORE_REPORT_FILENAME = "scoreReport.png";
+		private const string SCROLLING_SCORE_REPORT_FILENAME = "scrollingScoreReport.png";
 		private const string SCORES_FILENAME = "scores.txt";
 		private const string ANSWERS_FILENAME = "answers.txt";
 		private const string QUIZ_FILENAME = "quiz.ini";
@@ -1045,7 +1052,7 @@ namespace ZoomQuiz
 				try
 				{
 					m_answerListMutex.WaitOne();
-					answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count());
+					answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count);
 					markedAnswerCount = m_answers.Sum(kvp2 => kvp2.Value.Count(a => a.AnswerResult != AnswerResult.Unmarked));
 				}
 				finally
@@ -1120,62 +1127,73 @@ namespace ZoomQuiz
 
 		private void UpdateScoreReport()
 		{
-			using (Bitmap b = new Bitmap(SCORE_REPORT_SIZE.Width, SCORE_REPORT_SIZE.Height))
+			using (Bitmap nonScrollingBitmap = new Bitmap(SCORE_REPORT_SIZE.Width, SCORE_REPORT_SIZE.Height))
 			{
-				using (Graphics g = Graphics.FromImage(b))
+				using (Graphics nonScrollingGraphics = Graphics.FromImage(nonScrollingBitmap))
 				{
-					g.TextRenderingHint = TextRenderingHint.AntiAlias;
-					g.Clear(Color.Transparent);
-					Rectangle headerRect = new Rectangle(0, 0, LEADERBOARD_SIZE.Width, 100);
+					nonScrollingGraphics.TextRenderingHint = TextRenderingHint.AntiAlias;
+					nonScrollingGraphics.Clear(Color.Transparent);
 					int xMargin = 4, yMargin = 4, ySpacing = 4;
-					StringFormat sf = new StringFormat();
-					sf.Alignment = StringAlignment.Center;
-					sf.Trimming = StringTrimming.EllipsisCharacter;
-					int rows = m_scoreReport.Count();
+					StringFormat sf = new StringFormat
+					{
+						Alignment = StringAlignment.Center,
+						Trimming = StringTrimming.EllipsisCharacter
+					};
+					int rows = m_scoreReport.Count;
 					using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20,System.Drawing.FontStyle.Bold))
 					{
-						SizeF rowSize=g.MeasureString("Wg", scoreReportFont);
+						SizeF rowSize= nonScrollingGraphics.MeasureString("Wg", scoreReportFont);
 						int initialRowOffset = 9 - rows;
 						if (initialRowOffset < 0)
 							initialRowOffset = 0;
 						int currentY = yMargin + (initialRowOffset * (int)(rowSize.Height + ySpacing));
-						try
+						int scoreReportHeight = ((int)(rowSize.Height + ySpacing) * (rows +1+initialRowOffset)) + yMargin;
+						using (Bitmap scrollingBitmap = new Bitmap(SCORE_REPORT_SIZE.Width,scoreReportHeight))
 						{
-							m_scoreReportMutex.WaitOne();
-							foreach (ScoreReportEntry sre in m_scoreReport)
+							using (Graphics scrollingGraphics = Graphics.FromImage(scrollingBitmap))
 							{
-								for (int x = -1; x < 2; ++x)
-									for (int y = -1; y < 2; ++y)
-										if(!(x==0 && y==0))
-										{
-											RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
-											g.DrawString(sre.ToString(), scoreReportFont, Brushes.Black, blackRect, sf);
-										}
-								RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
-								g.DrawString(sre.ToString(), scoreReportFont, sre.Colour , rect, sf);
-								currentY += (int)(rowSize.Height+ySpacing);
-								if (currentY > SCORE_REPORT_SIZE.Height)
-									break;
+								try
+								{
+									m_scoreReportMutex.WaitOne();
+									foreach (ScoreReportEntry sre in m_scoreReport)
+									{
+										for (int x = -1; x < 2; ++x)
+											for (int y = -1; y < 2; ++y)
+												if (!(x == 0 && y == 0))
+												{
+													RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
+													scrollingGraphics.DrawString(sre.ToString(), scoreReportFont, Brushes.Black, blackRect, sf);
+												}
+										RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
+										scrollingGraphics.DrawString(sre.ToString(), scoreReportFont, sre.Colour, rect, sf);
+										currentY += (int)(rowSize.Height + ySpacing);
+									}
+								}
+								finally
+								{
+									m_scoreReportMutex.ReleaseMutex();
+								}
+								nonScrollingGraphics.DrawImage(scrollingBitmap, new PointF(0, 0));
 							}
-						}
-						finally
-						{
-							m_scoreReportMutex.ReleaseMutex();
+							string path = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+							string nonScrollingBitmapPath = Path.Combine(path, SCORE_REPORT_FILENAME);
+							string scrollingBitmapPath = Path.Combine(path, SCROLLING_SCORE_REPORT_FILENAME);
+							nonScrollingBitmap.Save(nonScrollingBitmapPath, ImageFormat.Png);
+							scrollingBitmap.Save(scrollingBitmapPath, ImageFormat.Png);
 						}
 					}
 				}
-				string path = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
-				path = Path.Combine(path, SCORE_REPORT_FILENAME);
-				b.Save(path, ImageFormat.Png);
 			}
 		}
 
-		private void AddToScoreReport(Contestant contestant,AnswerResult result)
+		private void AddToScoreReport(DateTime answerTime,Contestant contestant,AnswerResult result)
 		{
 			try
 			{
 				m_scoreReportMutex.WaitOne();
-				m_scoreReport.Insert(0,new ScoreReportEntry(contestant, result));
+				ScoreReportEntry firstReport = m_scoreReport.LastOrDefault();
+				TimeSpan offset = firstReport==null?new TimeSpan(0):answerTime - firstReport.AnswerTime;
+				m_scoreReport.Insert(0,new ScoreReportEntry(answerTime,contestant, result,offset));
 			}
 			finally
 			{
@@ -1192,12 +1210,12 @@ namespace ZoomQuiz
 				bin.Add(answer.Answer,levValue);
 			if (result == AnswerResult.Correct)
 			{
-				AddToScoreReport(answer.Contestant, result);
+				AddToScoreReport(answer.Answer.AnswerTime, answer.Contestant, result);
 				if (autoCountdown)
 					markingPump.ReportProgress(0, new CountdownStartArgs());
 			}
 			else if (result == AnswerResult.AlmostCorrect)
-				AddToScoreReport(answer.Contestant, result);
+				AddToScoreReport(answer.Answer.AnswerTime, answer.Contestant, result);
 			else if (result == AnswerResult.Funny)
 				markingPump.ReportProgress(0, new FunnyAnswerArgs(answer.Answer,answer.Contestant));
 			else if (result != AnswerResult.NotAnAnswer)
@@ -1245,7 +1263,7 @@ namespace ZoomQuiz
 			bool autoCountdown = (bool)markingPumpArgs.AutoCountdown;
 			void UpdateMarkingProgress(AnswerForMarking nextAnswerForMarking = null)
 			{
-				int answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count());
+				int answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count);
 				int markedAnswerCount = m_answers.Sum(kvp2 => kvp2.Value.Count(a => a.AnswerResult != AnswerResult.Unmarked));
 				int percentage = answerCount==0?0:(int)((double)markedAnswerCount / answerCount);
 				markingPump.ReportProgress(percentage * 100, new MarkingProgress(answerCount, markedAnswerCount));
@@ -1360,7 +1378,7 @@ namespace ZoomQuiz
 						scrollIntoView = cscore;
 					cscores.Add(cscore);
 				}
-				pos += kvp.Value.Count();
+				pos += kvp.Value.Count;
 			}
 			leaderboardList.ItemsSource = cscores;
 			if (scrollIntoView != null)
@@ -1587,6 +1605,8 @@ namespace ZoomQuiz
 			HideOBSSource("CountdownOverlay", "CamScene");
 			HideOBSSource("CountdownOverlay", "FullScreenPictureQuestionScene");
 			HideOBSSource("CountdownOverlay", "FullScreenPictureAnswerScene");
+			SetOBSSourceVisibility("ScoreReport", "CountdownOverlay", true);
+			SetOBSSourceVisibility("ScrollingScoreReport", "CountdownOverlay", false);
 		}
 
 		private void ShowCountdownOverlay()
@@ -1642,7 +1662,6 @@ namespace ZoomQuiz
 			};
 			foreach (string name in contestantNames)
 				contestants.Add(new Contestant(un++, name));
-			int n = 0;
 			Answer[] answers = new Answer[]
 			{
 				new Answer("alan shearer"),
@@ -1687,7 +1706,7 @@ namespace ZoomQuiz
 				578,
 				2101
 			};
-			n = 0;
+			int n = 0;
 			foreach(int timing in timings)
 			{
 				Thread.Sleep(timing);
@@ -1763,7 +1782,7 @@ namespace ZoomQuiz
 				comparisonStrings = m_currentQuestion.QuestionWrongAnswers;
 			else
 				return 0.0;
-			double bestLev=(comparisonStrings.Count()==0?0.0:comparisonStrings.Min(str => Levenshtein.CalculateLevenshtein(str, normAnswer) / (double)str.Length));
+			double bestLev=(comparisonStrings.Length==0?0.0:comparisonStrings.Min(str => Levenshtein.CalculateLevenshtein(str, normAnswer) / (double)str.Length));
 			return bestLev;
 		}
 
@@ -1967,6 +1986,12 @@ namespace ZoomQuiz
 			SetOBSScene(hasPic?(m_fullScreenPictureShowing?"FullScreenPictureAnswerScene":"AnswerScene"):"NoPicAnswerScene");
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
+			// The score report can show a maximum of 17 names. More than that requires a scrolling report.
+			if (m_scoreReport.Count > 17)
+			{
+				SetOBSSourceVisibility("ScoreReport", "CountdownOverlay", false);
+				SetOBSSourceVisibility("ScrollingScoreReport", "CountdownOverlay", true);
+			}
 			m_answerShowing = true;
 		}
 
