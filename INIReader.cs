@@ -24,8 +24,8 @@ namespace ZoomQuiz
 
     public string Read(string Key, string Section = null)
     {
-      var RetVal = new StringBuilder(255);
-      GetPrivateProfileString(Section ?? EXE, Key, "", RetVal, 255, Path);
+      var RetVal = new StringBuilder(1023);
+      GetPrivateProfileString(Section ?? EXE, Key, "", RetVal, 1023, Path);
       return RetVal.ToString();
     }
 
