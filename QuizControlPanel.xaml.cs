@@ -1226,12 +1226,12 @@ namespace ZoomQuiz
 				ScoreReportEntry firstReport = m_scoreReport.LastOrDefault();
 				TimeSpan offset = firstReport==null?new TimeSpan(0):answerTime - firstReport.AnswerTime;
 				m_scoreReport.Insert(0,new ScoreReportEntry(answerTime,contestant, result,offset));
+				UpdateScoreReports();
 			}
 			finally
 			{
 				m_scoreReportMutex.ReleaseMutex();
 			}
-			UpdateScoreReports();
 		}
 
 		private void MarkAnswer(AnswerForMarking answer,AnswerResult result,double levValue,bool autoCountdown)
@@ -1307,10 +1307,10 @@ namespace ZoomQuiz
 			bool waitingForMarking = false;
 			for(; ;)
 			{
-				WaitHandle[] events = waitingForMarking? new WaitHandle[] { m_answerMarkedEvent, m_quitAppEvent }:new WaitHandle[] { m_answerReceivedEvent1, m_quitAppEvent,m_countdownCompleteEvent };
+				WaitHandle[] events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent,m_countdownCompleteEvent };
 				waitingForMarking = false;
 				int result = WaitHandle.WaitAny(events);
-				if (result == 1)
+				if (result == 2)
 					break;
 				try
 				{
