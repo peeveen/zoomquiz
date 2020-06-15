@@ -1305,13 +1305,14 @@ namespace ZoomQuiz
 				markingPump.ReportProgress(0, nextAnswerForMarking);
 			}
 			bool waitingForMarking = false;
-			for(; ;)
+			WaitHandle[] events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent };
+			for (; ;)
 			{
-				WaitHandle[] events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent,m_countdownCompleteEvent };
-				waitingForMarking = false;
 				int result = WaitHandle.WaitAny(events);
 				if (result == 2)
 					break;
+				if (result == 0)
+					waitingForMarking = false;
 				try
 				{
 					m_answerListMutex.WaitOne();
@@ -1323,8 +1324,11 @@ namespace ZoomQuiz
 							AnswerForMarking answerForMarking = new AnswerForMarking(kvp.Key, unmarkedAnswer);
 							if (!AutoMarkAnswer(answerForMarking, lev,autoCountdown))
 							{
-								waitingForMarking = true;
-								SetAnswerForMarking(answerForMarking);
+								if (!waitingForMarking)
+								{
+									waitingForMarking = true;
+									SetAnswerForMarking(answerForMarking);
+								}
 							}
 							else
 								UpdateMarkingProgress();
@@ -1697,7 +1701,7 @@ namespace ZoomQuiz
 				contestants.Add(new Contestant(un++, name));
 			string[] answers = new string[]
 			{
-				"alan shearer",
+				"paul scholes",
 				"Shearer",
 				"Alan Sharrer",
 				"alan shearer",
