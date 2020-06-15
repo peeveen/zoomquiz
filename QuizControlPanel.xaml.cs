@@ -121,19 +121,15 @@ namespace ZoomQuiz
 		}
 		public static string NormalizeAnswer(string answer)
 		{
-			// Change ampersands into " and ".
-			answer = answer.Replace(" & ", " and ");
-
-			// remove everything that isn't a space, a letter or a number
+			// first of all remove everything that isn't a space, a letter or a number
 			string norm = "";
 			foreach (char c in answer)
 				if (Char.IsLetterOrDigit(c) || Char.IsWhiteSpace(c))
 					norm += c;
 			// Trim leading/trailing whitespace.
 			norm = norm.Trim();
-
-			string oldNorm;
 			// Now change any double spaces into single spaces.
+			string oldNorm;
 			do
 			{
 				oldNorm = norm;
