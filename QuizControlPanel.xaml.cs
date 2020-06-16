@@ -44,19 +44,19 @@ namespace ZoomQuiz
 
 	public enum AnswerResult
 	{
-		Correct=0,
-		AlmostCorrect=1,
-		Wrong=2,
-		Funny=3,
-		NotAnAnswer=4,
-		Unmarked=99
+		Correct = 0,
+		AlmostCorrect = 1,
+		Wrong = 2,
+		Funny = 3,
+		NotAnAnswer = 4,
+		Unmarked = 99
 	}
 
 	public enum QuestionValidity
 	{
-		Valid=0,
-		MissingQuestionOrAnswer=1,
-		MissingSupplementary=2
+		Valid = 0,
+		MissingQuestionOrAnswer = 1,
+		MissingSupplementary = 2
 	}
 
 	public class Question
@@ -80,9 +80,9 @@ namespace ZoomQuiz
 		public bool UseLevenshtein { get; private set; }
 		public int QuestionNumber { get; private set; }
 		public QuestionValidity Validity { get; private set; }
-		public Question(int number,string questionText,string answerText,string[] answers,string[] almostAnswers, string[] wrongAnswers,string questionMediaFile, MediaType questionMediaType,string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerImageFile,string info,bool useLevenshtein,QuestionValidity validity)
+		public Question(int number, string questionText, string answerText, string[] answers, string[] almostAnswers, string[] wrongAnswers, string questionMediaFile, MediaType questionMediaType, string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerImageFile, string info, bool useLevenshtein, QuestionValidity validity)
 		{
-			QuestionNumber=number;
+			QuestionNumber = number;
 			QuestionText = questionText.Trim();
 			QuestionMediaFilename = questionMediaFile.Trim();
 			QuestionMediaType = questionMediaType;
@@ -116,7 +116,7 @@ namespace ZoomQuiz
 		{
 			AnswerTime = DateTime.Now;
 			AnswerText = answer;
-			AnswerResult= AnswerResult.Unmarked;
+			AnswerResult = AnswerResult.Unmarked;
 			NormalizedAnswer = NormalizeAnswer(answer);
 		}
 		public static string NormalizeAnswer(string answer)
@@ -142,7 +142,7 @@ namespace ZoomQuiz
 			norm = System.Text.Encoding.UTF8.GetString(tempBytes);
 			// Now, if it starts with "the", remove it.
 			norm = norm.Trim();
-			if (norm.StartsWith("the ") && norm.Length>4)
+			if (norm.StartsWith("the ") && norm.Length > 4)
 				norm = norm.Substring(4);
 			return norm;
 		}
@@ -152,14 +152,14 @@ namespace ZoomQuiz
 	{
 		public string Name { get; private set; }
 		public uint ID { get; private set; }
-		public Contestant(uint id,string name)
+		public Contestant(uint id, string name)
 		{
 			ID = id;
 			Name = name;
 		}
 		public override bool Equals(object obj)
 		{
-			if(obj is Contestant)
+			if (obj is Contestant)
 			{
 				Contestant c2 = (Contestant)obj;
 				// ID is NOT constant between join/leave.
@@ -177,7 +177,7 @@ namespace ZoomQuiz
 	{
 		public Answer Answer { get; private set; }
 		public Contestant Contestant { get; private set; }
-		public AnswerForMarking(Contestant contestant,Answer answer)
+		public AnswerForMarking(Contestant contestant, Answer answer)
 		{
 			Answer = answer;
 			Contestant = contestant;
@@ -188,7 +188,7 @@ namespace ZoomQuiz
 	{
 		public int AnswersReceived { get; private set; }
 		public int AnswersMarked { get; private set; }
-		public MarkingProgress(int received,int marked)
+		public MarkingProgress(int received, int marked)
 		{
 			AnswersReceived = received;
 			AnswersMarked = marked;
@@ -297,7 +297,7 @@ namespace ZoomQuiz
 	public class AnswerBin
 	{
 		private Mutex m_answersMutex = new Mutex();
-		private Dictionary<string,double> m_ratedAnswers=new Dictionary<string, double>();
+		private Dictionary<string, double> m_ratedAnswers = new Dictionary<string, double>();
 		public AnswerBin()
 		{
 		}
@@ -305,10 +305,10 @@ namespace ZoomQuiz
 		{
 			m_answersMutex.Dispose();
 		}
-		public void Add(Answer answer,double levValue)
+		public void Add(Answer answer, double levValue)
 		{
 			m_answersMutex.WaitOne();
-			m_ratedAnswers[answer.NormalizedAnswer]=levValue;
+			m_ratedAnswers[answer.NormalizedAnswer] = levValue;
 			m_answersMutex.ReleaseMutex();
 		}
 		public bool Contains(Answer answer)
@@ -323,12 +323,12 @@ namespace ZoomQuiz
 				m_answersMutex.ReleaseMutex();
 			}
 		}
-		public void GetLevenshteinRange(out double min,out double max)
+		public void GetLevenshteinRange(out double min, out double max)
 		{
 			min = m_ratedAnswers.Count == 0 ? 0.0 : m_ratedAnswers.Min(ra => ra.Value);
 			max = m_ratedAnswers.Count == 0 ? 0.0 : m_ratedAnswers.Max(ra => ra.Value);
 		}
-		public bool LevContains(Answer answer,out double levValue)
+		public bool LevContains(Answer answer, out double levValue)
 		{
 			levValue = 0.0;
 			try
@@ -337,7 +337,7 @@ namespace ZoomQuiz
 				string norm = answer.NormalizedAnswer;
 				foreach (string acceptableAnswer in m_ratedAnswers.Keys)
 				{
-					if (Levenshtein.LevMatch(norm, acceptableAnswer,out levValue))
+					if (Levenshtein.LevMatch(norm, acceptableAnswer, out levValue))
 						return true;
 				}
 			}
@@ -394,13 +394,14 @@ namespace ZoomQuiz
 		}
 	}
 
-	class ScoreReportEntry:IComparable
+	class ScoreReportEntry : IComparable
 	{
 		public Contestant Contestant { get; private set; }
 		public AnswerResult Result { get; private set; }
 		public TimeSpan AnswerTimeOffset { get; private set; }
 		public DateTime AnswerTime { get; private set; }
-		public Brush Colour {
+		public Brush Colour
+		{
 			get
 			{
 				if (Result == AnswerResult.Correct)
@@ -412,7 +413,7 @@ namespace ZoomQuiz
 				return Brushes.LightGray;
 			}
 		}
-		public ScoreReportEntry(DateTime answerTime,Contestant contestant,AnswerResult result,TimeSpan answerTimeOffset)
+		public ScoreReportEntry(DateTime answerTime, Contestant contestant, AnswerResult result, TimeSpan answerTimeOffset)
 		{
 			AnswerTime = answerTime;
 			AnswerTimeOffset = answerTimeOffset;
@@ -421,7 +422,7 @@ namespace ZoomQuiz
 		}
 		public string GetScoreReportString(bool includeTime)
 		{
-			string str="";
+			string str = "";
 			if (Result == AnswerResult.Correct)
 				str = "✓";
 			if (Result == AnswerResult.AlmostCorrect)
@@ -429,7 +430,7 @@ namespace ZoomQuiz
 			if (Result == AnswerResult.Wrong)
 				str = "✕";
 			str += " " + Contestant.Name;
-			if(includeTime)
+			if (includeTime)
 				if (AnswerTimeOffset.TotalSeconds > 0)
 					str += " (+" + string.Format("{0:0.00}", AnswerTimeOffset.TotalSeconds) + "s)";
 			return str;
@@ -471,7 +472,7 @@ namespace ZoomQuiz
 		private readonly System.Drawing.Size QUESTION_SIZE = new System.Drawing.Size(1600, 360);
 		private readonly System.Drawing.Size ANSWER_SIZE = new System.Drawing.Size(1600, 360);
 		private readonly System.Drawing.Size LEADERBOARD_SIZE = new System.Drawing.Size(1860, 1000);
-		private readonly System.Drawing.Size SCORE_REPORT_SIZE = new System.Drawing.Size(386,585);
+		private readonly System.Drawing.Size SCORE_REPORT_SIZE = new System.Drawing.Size(386, 585);
 		private const int TEXT_OUTLINE_THICKNESS = 5;
 		private const string QUESTION_FONT_NAME = "Impact";
 		private const string LEADERBOARD_FONT_NAME = "Bahnschrift Condensed";
@@ -507,7 +508,7 @@ namespace ZoomQuiz
 		private Dictionary<Contestant, int> m_scores = new Dictionary<Contestant, int>();
 		private Dictionary<Contestant, AnswerResult> m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 		private Dictionary<AnswerResult, AnswerBin> m_answerBins = new Dictionary<AnswerResult, AnswerBin>();
-		private OBSWebsocket m_obs= new OBSWebsocket();
+		private OBSWebsocket m_obs = new OBSWebsocket();
 		private Dictionary<int, Question> m_quiz = new Dictionary<int, Question>();
 		private int m_nextQuestion = 1;
 		private Dictionary<string, string> m_mediaPaths = new Dictionary<string, string>();
@@ -587,8 +588,8 @@ namespace ZoomQuiz
 		private void ClearLeaderboards()
 		{
 			string lbFolder = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
-			string[] files=Directory.GetFiles(lbFolder);
-			foreach(string file in files)
+			string[] files = Directory.GetFiles(lbFolder);
+			foreach (string file in files)
 				if (File.Exists(file))
 					File.Delete(file);
 		}
@@ -614,10 +615,10 @@ namespace ZoomQuiz
 			string mp4Path = Path.Combine(presFolder, "Countdown.mp4");
 			string maskPath = Path.Combine(presFolder, "circle.png");
 			SetOBSFileSourceFromPath("Countdown", "local_file", mp4Path);
-			List<FilterSettings> filters=m_obs.GetSourceFilters("Countdown");
-			foreach(FilterSettings st in filters)
+			List<FilterSettings> filters = m_obs.GetSourceFilters("Countdown");
+			foreach (FilterSettings st in filters)
 			{
-				if(st.Name.Contains("Image Mask"))
+				if (st.Name.Contains("Image Mask"))
 				{
 					JObject maskSettings = st.Settings;
 					maskSettings["image_path"] = maskPath;
@@ -699,7 +700,7 @@ namespace ZoomQuiz
 
 		private string FixUnicode(string strIn)
 		{
-			strIn=strIn.Replace("Â£", "£");
+			strIn = strIn.Replace("Â£", "£");
 			strIn = strIn.Replace("Ã©", "é");
 			return strIn;
 		}
@@ -790,7 +791,7 @@ namespace ZoomQuiz
 					string useLevStr = quizIni.Read("Lev", numSection).ToLower().Trim();
 					int unusedInt;
 					if (!bool.TryParse(useLevStr, out useLev))
-						useLev = !allAnswers.Any(answerString => answerString.Length<4 || int.TryParse(answerString, out unusedInt));
+						useLev = !allAnswers.Any(answerString => answerString.Length < 4 || int.TryParse(answerString, out unusedInt));
 					QuestionValidity validity = QuestionValidity.Valid;
 					if ((!String.IsNullOrEmpty(qmed)) && (!m_mediaPaths.ContainsKey(qmed)))
 						validity = QuestionValidity.MissingQuestionOrAnswer;
@@ -809,7 +810,7 @@ namespace ZoomQuiz
 						validity = QuestionValidity.MissingSupplementary;
 					else if ((!String.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
 						validity = QuestionValidity.MissingSupplementary;
-					m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType,qsup,qsupType,apic, info, useLev,validity);
+					m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType, qsup, qsupType, apic, info, useLev, validity);
 				}
 				else
 					break;
@@ -819,7 +820,7 @@ namespace ZoomQuiz
 				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
 			m_nextQuestion = 0;
 			NextQuestion(m_nextQuestion);
-			skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
 		}
 
 		private void UpdateQuizList()
@@ -846,7 +847,7 @@ namespace ZoomQuiz
 			try
 			{
 				m_obsMutex.WaitOne();
-				if(m_obs.IsConnected)
+				if (m_obs.IsConnected)
 					m_obs.Disconnect();
 			}
 			finally
@@ -891,7 +892,7 @@ namespace ZoomQuiz
 		{
 			var values = Enum.GetValues(typeof(AnswerResult));
 			m_answerBins.Clear();
-			foreach(AnswerResult result in values)
+			foreach (AnswerResult result in values)
 				m_answerBins[result] = new AnswerBin();
 			AnswerBin correctAnswers = m_answerBins[AnswerResult.Correct];
 			AnswerBin almostCorrectAnswers = m_answerBins[AnswerResult.AlmostCorrect];
@@ -931,13 +932,12 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void AddAnswer(Contestant contestant,Answer answer)
+		private void AddAnswer(Contestant contestant, Answer answer)
 		{
 			try
 			{
 				m_answerListMutex.WaitOne();
-				List<Answer> answerList = null;
-				m_answers.TryGetValue(contestant, out answerList);
+				m_answers.TryGetValue(contestant, out List<Answer> answerList);
 				if (answerList == null)
 					answerList = new List<Answer>();
 				answerList.Add(answer);
@@ -1048,11 +1048,11 @@ namespace ZoomQuiz
 
 		private void answerCounter_DoWork(object sender, DoWorkEventArgs e)
 		{
-			WaitHandle[] waitEvents = new WaitHandle[] { m_answerReceivedEvent2, m_countdownCompleteEvent,m_quitAppEvent };
-			for(; ; )
+			WaitHandle[] waitEvents = new WaitHandle[] { m_answerReceivedEvent2, m_countdownCompleteEvent, m_quitAppEvent };
+			for (; ; )
 			{
-				int result=WaitHandle.WaitAny(waitEvents);
-				if (result >0)
+				int result = WaitHandle.WaitAny(waitEvents);
+				if (result > 0)
 					break;
 				int answerCount = 0;
 				int markedAnswerCount = 0;
@@ -1067,7 +1067,7 @@ namespace ZoomQuiz
 					m_answerListMutex.ReleaseMutex();
 				}
 
-				answerCounter.ReportProgress(100, new MarkingProgress(answerCount,markedAnswerCount));
+				answerCounter.ReportProgress(100, new MarkingProgress(answerCount, markedAnswerCount));
 			}
 		}
 
@@ -1078,9 +1078,9 @@ namespace ZoomQuiz
 
 		private int GetNextQuestionNumber(int currentQuestion)
 		{
-			int next= currentQuestion;
+			int next = currentQuestion;
 			while (m_quiz.ContainsKey(++next))
-				if (m_quiz[next].Validity!=QuestionValidity.MissingQuestionOrAnswer)
+				if (m_quiz[next].Validity != QuestionValidity.MissingQuestionOrAnswer)
 					break;
 			if (!m_quiz.ContainsKey(next))
 				next = -1;
@@ -1133,12 +1133,12 @@ namespace ZoomQuiz
 
 		private void UpdateScoreReports()
 		{
-			UpdateScoreReport(false, SCORE_REPORT_FILENAME,SCORE_REPORT_SIZE.Height);
+			UpdateScoreReport(false, SCORE_REPORT_FILENAME, SCORE_REPORT_SIZE.Height);
 			UpdateScoreReport(true, SCORE_REPORT_WITH_TIMES_FILENAME);
 		}
 
-		SizeF rowSize = new SizeF(0,0);
-		private void UpdateScoreReport(bool times,string outputFilename,int fixedHeight=0)
+		SizeF rowSize = new SizeF(0, 0);
+		private void UpdateScoreReport(bool times, string outputFilename, int fixedHeight = 0)
 		{
 			if (rowSize.IsEmpty)
 			{
@@ -1163,7 +1163,7 @@ namespace ZoomQuiz
 			int currentY = yMargin + (initialRowOffset * (int)(rowSize.Height + ySpacing));
 			int scoreReportHeight = ((int)(rowSize.Height + ySpacing) * (rows + 1 + initialRowOffset)) + yMargin;
 
-			using (Bitmap bitmap = new Bitmap(SCORE_REPORT_SIZE.Width,fixedHeight==0?scoreReportHeight:fixedHeight))
+			using (Bitmap bitmap = new Bitmap(SCORE_REPORT_SIZE.Width, fixedHeight == 0 ? scoreReportHeight : fixedHeight))
 			{
 				using (Graphics graphics = Graphics.FromImage(bitmap))
 				{
@@ -1179,7 +1179,7 @@ namespace ZoomQuiz
 						try
 						{
 							m_scoreReportMutex.WaitOne();
-							List<ScoreReportEntry> workingScoreReport=new List<ScoreReportEntry>(m_scoreReport);
+							List<ScoreReportEntry> workingScoreReport = new List<ScoreReportEntry>(m_scoreReport);
 							if (times)
 							{
 								workingScoreReport.Sort();
@@ -1212,14 +1212,14 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void AddToScoreReport(DateTime answerTime,Contestant contestant,AnswerResult result)
+		private void AddToScoreReport(DateTime answerTime, Contestant contestant, AnswerResult result)
 		{
 			try
 			{
 				m_scoreReportMutex.WaitOne();
 				ScoreReportEntry firstReport = m_scoreReport.LastOrDefault();
-				TimeSpan offset = firstReport==null?new TimeSpan(0):answerTime - firstReport.AnswerTime;
-				m_scoreReport.Insert(0,new ScoreReportEntry(answerTime,contestant, result,offset));
+				TimeSpan offset = firstReport == null ? new TimeSpan(0) : answerTime - firstReport.AnswerTime;
+				m_scoreReport.Insert(0, new ScoreReportEntry(answerTime, contestant, result, offset));
 				UpdateScoreReports();
 			}
 			finally
@@ -1228,12 +1228,12 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void MarkAnswer(AnswerForMarking answer,AnswerResult result,double levValue,bool autoCountdown)
+		private void MarkAnswer(AnswerForMarking answer, AnswerResult result, double levValue, bool autoCountdown)
 		{
 			answer.Answer.AnswerResult = result;
 			AnswerBin bin = m_answerBins[result];
 			if (bin != null)
-				bin.Add(answer.Answer,levValue);
+				bin.Add(answer.Answer, levValue);
 			if (result == AnswerResult.Correct)
 			{
 				AddToScoreReport(answer.Answer.AnswerTime, answer.Contestant, result);
@@ -1243,13 +1243,13 @@ namespace ZoomQuiz
 			else if (result == AnswerResult.AlmostCorrect)
 				AddToScoreReport(answer.Answer.AnswerTime, answer.Contestant, result);
 			else if (result == AnswerResult.Funny)
-				markingPump.ReportProgress(0, new FunnyAnswerArgs(answer.Answer,answer.Contestant));
+				markingPump.ReportProgress(0, new FunnyAnswerArgs(answer.Answer, answer.Contestant));
 			else if (result != AnswerResult.NotAnAnswer)
 				// Once a valid answer is accepted (right or wrong), all other answers from that user cannot be considered.
 				MarkOtherUserAnswers(answer.Contestant);
 		}
 
-		private bool AutoMarkAnswer(AnswerForMarking answer,bool useLev,bool autoCountdown)
+		private bool AutoMarkAnswer(AnswerForMarking answer, bool useLev, bool autoCountdown)
 		{
 			bool startsWithDot = answer.Answer.AnswerText.StartsWith(".");
 			// If user has already submitted an answer that was accepted, don't accept this new one as an answer.
@@ -1275,7 +1275,7 @@ namespace ZoomQuiz
 			}
 			else
 			{
-				MarkAnswer(answer, AnswerResult.Funny,0.0, autoCountdown);
+				MarkAnswer(answer, AnswerResult.Funny, 0.0, autoCountdown);
 				return true;
 			}
 			// Otherwise, no, have to do it manually.
@@ -1284,14 +1284,14 @@ namespace ZoomQuiz
 
 		private void markingPump_DoWork(object sender, DoWorkEventArgs e)
 		{
-			MarkingPumpArgs markingPumpArgs= (MarkingPumpArgs)e.Argument;
+			MarkingPumpArgs markingPumpArgs = (MarkingPumpArgs)e.Argument;
 			bool lev = (bool)markingPumpArgs.UseLevenshtein;
 			bool autoCountdown = (bool)markingPumpArgs.AutoCountdown;
 			void UpdateMarkingProgress(AnswerForMarking nextAnswerForMarking = null)
 			{
 				int answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count);
 				int markedAnswerCount = m_answers.Sum(kvp2 => kvp2.Value.Count(a => a.AnswerResult != AnswerResult.Unmarked));
-				int percentage = answerCount==0?0:(int)((double)markedAnswerCount / answerCount);
+				int percentage = answerCount == 0 ? 0 : (int)((double)markedAnswerCount / answerCount);
 				markingPump.ReportProgress(percentage * 100, new MarkingProgress(answerCount, markedAnswerCount));
 			}
 			void SetAnswerForMarking(AnswerForMarking nextAnswerForMarking)
@@ -1300,7 +1300,7 @@ namespace ZoomQuiz
 			}
 			bool waitingForMarking = false;
 			WaitHandle[] events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent, m_countdownCompleteEvent };
-			for (; ;)
+			for (; ; )
 			{
 				int result = WaitHandle.WaitAny(events);
 				if (result == 2)
@@ -1322,7 +1322,7 @@ namespace ZoomQuiz
 						if (unmarkedAnswer != null)
 						{
 							AnswerForMarking answerForMarking = new AnswerForMarking(kvp.Key, unmarkedAnswer);
-							if (!AutoMarkAnswer(answerForMarking, lev,autoCountdown))
+							if (!AutoMarkAnswer(answerForMarking, lev, autoCountdown))
 							{
 								if (!waitingForMarking)
 								{
@@ -1388,13 +1388,13 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void UpdateLeaderboard(bool drawLeaderboard = false,Contestant contestantToShow=null)
+		private void UpdateLeaderboard(bool drawLeaderboard = false, Contestant contestantToShow = null)
 		{
 			SortedList<int, List<Contestant>> scores = new SortedList<int, List<Contestant>>();
 			foreach (KeyValuePair<Contestant, int> kvp in m_scores)
 			{
 				List<Contestant> cs = null;
-				scores.TryGetValue(kvp.Value,out cs);
+				scores.TryGetValue(kvp.Value, out cs);
 				if (cs == null)
 				{
 					cs = new List<Contestant>();
@@ -1402,11 +1402,12 @@ namespace ZoomQuiz
 				}
 				cs.Add(kvp.Key);
 			}
-			IEnumerable<KeyValuePair<int, List<Contestant>>> rscores=scores.Reverse();
+			IEnumerable<KeyValuePair<int, List<Contestant>>> rscores = scores.Reverse();
 			List<ContestantScore> cscores = new List<ContestantScore>();
 			int pos = 1;
 			ContestantScore scrollIntoView = null;
-			foreach (KeyValuePair<int, List<Contestant>> kvp in rscores) {
+			foreach (KeyValuePair<int, List<Contestant>> kvp in rscores)
+			{
 				foreach (Contestant c in kvp.Value)
 				{
 					ContestantScore cscore = new ContestantScore(pos, kvp.Value.Count > 1, kvp.Key, c, GetLastAnswerResult(c));
@@ -1422,23 +1423,23 @@ namespace ZoomQuiz
 				leaderboardList.SelectedItem = scrollIntoView;
 				leaderboardList.ScrollIntoView(scrollIntoView);
 			}
-			if(drawLeaderboard)
+			if (drawLeaderboard)
 				DrawLeaderboard(cscores);
 		}
 		private AnswerResult GetLastAnswerResult(Contestant c)
 		{
-			if(m_lastAnswerResults.ContainsKey(c))
+			if (m_lastAnswerResults.ContainsKey(c))
 				return m_lastAnswerResults[c];
 			return AnswerResult.NotAnAnswer;
 		}
 
-		private void DrawScore(Graphics g, Rectangle r, ContestantScore score,bool odd)
+		private void DrawScore(Graphics g, Rectangle r, ContestantScore score, bool odd)
 		{
 			int textOffset = 25;
 			g.FillRectangle(odd ? Brushes.WhiteSmoke : Brushes.GhostWhite, r);
 			Rectangle posRect = new Rectangle(r.Left, r.Top, r.Height, r.Height);
-			Rectangle nameRect = new Rectangle(r.Left + r.Height, r.Top+ textOffset, r.Width - (r.Height*2), r.Height- (textOffset*2));
-			Rectangle scoreRect = new Rectangle((r.Left + r.Width)-r.Height, r.Top, r.Height, r.Height);
+			Rectangle nameRect = new Rectangle(r.Left + r.Height, r.Top + textOffset, r.Width - (r.Height * 2), r.Height - (textOffset * 2));
+			Rectangle scoreRect = new Rectangle((r.Left + r.Width) - r.Height, r.Top, r.Height, r.Height);
 			g.FillRectangle(odd ? Brushes.Honeydew : Brushes.Azure, posRect);
 			g.FillRectangle(odd ? Brushes.Lavender : Brushes.LavenderBlush, scoreRect);
 			g.DrawLine(Pens.Black, r.Left, r.Top, r.Left, r.Bottom);
@@ -1446,15 +1447,16 @@ namespace ZoomQuiz
 			posRect.Offset(0, textOffset);
 			nameRect.Offset(12, 0);
 			scoreRect.Offset(0, textOffset);
-			if (score!=null)
-				using (Font leaderboardFont = new Font(LEADERBOARD_FONT_NAME, 36, System.Drawing.FontStyle.Bold)) {
+			if (score != null)
+				using (Font leaderboardFont = new Font(LEADERBOARD_FONT_NAME, 36, System.Drawing.FontStyle.Bold))
+				{
 					StringFormat sf = new StringFormat();
 					sf.Trimming = StringTrimming.EllipsisCharacter;
 					g.DrawString(score.Name, leaderboardFont, Brushes.Black, nameRect, sf);
 					sf.Alignment = StringAlignment.Center;
 					sf.Trimming = StringTrimming.None;
 					g.DrawString(score.PositionString, leaderboardFont, Brushes.Black, posRect, sf);
-					g.DrawString(""+score.Score, leaderboardFont, Brushes.Black, scoreRect, sf);
+					g.DrawString("" + score.Score, leaderboardFont, Brushes.Black, scoreRect, sf);
 				}
 		}
 
@@ -1478,13 +1480,13 @@ namespace ZoomQuiz
 							g.FillRectangle(Brushes.PapayaWhip, headerRect);
 							g.DrawRectangle(Pens.Black, headerRect.Left, headerRect.Top, headerRect.Width - 1, headerRect.Height - 1);
 							headerRect.Offset(0, 20);
-							g.DrawString("Leaderboard (page "+leaderboardCount+")", leaderboardHeaderFont, Brushes.Navy, headerRect, sf);
+							g.DrawString("Leaderboard (page " + leaderboardCount + ")", leaderboardHeaderFont, Brushes.Navy, headerRect, sf);
 						}
 						// Leaves 900 pixels.
 						for (int x = 0; x < 3; ++x)
 							for (int y = 0; y < 9; ++y)
-								DrawScore(g, new Rectangle(x * 620, 100+(y * 100), 620,100), n < scores.Count ? scores[n++] : null, y % 2 == 1);
-						g.DrawRectangle(Pens.Black, 0, 0, LEADERBOARD_SIZE.Width-1, LEADERBOARD_SIZE.Height-1);
+								DrawScore(g, new Rectangle(x * 620, 100 + (y * 100), 620, 100), n < scores.Count ? scores[n++] : null, y % 2 == 1);
+						g.DrawRectangle(Pens.Black, 0, 0, LEADERBOARD_SIZE.Width - 1, LEADERBOARD_SIZE.Height - 1);
 					}
 					string path = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
 					path = Path.Combine(path, "leaderboard" + leaderboardCount + ".png");
@@ -1495,19 +1497,20 @@ namespace ZoomQuiz
 					break;
 			}
 		}
-		class AnswerBackupString:IComparable
+		class AnswerBackupString : IComparable
 		{
 			public string AnswerString { get; private set; }
 			public DateTime AnswerTime { get; private set; }
-			public AnswerBackupString(Answer answer,string contestantName)
+			public AnswerBackupString(Answer answer, string contestantName)
 			{
 				AnswerTime = answer.AnswerTime;
-				AnswerString = AnswerTime.ToLongTimeString()+": "+ contestantName + " answered \""+ answer.AnswerText+"\" ("+ answer.AnswerResult.ToString()+")";
+				AnswerString = AnswerTime.ToLongTimeString() + ": " + contestantName + " answered \"" + answer.AnswerText + "\" (" + answer.AnswerResult.ToString() + ")";
 			}
 
 			public int CompareTo(object obj)
 			{
-				if(obj is AnswerBackupString){
+				if (obj is AnswerBackupString)
+				{
 					return AnswerTime.CompareTo(((AnswerBackupString)obj).AnswerTime);
 				}
 				return 1;
@@ -1586,8 +1589,8 @@ namespace ZoomQuiz
 			m_questionShowing = false;
 			HideFullScreenPicture(false);
 
-			presentingButton.IsEnabled = showLeaderboardButton.IsEnabled = showAnswerButton.IsEnabled=true;
-			skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			presentingButton.IsEnabled = showLeaderboardButton.IsEnabled = showAnswerButton.IsEnabled = true;
+			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
 			loadQuizButton.IsEnabled = true;
 			showPictureButton.IsEnabled = false;
 
@@ -1743,10 +1746,10 @@ namespace ZoomQuiz
 				2101
 			};
 			int n = 0;
-			foreach(int timing in timings)
+			foreach (int timing in timings)
 			{
 				Thread.Sleep(timing);
-				AddAnswer(contestants[n],new Answer(answers[n]));
+				AddAnswer(contestants[n], new Answer(answers[n]));
 				++n;
 			}
 		}
@@ -1759,7 +1762,8 @@ namespace ZoomQuiz
 				StartPresenting();
 		}
 
-		private void MarkOtherUserAnswers(Contestant contestant) {
+		private void MarkOtherUserAnswers(Contestant contestant)
+		{
 			// All other unmarked answers from the contestant must now be marked wrong,
 			// in case they're guessing numeric answers.
 			try
@@ -1773,7 +1777,7 @@ namespace ZoomQuiz
 					{
 						if (a.AnswerText.StartsWith("."))
 						{
-							markingPump.ReportProgress(0, new FunnyAnswerArgs(a,contestant));
+							markingPump.ReportProgress(0, new FunnyAnswerArgs(a, contestant));
 							a.AnswerResult = AnswerResult.Funny;
 						}
 						else
@@ -1807,7 +1811,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private double GetBestLevenshtein(AnswerResult result,string normAnswer)
+		private double GetBestLevenshtein(AnswerResult result, string normAnswer)
 		{
 			string[] comparisonStrings;
 			if (result == AnswerResult.Correct)
@@ -1818,7 +1822,7 @@ namespace ZoomQuiz
 				comparisonStrings = m_currentQuestion.QuestionWrongAnswers;
 			else
 				return 0.0;
-			double bestLev=(comparisonStrings.Length==0?0.0:comparisonStrings.Min(str => Levenshtein.CalculateLevenshtein(str, normAnswer) / (double)str.Length));
+			double bestLev = (comparisonStrings.Length == 0 ? 0.0 : comparisonStrings.Min(str => Levenshtein.CalculateLevenshtein(str, normAnswer) / (double)str.Length));
 			return bestLev;
 		}
 
@@ -1830,7 +1834,7 @@ namespace ZoomQuiz
 				if (m_answerForMarking != null)
 				{
 					restartMarking.IsEnabled = true;
-					MarkAnswer(m_answerForMarking, result,GetBestLevenshtein(result,m_answerForMarking.Answer.NormalizedAnswer),autoCountdown.IsChecked==true);
+					MarkAnswer(m_answerForMarking, result, GetBestLevenshtein(result, m_answerForMarking.Answer.NormalizedAnswer), autoCountdown.IsChecked == true);
 					ClearAnswerForMarking();
 					m_answerMarkedEvent.Set();
 				}
@@ -1871,7 +1875,7 @@ namespace ZoomQuiz
 			try
 			{
 				m_answerListMutex.WaitOne();
-				foreach(KeyValuePair<Contestant,List<Answer>> kvp in m_answers)
+				foreach (KeyValuePair<Contestant, List<Answer>> kvp in m_answers)
 					foreach (Answer a in kvp.Value)
 						a.AnswerResult = AnswerResult.Unmarked;
 				ResetAnswerBins(m_currentQuestion);
@@ -1913,12 +1917,12 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void SetVolumes(bool questionShowing,Question currentQuestion)
+		private void SetVolumes(bool questionShowing, Question currentQuestion)
 		{
 			try
 			{
 				m_volumeMutex.WaitOne();
-				bool hasAudioOrVideo = (currentQuestion.QuestionMediaType == MediaType.Audio|| currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(currentQuestion.QuestionMediaFilename.ToLower());
+				bool hasAudioOrVideo = (currentQuestion.QuestionMediaType == MediaType.Audio || currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(currentQuestion.QuestionMediaFilename.ToLower());
 				if (questionShowing && hasAudioOrVideo)
 				{
 					m_bgmVolume = 0;
@@ -1952,7 +1956,7 @@ namespace ZoomQuiz
 			if (!PresentationOnly)
 			{
 				m_countdownCompleteEvent.Reset();
-				markingPump.RunWorkerAsync(new MarkingPumpArgs(m_currentQuestion.UseLevenshtein,autoCountdown.IsChecked==true));
+				markingPump.RunWorkerAsync(new MarkingPumpArgs(m_currentQuestion.UseLevenshtein, autoCountdown.IsChecked == true));
 				answerCounter.RunWorkerAsync();
 			}
 
@@ -1960,7 +1964,7 @@ namespace ZoomQuiz
 			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
 			bool hasAudio = !String.IsNullOrEmpty(m_currentQuestion.QuestionAudioFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionAudioFilename);
 			bool hasVideo = m_currentQuestion.QuestionMediaType == MediaType.Video && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
-			SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene":"NoPicQuestionScene");
+			SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
 			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", ANSWER_SIZE, "answer.png");
 			SetOBSImageSource("AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
@@ -1979,7 +1983,7 @@ namespace ZoomQuiz
 			}
 			else
 			{
-				loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled=newQuestionButton.IsEnabled = showAnswerButton.IsEnabled = true;
+				loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = showAnswerButton.IsEnabled = true;
 				NextQuestion(m_nextQuestion);
 			}
 		}
@@ -2019,7 +2023,7 @@ namespace ZoomQuiz
 			}
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
 			showPictureButton.IsEnabled = hasPic;
-			SetOBSScene(hasPic?(m_fullScreenPictureShowing?"FullScreenPictureAnswerScene":"AnswerScene"):"NoPicAnswerScene");
+			SetOBSScene(hasPic ? (m_fullScreenPictureShowing ? "FullScreenPictureAnswerScene" : "AnswerScene") : "NoPicAnswerScene");
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
 			// The score report can show a maximum of 17 names. More than that requires a scrolling report.
@@ -2082,7 +2086,7 @@ namespace ZoomQuiz
 
 		private void Button_Click(object sender, RoutedEventArgs e)
 		{
-			if(MessageBox.Show(this,"Reset Scores?", "Confirm", MessageBoxButton.YesNo)==MessageBoxResult.Yes)
+			if (MessageBox.Show(this, "Reset Scores?", "Confirm", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
 			{
 				m_scoresDirty = true;
 				m_scores.Clear();
@@ -2104,12 +2108,12 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void SetOBSSourceVisibility(string sourceName,string sceneName,bool visible)
+		private void SetOBSSourceVisibility(string sourceName, string sceneName, bool visible)
 		{
 			try
 			{
 				m_obsMutex.WaitOne();
-				m_obs.SetSourceRender(sourceName, visible,sceneName);
+				m_obs.SetSourceRender(sourceName, visible, sceneName);
 			}
 			finally
 			{
@@ -2117,19 +2121,19 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void HideOBSSource(string sourceName,string sceneName)
+		private void HideOBSSource(string sourceName, string sceneName)
 		{
-			SetOBSSourceVisibility(sourceName, sceneName,false);
+			SetOBSSourceVisibility(sourceName, sceneName, false);
 		}
 
-		private void ShowOBSSource(string sourceName,string sceneName)
+		private void ShowOBSSource(string sourceName, string sceneName)
 		{
-			SetOBSSourceVisibility(sourceName, sceneName,true);
+			SetOBSSourceVisibility(sourceName, sceneName, true);
 		}
 
 		private void SetOBSImageSource(string sourceName, string mediaName)
 		{
-			string path=null;
+			string path = null;
 			if (mediaName != null)
 				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
@@ -2143,23 +2147,23 @@ namespace ZoomQuiz
 		private void SetOBSVideoSource(string sourceName, string mediaName)
 		{
 			string[] scenes = new string[] { "QuestionScene", "FullScreenPictureQuestionScene" };
-			string path=null;
+			string path = null;
 			if (mediaName != null)
 				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
 			{
 				foreach (string sceneName in scenes)
-					HideOBSSource(sourceName,sceneName);
+					HideOBSSource(sourceName, sceneName);
 			}
 			else
 			{
 				SetOBSFileSourceFromPath(sourceName, "local_file", path);
 				foreach (string sceneName in scenes)
-					ShowOBSSource(sourceName,sceneName);
+					ShowOBSSource(sourceName, sceneName);
 			}
 		}
 
-		private void SetOBSSourceSettings(string sourceName,JObject settings)
+		private void SetOBSSourceSettings(string sourceName, JObject settings)
 		{
 			try
 			{
@@ -2172,7 +2176,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void SetOBSFileSourceFromPath(string sourceName, string setting,string path)
+		private void SetOBSFileSourceFromPath(string sourceName, string setting, string path)
 		{
 			JObject settings = new JObject()
 			{
@@ -2183,8 +2187,8 @@ namespace ZoomQuiz
 
 		private void SetOBSAudioSource(string sourceName, string mediaName)
 		{
-			string path=null;
-			if(mediaName!=null)
+			string path = null;
+			if (mediaName != null)
 				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
 			{
@@ -2199,7 +2203,7 @@ namespace ZoomQuiz
 			SetOBSSourceSettings(sourceName, settings);
 		}
 
-		private void GenerateTextImage(string text,string sourceName,System.Drawing.Size size,string filename)
+		private void GenerateTextImage(string text, string sourceName, System.Drawing.Size size, string filename)
 		{
 			string[] words = text.Split(' ');
 			int textLength = text.Length;
@@ -2237,13 +2241,13 @@ namespace ZoomQuiz
 			sf.Alignment = StringAlignment.Center;
 			int charactersFitted, linesFitted;
 			Brush textColor = availableColors[new Random().Next(0, availableColors.Length)];
-			using (Bitmap b = new Bitmap(size.Width,size.Height))
+			using (Bitmap b = new Bitmap(size.Width, size.Height))
 			{
 				using (Graphics g = Graphics.FromImage(b))
 				{
 					g.TextRenderingHint = TextRenderingHint.AntiAlias;
 					g.Clear(Color.Transparent);
-					for (int f = 10; ; f+=4)
+					for (int f = 10; ; f += 4)
 					{
 						using (Font font = new Font(QUESTION_FONT_NAME, f, System.Drawing.FontStyle.Regular))
 						{
@@ -2251,22 +2255,22 @@ namespace ZoomQuiz
 							System.Drawing.Size clientRect = new System.Drawing.Size(size.Width - (TEXT_OUTLINE_THICKNESS * 2), size.Height - (TEXT_OUTLINE_THICKNESS * 2));
 							SizeF textSize = g.MeasureString(text, font, clientRect, sf, out charactersFitted, out linesFitted);
 							bool wordLimitReached = false;
-							foreach(string word in words)
+							foreach (string word in words)
 							{
-								SizeF wordSize=g.MeasureString(word, font, 1000000);
+								SizeF wordSize = g.MeasureString(word, font, 1000000);
 								if (wordSize.Width >= clientRect.Width)
 								{
 									wordLimitReached = true;
 									break;
 								}
 							}
-							if ((textSize.Width >= clientRect.Width) || (textSize.Height >= clientRect.Height) || (wordLimitReached) || (charactersFitted<textLength))
+							if ((textSize.Width >= clientRect.Width) || (textSize.Height >= clientRect.Height) || (wordLimitReached) || (charactersFitted < textLength))
 							{
-								using (Font realFont = new Font(QUESTION_FONT_NAME, f-4, System.Drawing.FontStyle.Regular))
+								using (Font realFont = new Font(QUESTION_FONT_NAME, f - 4, System.Drawing.FontStyle.Regular))
 								{
 									textSize = g.MeasureString(text, realFont, clientRect, sf, out charactersFitted, out linesFitted);
 									int nVertOffset = (int)((size.Height - textSize.Height) / 2.0);
-									Rectangle rect = new Rectangle(new System.Drawing.Point(0,0),size);
+									Rectangle rect = new Rectangle(new System.Drawing.Point(0, 0), size);
 									rect.Offset(0, nVertOffset);
 									for (int x = -TEXT_OUTLINE_THICKNESS; x <= TEXT_OUTLINE_THICKNESS; ++x)
 										for (int y = -TEXT_OUTLINE_THICKNESS; y <= TEXT_OUTLINE_THICKNESS; ++y)
@@ -2285,13 +2289,13 @@ namespace ZoomQuiz
 				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
 				string path = Path.Combine(presFolder, filename);
 				b.Save(path, ImageFormat.Png);
-				SetOBSFileSourceFromPath(sourceName, "file",path);
+				SetOBSFileSourceFromPath(sourceName, "file", path);
 			}
 		}
 
-		private void HideFullScreenPicture(bool setScene=true)
+		private void HideFullScreenPicture(bool setScene = true)
 		{
-			if(setScene)
+			if (setScene)
 				if (m_answerShowing)
 				{
 					bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
@@ -2339,7 +2343,7 @@ namespace ZoomQuiz
 			m_scores[score.Contestant] = m_scores[score.Contestant] + 1;
 			WriteScoresToFile();
 			m_scoresDirty = true;
-			UpdateLeaderboard(false,score.Contestant);
+			UpdateLeaderboard(false, score.Contestant);
 		}
 
 		private void decreaseScoreButton_Click(object sender, RoutedEventArgs e)
@@ -2348,7 +2352,7 @@ namespace ZoomQuiz
 			m_scores[score.Contestant] = m_scores[score.Contestant] - 1;
 			WriteScoresToFile();
 			m_scoresDirty = true;
-			UpdateLeaderboard(false,score.Contestant);
+			UpdateLeaderboard(false, score.Contestant);
 		}
 
 		private void leaderboardList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
