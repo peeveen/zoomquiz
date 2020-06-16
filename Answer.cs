@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace ZoomQuiz
 {
@@ -22,22 +23,27 @@ namespace ZoomQuiz
 			AnswerResult = AnswerResult.Unmarked;
 			NormalizedAnswer = NormalizeAnswer(answer);
 		}
-		public static string NormalizeAnswer(string answer)
+		static string RepeatReplace(string strIn, string replace, string replaceWith)
 		{
-			// first of all remove everything that isn't a space, a letter or a number
-			string norm = "";
-			foreach (char c in answer)
-				if (Char.IsLetterOrDigit(c) || Char.IsWhiteSpace(c))
-					norm += c;
-			// Trim leading/trailing whitespace.
-			norm = norm.Trim();
-			// Now change any double spaces into single spaces.
-			string oldNorm;
+			string oldIn;
 			do
 			{
-				oldNorm = norm;
-				norm = norm.Replace("  ", " ");
-			} while (oldNorm != norm);
+				oldIn = strIn;
+				strIn = strIn.Replace(replace, replaceWith);
+			} while (oldIn != strIn);
+			return strIn;
+		}
+		public static string NormalizeAnswer(string answer)
+		{
+			// first of all, replace hyphens with spaces.
+			string norm = RepeatReplace(answer, "--", "-");
+			norm = norm.Replace('-', ' ');
+			// Now change any double spaces into single spaces.
+			norm = RepeatReplace(norm, "  ", " ");
+			// first of all remove everything that isn't a space, a letter or a number
+			norm = norm.ToCharArray().Aggregate("", (s, c) => s += char.IsLetterOrDigit(c) || char.IsWhiteSpace(c) ? c.ToString() : "", (a) => a);
+			// Trim leading/trailing whitespace.
+			norm = norm.Trim();
 			// Now convert the entire thing to lowercase
 			norm = norm.ToLower();
 			// now replace accented chars with simpler ones.
@@ -47,6 +53,8 @@ namespace ZoomQuiz
 			norm = norm.Trim();
 			if (norm.StartsWith("the ") && norm.Length > 4)
 				norm = norm.Substring(4);
+			// Now change "and"s to ampersands
+			norm = norm.Replace(" and ", " & ");
 			return norm;
 		}
 	}

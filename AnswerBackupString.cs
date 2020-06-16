@@ -14,10 +14,8 @@ namespace ZoomQuiz
 
 		public int CompareTo(object obj)
 		{
-			if (obj is AnswerBackupString @string)
-			{
-				return AnswerTime.CompareTo(@string.AnswerTime);
-			}
+			if (obj is AnswerBackupString str)
+				return AnswerTime.CompareTo(str.AnswerTime);
 			return 1;
 		}
 		public override string ToString()

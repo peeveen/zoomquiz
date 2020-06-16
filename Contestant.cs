@@ -12,10 +12,8 @@
 		public override bool Equals(object obj)
 		{
 			if (obj is Contestant c2)
-			{
 				// ID is NOT constant between join/leave.
 				return c2.Name == Name;
-			}
 			return false;
 		}
 		public override int GetHashCode()

@@ -2,8 +2,5 @@
 {
 	class CountdownStartArgs
 	{
-		public CountdownStartArgs()
-		{
-		}
 	}
 }

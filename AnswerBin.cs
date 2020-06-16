@@ -17,9 +17,15 @@ namespace ZoomQuiz
 		}
 		public void Add(Answer answer, double levValue)
 		{
-			m_answersMutex.WaitOne();
-			m_ratedAnswers[answer.NormalizedAnswer] = levValue;
-			m_answersMutex.ReleaseMutex();
+			try
+			{
+				m_answersMutex.WaitOne();
+				m_ratedAnswers[answer.NormalizedAnswer] = levValue;
+			}
+			finally
+			{
+				m_answersMutex.ReleaseMutex();
+			}
 		}
 		public bool Contains(Answer answer)
 		{
