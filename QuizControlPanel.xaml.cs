@@ -481,7 +481,6 @@ namespace ZoomQuiz
 		private const float BGM_VOLUME = 0.05f;
 
 		private bool m_quizEnded = false;
-		private bool m_countdownActive = false;
 		private bool m_questionShowing = false;
 		private bool m_answerShowing = false;
 		private bool m_leaderboardShowing = false;
@@ -1112,7 +1111,6 @@ namespace ZoomQuiz
 			if (m_chatWarnings)
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is ON");
 			m_countdownCompleteEvent.Set();
-			m_countdownActive = false;
 			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
 			NextQuestion(m_nextQuestion);
 			SetChatMode(ChatMode.EveryonePublicly);
@@ -1301,12 +1299,18 @@ namespace ZoomQuiz
 				markingPump.ReportProgress(0, nextAnswerForMarking);
 			}
 			bool waitingForMarking = false;
-			WaitHandle[] events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent };
+			WaitHandle[] events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent, m_countdownCompleteEvent };
 			for (; ;)
 			{
 				int result = WaitHandle.WaitAny(events);
 				if (result == 2)
 					break;
+				if (result == 3)
+				{
+					if (!waitingForMarking)
+						break;
+					events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent };
+				}
 				if (result == 0)
 					waitingForMarking = false;
 				try
@@ -1657,7 +1661,6 @@ namespace ZoomQuiz
 				if (m_timeWarnings)
 					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
 				countdownWorker.RunWorkerAsync();
-				m_countdownActive = true;
 				ShowCountdownOverlay();
 			}
 		}
