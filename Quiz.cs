@@ -23,6 +23,17 @@ namespace ZoomQuiz
 			return new string[0];
 		}
 
+		internal int GetNextQuestionNumber(int currentQuestion)
+		{
+			int next = currentQuestion;
+			while (m_questions.ContainsKey(++next))
+				if (m_questions[next].Validity != QuestionValidity.MissingQuestionOrAnswer)
+					break;
+			if (!m_questions.ContainsKey(next))
+				next = -1;
+			return next;
+		}
+
 		private static string FixUnicode(string strIn)
 		{
 			strIn = strIn.Replace("Â£", "£");
@@ -48,11 +59,6 @@ namespace ZoomQuiz
 		public Question this[int index]
 		{
 			get { return m_questions[index]; }
-		}
-
-		public bool HasQuestion(int questionNumber)
-		{
-			return m_questions.ContainsKey(questionNumber);
 		}
 
 		public bool HasMediaFile(string filename)

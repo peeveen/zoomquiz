@@ -77,6 +77,7 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Answer.cs" />
+    <Compile Include="AnswerBackupString.cs" />
     <Compile Include="AnswerBin.cs" />
     <Compile Include="AnswerCounterBackgroundWorker.cs">
       <SubType>Component</SubType>
@@ -98,6 +99,7 @@
     <Compile Include="INIReader.cs" />
     <Compile Include="IQuizContext.cs" />
     <Compile Include="Keyboard.cs" />
+    <Compile Include="LeaderboardBitmap.cs" />
     <Compile Include="Levenshtein.cs" />
     <Compile Include="MarkingProgress.cs" />
     <Compile Include="MarkingPumpArgs.cs" />
@@ -105,12 +107,14 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="MediaType.cs" />
+    <Compile Include="ObsController.cs" />
     <Compile Include="Question.cs" />
     <Compile Include="QuestionValidity.cs" />
     <Compile Include="Quiz.cs" />
     <Compile Include="QuizControlPanel.xaml.cs">
       <DependentUpon>QuizControlPanel.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ScoreReportBitmap.cs" />
     <Compile Include="ScoreReportEntry.cs" />
     <Compile Include="Scores.cs" />
     <Compile Include="start_join_meeting.xaml.cs">
@@ -123,6 +127,7 @@
     <Compile Include="TestAnswersBackgroundWorker.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="TextImageBitmap.cs" />
     <Page Include="QuizControlPanel.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

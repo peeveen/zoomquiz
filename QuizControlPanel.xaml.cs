@@ -13,8 +13,6 @@ using OBSWebsocketDotNet;
 using OBSWebsocketDotNet.Types;
 using Newtonsoft.Json.Linq;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.Drawing.Text;
 using System.Windows.Data;
 
 namespace ZoomQuiz
@@ -42,19 +40,10 @@ namespace ZoomQuiz
 		private const string SCORES_FILENAME = "scores.txt";
 		private const string ANSWERS_FILENAME = "answers.txt";
 		private const string ZoomQuizTitle = "ZoomQuiz";
-		private readonly System.Drawing.Size QUESTION_SIZE = new System.Drawing.Size(1600, 360);
-		private readonly System.Drawing.Size ANSWER_SIZE = new System.Drawing.Size(1600, 360);
-		private readonly System.Drawing.Size LEADERBOARD_SIZE = new System.Drawing.Size(1860, 1000);
-		private readonly System.Drawing.Size SCORE_REPORT_SIZE = new System.Drawing.Size(386, 585);
-		private const int TEXT_OUTLINE_THICKNESS = 5;
-		private const string QUESTION_FONT_NAME = "Impact";
-		private const string LEADERBOARD_FONT_NAME = "Bahnschrift Condensed";
-		private const string SCORE_REPORT_FONT_NAME = "Bahnschrift Condensed";
 		private const float AUDIO_VOLUME = 0.8f;
 		private const float VIDEO_VOLUME = 1.0f;
 		private const float BGM_VOLUME = 0.05f;
 
-		public Mutex ObsMutex { get; } = new Mutex();
 		public Mutex VolumeMutex { get; } = new Mutex();
 		public Mutex AnswerListMutex { get; } = new Mutex();
 		public Mutex AnswerForMarkingMutex { get; } = new Mutex();
@@ -83,8 +72,7 @@ namespace ZoomQuiz
 		private readonly List<ScoreReportEntry> m_scoreReport = new List<ScoreReportEntry>();
 		private readonly Dictionary<Contestant, AnswerResult> m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 
-		public OBSWebsocket Obs { get; } = new OBSWebsocket();
-
+		public ObsController Obs { get; } = new ObsController();
 		public bool ShowTimeWarnings { get; private set; } = false;
 
 		private bool m_quizEnded = false;
@@ -116,10 +104,10 @@ namespace ZoomQuiz
 			UpdateLeaderboard(true);
 			try
 			{
-				Obs.Connect("ws://127.0.0.1:4444", "");
+				Obs.Connect("ws://127.0.0.1:4444");
 				if (Obs.IsConnected)
 				{
-					SetOBSScene("CamScene");
+					Obs.SetCurrentScene("CamScene");
 					//File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
 					//ScanMediaPath();
 					SetCountdownMedia();
@@ -240,16 +228,8 @@ namespace ZoomQuiz
 		{
 			m_quizEnded = true;
 			Close();
-			try
-			{
-				ObsMutex.WaitOne();
-				if (Obs.IsConnected)
-					Obs.Disconnect();
-			}
-			finally
-			{
-				ObsMutex.ReleaseMutex();
-			}
+			if (Obs.IsConnected)
+				Obs.Disconnect();
 		}
 
 		public void StartQuiz()
@@ -411,7 +391,7 @@ namespace ZoomQuiz
 			answerTextBox.Text = m_currentQuestion.AnswerText;
 			infoTextBox.Text = m_currentQuestion.Info;
 			ResetAnswerBins(m_currentQuestion);
-			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", QUESTION_SIZE, "question.png");
+			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png");
 			SetOBSImageSource("QuestionPic", m_currentQuestion.QuestionImageFilename);
 			// Show no video until it's ready.
 			SetOBSVideoSource("QuestionVid", null);
@@ -439,20 +419,9 @@ namespace ZoomQuiz
 			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, chatMessage);
 		}
 
-		private int GetNextQuestionNumber(int currentQuestion)
-		{
-			int next = currentQuestion;
-			while (Quiz.HasQuestion(++next))
-				if (Quiz[next].Validity != QuestionValidity.MissingQuestionOrAnswer)
-					break;
-			if (!Quiz.HasQuestion(next))
-				next = -1;
-			return next;
-		}
-
 		private int NextQuestion(int currentQuestion)
 		{
-			m_nextQuestion = GetNextQuestionNumber(currentQuestion);
+			m_nextQuestion = Quiz.GetNextQuestionNumber(currentQuestion);
 			if (m_nextQuestion > 0)
 			{
 				startQuestionButtonText.Text = "Start Question " + m_nextQuestion;
@@ -485,82 +454,25 @@ namespace ZoomQuiz
 
 		private void UpdateScoreReports()
 		{
-			UpdateScoreReport(false, SCORE_REPORT_FILENAME, SCORE_REPORT_SIZE.Height);
+			UpdateScoreReport(false, SCORE_REPORT_FILENAME);
 			UpdateScoreReport(true, SCORE_REPORT_WITH_TIMES_FILENAME);
 		}
 
-		SizeF rowSize = new SizeF(0, 0);
-		private void UpdateScoreReport(bool times, string outputFilename, int fixedHeight = 0)
+		private void UpdateScoreReport(bool times, string outputFilename)
 		{
-			if (rowSize.IsEmpty)
+			try
 			{
-				using (Bitmap testBitmap = new Bitmap(100, 100))
+				m_scoreReportMutex.WaitOne();
+				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(m_scoreReport, times))
 				{
-					using (Graphics testGraphics = Graphics.FromImage(testBitmap))
-					{
-						testGraphics.TextRenderingHint = TextRenderingHint.AntiAlias;
-						using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20, System.Drawing.FontStyle.Bold))
-						{
-							rowSize = testGraphics.MeasureString("Wg", scoreReportFont);
-						}
-					}
-				}
-			}
-
-			int xMargin = 4, yMargin = 4, ySpacing = 4;
-			int rows = m_scoreReport.Count;
-			int initialRowOffset = 9 - rows;
-			if (initialRowOffset < 0 || times)
-				initialRowOffset = 0;
-			int currentY = yMargin + (initialRowOffset * (int)(rowSize.Height + ySpacing));
-			int scoreReportHeight = ((int)(rowSize.Height + ySpacing) * (rows + 1 + initialRowOffset)) + yMargin;
-
-			using (Bitmap bitmap = new Bitmap(SCORE_REPORT_SIZE.Width, fixedHeight == 0 ? scoreReportHeight : fixedHeight))
-			{
-				using (Graphics graphics = Graphics.FromImage(bitmap))
-				{
-					graphics.TextRenderingHint = TextRenderingHint.AntiAlias;
-					graphics.Clear(Color.Transparent);
-					StringFormat sf = new StringFormat
-					{
-						Alignment = StringAlignment.Center,
-						Trimming = StringTrimming.EllipsisCharacter
-					};
-					using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20, System.Drawing.FontStyle.Bold))
-					{
-						try
-						{
-							m_scoreReportMutex.WaitOne();
-							List<ScoreReportEntry> workingScoreReport = new List<ScoreReportEntry>(m_scoreReport);
-							if (times)
-							{
-								workingScoreReport.Sort();
-								workingScoreReport.Reverse();
-							}
-							foreach (ScoreReportEntry sre in workingScoreReport)
-							{
-								string sreString = sre.GetScoreReportString(times);
-								for (int x = -1; x < 2; ++x)
-									for (int y = -1; y < 2; ++y)
-										if (!(x == 0 && y == 0))
-										{
-											RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
-											graphics.DrawString(sreString, scoreReportFont, Brushes.Black, blackRect, sf);
-										}
-								RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
-								graphics.DrawString(sreString, scoreReportFont, sre.Colour, rect, sf);
-								currentY += (int)(rowSize.Height + ySpacing);
-							}
-						}
-						finally
-						{
-							m_scoreReportMutex.ReleaseMutex();
-						}
-					}
 					string path = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
 					string bitmapPath = Path.Combine(path, outputFilename);
-					bitmap.Save(bitmapPath, ImageFormat.Png);
+					bitmap.Save(bitmapPath);
 				}
+			}
+			finally
+			{
+				m_scoreReportMutex.ReleaseMutex();
 			}
 		}
 
@@ -685,6 +597,7 @@ namespace ZoomQuiz
 			if (drawLeaderboard)
 				DrawLeaderboard(cscores);
 		}
+
 		private AnswerResult GetLastAnswerResult(Contestant c)
 		{
 			if (m_lastAnswerResults.ContainsKey(c))
@@ -692,95 +605,21 @@ namespace ZoomQuiz
 			return AnswerResult.NotAnAnswer;
 		}
 
-		private void DrawScore(Graphics g, Rectangle r, ContestantScore score, bool odd)
-		{
-			int textOffset = 25;
-			g.FillRectangle(odd ? Brushes.WhiteSmoke : Brushes.GhostWhite, r);
-			Rectangle posRect = new Rectangle(r.Left, r.Top, r.Height, r.Height);
-			Rectangle nameRect = new Rectangle(r.Left + r.Height, r.Top + textOffset, r.Width - (r.Height * 2), r.Height - (textOffset * 2));
-			Rectangle scoreRect = new Rectangle((r.Left + r.Width) - r.Height, r.Top, r.Height, r.Height);
-			g.FillRectangle(odd ? Brushes.Honeydew : Brushes.Azure, posRect);
-			g.FillRectangle(odd ? Brushes.Lavender : Brushes.LavenderBlush, scoreRect);
-			g.DrawLine(Pens.Black, r.Left, r.Top, r.Left, r.Bottom);
-			g.DrawLine(Pens.Black, r.Right, r.Top, r.Right, r.Bottom);
-			posRect.Offset(0, textOffset);
-			nameRect.Offset(12, 0);
-			scoreRect.Offset(0, textOffset);
-			if (score != null)
-				using (Font leaderboardFont = new Font(LEADERBOARD_FONT_NAME, 36, System.Drawing.FontStyle.Bold))
-				{
-					StringFormat sf = new StringFormat
-					{
-						Trimming = StringTrimming.EllipsisCharacter
-					};
-					g.DrawString(score.Name, leaderboardFont, Brushes.Black, nameRect, sf);
-					sf.Alignment = StringAlignment.Center;
-					sf.Trimming = StringTrimming.None;
-					g.DrawString(score.PositionString, leaderboardFont, Brushes.Black, posRect, sf);
-					g.DrawString("" + score.Score, leaderboardFont, Brushes.Black, scoreRect, sf);
-				}
-		}
-
 		private void DrawLeaderboard(List<ContestantScore> scores)
 		{
 			int n = 0;
 			int leaderboardCount = 1;
-			StringFormat sf = new StringFormat
-			{
-				Alignment = StringAlignment.Center
-			};
 			for (; ; )
 			{
-				using (Bitmap b = new Bitmap(LEADERBOARD_SIZE.Width, LEADERBOARD_SIZE.Height))
+				using (LeaderboardBitmap b = new LeaderboardBitmap(scores,leaderboardCount,ref n))
 				{
-					using (Graphics g = Graphics.FromImage(b))
-					{
-						g.TextRenderingHint = TextRenderingHint.AntiAlias;
-						g.Clear(Color.Transparent);
-						Rectangle headerRect = new Rectangle(0, 0, LEADERBOARD_SIZE.Width, 100);
-						using (Font leaderboardHeaderFont = new Font(LEADERBOARD_FONT_NAME, 40, System.Drawing.FontStyle.Bold))
-						{
-							g.FillRectangle(Brushes.PapayaWhip, headerRect);
-							g.DrawRectangle(Pens.Black, headerRect.Left, headerRect.Top, headerRect.Width - 1, headerRect.Height - 1);
-							headerRect.Offset(0, 20);
-							g.DrawString("Leaderboard (page " + leaderboardCount + ")", leaderboardHeaderFont, Brushes.Navy, headerRect, sf);
-						}
-						// Leaves 900 pixels.
-						for (int x = 0; x < 3; ++x)
-							for (int y = 0; y < 9; ++y)
-								DrawScore(g, new Rectangle(x * 620, 100 + (y * 100), 620, 100), n < scores.Count ? scores[n++] : null, y % 2 == 1);
-						g.DrawRectangle(Pens.Black, 0, 0, LEADERBOARD_SIZE.Width - 1, LEADERBOARD_SIZE.Height - 1);
-					}
 					string path = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
 					path = Path.Combine(path, "leaderboard" + leaderboardCount + ".png");
-					b.Save(path, ImageFormat.Png);
+					b.Save(path);
 					++leaderboardCount;
 				}
 				if (n >= scores.Count)
 					break;
-			}
-		}
-		class AnswerBackupString : IComparable
-		{
-			public string AnswerString { get; private set; }
-			public DateTime AnswerTime { get; private set; }
-			public AnswerBackupString(Answer answer, string contestantName)
-			{
-				AnswerTime = answer.AnswerTime;
-				AnswerString = AnswerTime.ToLongTimeString() + ": " + contestantName + " answered \"" + answer.AnswerText + "\" (" + answer.AnswerResult.ToString() + ")";
-			}
-
-			public int CompareTo(object obj)
-			{
-				if (obj is AnswerBackupString @string)
-				{
-					return AnswerTime.CompareTo(@string.AnswerTime);
-				}
-				return 1;
-			}
-			public override string ToString()
-			{
-				return AnswerString;
 			}
 		}
 
@@ -857,9 +696,9 @@ namespace ZoomQuiz
 			HideOBSSource("CountdownOverlay", "CamScene");
 			HideOBSSource("CountdownOverlay", "FullScreenPictureQuestionScene");
 			HideOBSSource("CountdownOverlay", "FullScreenPictureAnswerScene");
-			SetOBSSourceVisibility("ScoreReport", "ScoreReportOverlay", true);
-			SetOBSSourceVisibility("ScoreReportWithTimes", "ScoreReportOverlay", false);
-			SetOBSSourceVisibility("ScrollingScoreReportWithTimes", "ScoreReportOverlay", false);
+			Obs.SetSourceRender("ScoreReport", true, "ScoreReportOverlay");
+			Obs.SetSourceRender("ScoreReportWithTimes", false, "ScoreReportOverlay");
+			Obs.SetSourceRender("ScrollingScoreReportWithTimes", false, "ScoreReportOverlay");
 		}
 
 		private void ShowCountdownOverlay()
@@ -1094,8 +933,8 @@ namespace ZoomQuiz
 			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
 			bool hasAudio = !String.IsNullOrEmpty(m_currentQuestion.QuestionAudioFilename) && Quiz.HasMediaFile(m_currentQuestion.QuestionAudioFilename);
 			bool hasVideo = m_currentQuestion.QuestionMediaType == MediaType.Video && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
-			SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
-			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", ANSWER_SIZE, "answer.png");
+			Obs.SetCurrentScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
+			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png");
 			SetOBSImageSource("AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
 			// Set question audio to silence, wait for play button
@@ -1120,17 +959,7 @@ namespace ZoomQuiz
 		{
 			bool hasAudio = !String.IsNullOrEmpty(questionAudioFilename) && Quiz.HasMediaFile(questionAudioFilename);
 			if (hasAudio)
-			{
-				try
-				{
-					ObsMutex.WaitOne();
-					Obs.SetVolume("QuestionAudio", AUDIO_VOLUME);
-				}
-				finally
-				{
-					ObsMutex.ReleaseMutex();
-				}
-			}
+				Obs.SetVolume("QuestionAudio", AUDIO_VOLUME);
 			SetOBSAudioSource("QuestionAudio", questionAudioFilename);
 		}
 
@@ -1151,20 +980,20 @@ namespace ZoomQuiz
 			}
 			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
 			showPictureButton.IsEnabled = hasPic;
-			SetOBSScene(hasPic ? (m_fullScreenPictureShowing ? "FullScreenPictureAnswerScene" : "AnswerScene") : "NoPicAnswerScene");
+			Obs.SetCurrentScene(hasPic ? (m_fullScreenPictureShowing ? "FullScreenPictureAnswerScene" : "AnswerScene") : "NoPicAnswerScene");
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
 			// The score report can show a maximum of 17 names. More than that requires a scrolling report.
 			bool scrollingRequired = m_scoreReport.Count > 17;
-			SetOBSSourceVisibility("ScoreReport", "ScoreReportOverlay", false);
-			SetOBSSourceVisibility("ScoreReportWithTimes", "ScoreReportOverlay", !scrollingRequired);
-			SetOBSSourceVisibility("ScrollingScoreReportWithTimes", "ScoreReportOverlay", scrollingRequired);
+			Obs.SetSourceRender("ScoreReport", false, "ScoreReportOverlay");
+			Obs.SetSourceRender("ScoreReportWithTimes", !scrollingRequired, "ScoreReportOverlay");
+			Obs.SetSourceRender("ScrollingScoreReportWithTimes", scrollingRequired, "ScoreReportOverlay");
 			m_answerShowing = true;
 		}
 
 		private void HideAnswer()
 		{
-			SetOBSScene("CamScene");
+			Obs.SetCurrentScene("CamScene");
 			HideFullScreenPicture(false);
 			showAnswerButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showAnswerText.Text = "Show Answer";
@@ -1188,7 +1017,7 @@ namespace ZoomQuiz
 				UpdateLeaderboard(true);
 				m_scoresDirty = false;
 			}
-			SetOBSScene("LeaderboardScene");
+			Obs.SetCurrentScene("LeaderboardScene");
 			showLeaderboardButton.Background = System.Windows.Media.Brushes.Pink;
 			showLeaderboardText.Text = "Hide Leaderboard";
 			showPictureButton.IsEnabled = false;
@@ -1197,7 +1026,7 @@ namespace ZoomQuiz
 
 		private void HideLeaderboard()
 		{
-			SetOBSScene("CamScene");
+			Obs.SetCurrentScene("CamScene");
 			showLeaderboardButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showLeaderboardText.Text = "Show Leaderboard";
 			showPictureButton.IsEnabled = m_questionShowing && !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && Quiz.HasMediaFile(m_currentQuestion.QuestionImageFilename);
@@ -1223,40 +1052,14 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void SetOBSScene(string scene)
-		{
-			try
-			{
-				ObsMutex.WaitOne();
-				Obs.SetCurrentScene(scene);
-			}
-			finally
-			{
-				ObsMutex.ReleaseMutex();
-			}
-		}
-
-		private void SetOBSSourceVisibility(string sourceName, string sceneName, bool visible)
-		{
-			try
-			{
-				ObsMutex.WaitOne();
-				Obs.SetSourceRender(sourceName, visible, sceneName);
-			}
-			finally
-			{
-				ObsMutex.ReleaseMutex();
-			}
-		}
-
 		private void HideOBSSource(string sourceName, string sceneName)
 		{
-			SetOBSSourceVisibility(sourceName, sceneName, false);
+			Obs.SetSourceRender(sourceName, false, sceneName);
 		}
 
 		private void ShowOBSSource(string sourceName, string sceneName)
 		{
-			SetOBSSourceVisibility(sourceName, sceneName, true);
+			Obs.SetSourceRender(sourceName, true, sceneName);
 		}
 
 		private void SetOBSImageSource(string sourceName, string mediaName)
@@ -1287,26 +1090,13 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void SetOBSSourceSettings(string sourceName, JObject settings)
-		{
-			try
-			{
-				ObsMutex.WaitOne();
-				Obs.SetSourceSettings(sourceName, settings);
-			}
-			finally
-			{
-				ObsMutex.ReleaseMutex();
-			}
-		}
-
 		private void SetOBSFileSourceFromPath(string sourceName, string setting, string path)
 		{
 			JObject settings = new JObject()
 			{
 				{setting,path }
 			};
-			SetOBSSourceSettings(sourceName, settings);
+			Obs.SetSourceSettings(sourceName, settings);
 		}
 
 		private void SetOBSAudioSource(string sourceName, string mediaName)
@@ -1322,98 +1112,18 @@ namespace ZoomQuiz
 			{
 				{"NonExistent",""+new Random().Next() }
 			};
-			SetOBSSourceSettings(sourceName, settings);
+			Obs.SetSourceSettings(sourceName, settings);
 		}
 
-		private void GenerateTextImage(string text, string sourceName, System.Drawing.Size size, string filename)
+		private void GenerateTextImage(string text, string sourceName, string filename)
 		{
-			string[] words = text.Split(' ');
-			int textLength = text.Length;
-			Brush[] availableColors = new Brush[]
+			string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+			string path = Path.Combine(presFolder, filename);
+			using (TextImageBitmap tiBitmap=new TextImageBitmap(text))
 			{
-				Brushes.White,
-				Brushes.LightGoldenrodYellow,
-				Brushes.LightGray,
-				Brushes.LightBlue,
-				Brushes.LightCyan,
-				Brushes.LightGreen,
-				Brushes.LightSteelBlue,
-				Brushes.LightYellow,
-				Brushes.Azure,
-				Brushes.AliceBlue,
-				Brushes.Cornsilk,
-				Brushes.FloralWhite,
-				Brushes.GhostWhite,
-				Brushes.Honeydew,
-				Brushes.Ivory,
-				Brushes.Lavender,
-				Brushes.LavenderBlush,
-				Brushes.LemonChiffon,
-				Brushes.Linen,
-				Brushes.MintCream,
-				Brushes.MistyRose,
-				Brushes.OldLace,
-				Brushes.PapayaWhip,
-				Brushes.SeaShell,
-				Brushes.Snow,
-				Brushes.WhiteSmoke,
-				Brushes.Yellow
-			};
-			StringFormat sf = new StringFormat
-			{
-				Alignment = StringAlignment.Center
-			};
-			Brush textColor = availableColors[new Random().Next(0, availableColors.Length)];
-			using (Bitmap b = new Bitmap(size.Width, size.Height))
-			{
-				using (Graphics g = Graphics.FromImage(b))
-				{
-					g.TextRenderingHint = TextRenderingHint.AntiAlias;
-					g.Clear(Color.Transparent);
-					for (int f = 10; ; f += 4)
-					{
-						using (Font font = new Font(QUESTION_FONT_NAME, f, System.Drawing.FontStyle.Regular))
-						{
-							// We need room for the outline
-							System.Drawing.Size clientRect = new System.Drawing.Size(size.Width - (TEXT_OUTLINE_THICKNESS * 2), size.Height - (TEXT_OUTLINE_THICKNESS * 2));
-							SizeF textSize = g.MeasureString(text, font, clientRect, sf, out int charactersFitted, out int linesFitted);
-							bool wordLimitReached = false;
-							foreach (string word in words)
-							{
-								SizeF wordSize = g.MeasureString(word, font, 1000000);
-								if (wordSize.Width >= clientRect.Width)
-								{
-									wordLimitReached = true;
-									break;
-								}
-							}
-							if ((textSize.Width >= clientRect.Width) || (textSize.Height >= clientRect.Height) || (wordLimitReached) || (charactersFitted < textLength))
-							{
-								using (Font realFont = new Font(QUESTION_FONT_NAME, f - 4, System.Drawing.FontStyle.Regular))
-								{
-									textSize = g.MeasureString(text, realFont, clientRect, sf, out charactersFitted, out linesFitted);
-									int nVertOffset = (int)((size.Height - textSize.Height) / 2.0);
-									Rectangle rect = new Rectangle(new System.Drawing.Point(0, 0), size);
-									rect.Offset(0, nVertOffset);
-									for (int x = -TEXT_OUTLINE_THICKNESS; x <= TEXT_OUTLINE_THICKNESS; ++x)
-										for (int y = -TEXT_OUTLINE_THICKNESS; y <= TEXT_OUTLINE_THICKNESS; ++y)
-										{
-											Rectangle borderRect = new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height);
-											borderRect.Offset(x, y);
-											g.DrawString(text, realFont, System.Drawing.Brushes.Black, borderRect, sf);
-										}
-									g.DrawString(text, realFont, textColor, rect, sf);
-									break;
-								}
-							}
-						}
-					}
-				}
-				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
-				string path = Path.Combine(presFolder, filename);
-				b.Save(path, ImageFormat.Png);
-				SetOBSFileSourceFromPath(sourceName, "file", path);
+				tiBitmap.Save(path);
 			}
+			SetOBSFileSourceFromPath(sourceName, "file", path);
 		}
 
 		private void HideFullScreenPicture(bool setScene = true)
@@ -1422,13 +1132,13 @@ namespace ZoomQuiz
 				if (m_answerShowing)
 				{
 					bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
-					SetOBSScene(hasPic ? "AnswerScene" : "NoPicAnswerScene");
+					Obs.SetCurrentScene(hasPic ? "AnswerScene" : "NoPicAnswerScene");
 				}
 				else if (m_questionShowing)
 				{
 					bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
 					bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
-					SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
+					Obs.SetCurrentScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
 				}
 			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showPictureText.Text = "Fullscreen Picture";
@@ -1440,10 +1150,10 @@ namespace ZoomQuiz
 			if (m_answerShowing)
 			{
 				bool hasPic = !string.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
-				SetOBSScene(hasPic ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
+				Obs.SetCurrentScene(hasPic ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
 			}
 			else if (m_questionShowing)
-				SetOBSScene("FullScreenPictureQuestionScene");
+				Obs.SetCurrentScene("FullScreenPictureQuestionScene");
 			showPictureButton.Background = System.Windows.Media.Brushes.Pink;
 			showPictureText.Text = "Embedded Picture";
 			m_fullScreenPictureShowing = true;
@@ -1482,16 +1192,8 @@ namespace ZoomQuiz
 
 		private void MuteBGM(bool mute)
 		{
-			try
-			{
-				ObsMutex.WaitOne();
-				Obs.SetMute("BGM", mute);
-				Obs.SetMute("QuestionBGM", mute);
-			}
-			finally
-			{
-				ObsMutex.ReleaseMutex();
-			}
+			Obs.SetMute("BGM", mute);
+			Obs.SetMute("QuestionBGM", mute);
 		}
 
 		private void MuteBGM_Checked(object sender, RoutedEventArgs e)
@@ -1571,7 +1273,7 @@ namespace ZoomQuiz
 		{
 			contestantName.Text = "<contestant name>";
 			questionText.Text = "<no answers to mark yet>";
-			SetOBSScene("CamScene");
+			Obs.SetCurrentScene("CamScene");
 			m_questionShowing = false;
 			HideFullScreenPicture(false);
 

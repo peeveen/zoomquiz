@@ -15,7 +15,6 @@ namespace ZoomQuiz
 		ManualResetEvent CountdownCompleteEvent { get; }
 		Mutex AnswerListMutex { get; }
 		Mutex VolumeMutex { get; }
-		Mutex ObsMutex { get; }
 		Mutex AnswerForMarkingMutex { get; }
 		void MarkAnswer(AnswerForMarking answer, AnswerResult result, double levValue, bool autoCountdown);
 		void StartCountdown();
@@ -25,7 +24,7 @@ namespace ZoomQuiz
 		void OnMarkingComplete();
 		void OnCountdownComplete();
 		bool ShowTimeWarnings { get; }
-		OBSWebsocket Obs { get; }
+		ObsController Obs { get; }
 		float BgmVolume { get; }
 		float QuestionBGMVolume { get; }
 		float QuestionAudioVolume { get; }
