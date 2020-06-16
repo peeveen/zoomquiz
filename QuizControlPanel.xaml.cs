@@ -16,437 +16,13 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
 using System.Windows.Data;
-using System.Windows.Media.Animation;
 
 namespace ZoomQuiz
 {
-	public class Scores
-	{
-		public const int CORRECT_ANSWER_SCORE = 2;
-		public const int ALMOST_CORRECT_ANSWER_SCORE = 1;
-	}
-
-	public enum MediaType
-	{
-		Audio,
-		Image,
-		Video,
-		Unknown
-	}
-
-	public enum ChatMode
-	{
-		NoOne = 0,
-		HostOnly = 1,
-		EveryonePublicly = 2,
-		EveryonePubliclyAndPrivately = 3
-	}
-
-	public enum AnswerResult
-	{
-		Correct = 0,
-		AlmostCorrect = 1,
-		Wrong = 2,
-		Funny = 3,
-		NotAnAnswer = 4,
-		Unmarked = 99
-	}
-
-	public enum QuestionValidity
-	{
-		Valid = 0,
-		MissingQuestionOrAnswer = 1,
-		MissingSupplementary = 2
-	}
-
-	public class Question
-	{
-		public string QuestionText { get; private set; }
-		public string AnswerText { get; private set; }
-		public string QuestionMediaFilename { get; private set; }
-		public string QuestionSupplementaryMediaFilename { get; private set; }
-		public string AnswerImageFilename { get; private set; }
-		public MediaType QuestionMediaType { get; private set; }
-		public MediaType QuestionSupplementaryMediaType { get; private set; }
-		public string QuestionAudioFilename { get { return QuestionMediaType == MediaType.Audio ? QuestionMediaFilename : null; } }
-		public string QuestionVideoFilename { get { return QuestionMediaType == MediaType.Video ? QuestionMediaFilename : null; } }
-		public string QuestionImageFilename { get { return QuestionMediaType == MediaType.Image ? QuestionMediaFilename : QuestionSupplementaryImageFilename; } }
-		public string QuestionBGMFilename { get { return QuestionSupplementaryMediaType == MediaType.Audio ? QuestionSupplementaryMediaFilename : null; } }
-		public string QuestionSupplementaryImageFilename { get { return QuestionSupplementaryMediaType == MediaType.Image ? QuestionSupplementaryMediaFilename : null; } }
-		public string[] QuestionAnswers { get; private set; }
-		public string[] QuestionAlmostAnswers { get; private set; }
-		public string[] QuestionWrongAnswers { get; private set; }
-		public string Info { get; private set; }
-		public bool UseLevenshtein { get; private set; }
-		public int QuestionNumber { get; private set; }
-		public QuestionValidity Validity { get; private set; }
-		public Question(int number, string questionText, string answerText, string[] answers, string[] almostAnswers, string[] wrongAnswers, string questionMediaFile, MediaType questionMediaType, string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerImageFile, string info, bool useLevenshtein, QuestionValidity validity)
-		{
-			QuestionNumber = number;
-			QuestionText = questionText.Trim();
-			QuestionMediaFilename = questionMediaFile.Trim();
-			QuestionMediaType = questionMediaType;
-			QuestionSupplementaryMediaFilename = questionSupplementaryMediaFile.Trim();
-			QuestionSupplementaryMediaType = questionSupplementaryMediaType;
-			AnswerText = answerText.Trim();
-			QuestionAnswers = answers;
-			QuestionWrongAnswers = wrongAnswers;
-			QuestionAlmostAnswers = almostAnswers;
-			AnswerImageFilename = answerImageFile.Trim();
-			Validity = validity;
-			Info = info.Trim();
-			UseLevenshtein = useLevenshtein;
-		}
-	}
-
-	public class Answer
-	{
-		public string AnswerText { get; private set; }
-		public string NormalizedAnswer { get; private set; }
-		public AnswerResult AnswerResult { get; set; }
-		public DateTime AnswerTime { get; }
-		public bool IsAcceptedAnswer
-		{
-			get
-			{
-				return AnswerResult == AnswerResult.Correct || AnswerResult == AnswerResult.AlmostCorrect || AnswerResult == AnswerResult.Wrong;
-			}
-		}
-		public Answer(string answer)
-		{
-			AnswerTime = DateTime.Now;
-			AnswerText = answer;
-			AnswerResult = AnswerResult.Unmarked;
-			NormalizedAnswer = NormalizeAnswer(answer);
-		}
-		public static string NormalizeAnswer(string answer)
-		{
-			// first of all remove everything that isn't a space, a letter or a number
-			string norm = "";
-			foreach (char c in answer)
-				if (Char.IsLetterOrDigit(c) || Char.IsWhiteSpace(c))
-					norm += c;
-			// Trim leading/trailing whitespace.
-			norm = norm.Trim();
-			// Now change any double spaces into single spaces.
-			string oldNorm;
-			do
-			{
-				oldNorm = norm;
-				norm = norm.Replace("  ", " ");
-			} while (oldNorm != norm);
-			// Now convert the entire thing to lowercase
-			norm = norm.ToLower();
-			// now replace accented chars with simpler ones.
-			byte[] tempBytes = System.Text.Encoding.GetEncoding("ISO-8859-8").GetBytes(norm);
-			norm = System.Text.Encoding.UTF8.GetString(tempBytes);
-			// Now, if it starts with "the", remove it.
-			norm = norm.Trim();
-			if (norm.StartsWith("the ") && norm.Length > 4)
-				norm = norm.Substring(4);
-			return norm;
-		}
-	}
-
-	public class Contestant
-	{
-		public string Name { get; private set; }
-		public uint ID { get; private set; }
-		public Contestant(uint id, string name)
-		{
-			ID = id;
-			Name = name;
-		}
-		public override bool Equals(object obj)
-		{
-			if (obj is Contestant c2)
-			{
-				// ID is NOT constant between join/leave.
-				return c2.Name == Name;// && c2.ID == ID;
-			}
-			return false;
-		}
-		public override int GetHashCode()
-		{
-			return Name.GetHashCode();// + ID.GetHashCode();
-		}
-	}
-
-	public class AnswerForMarking
-	{
-		public Answer Answer { get; private set; }
-		public Contestant Contestant { get; private set; }
-		public AnswerForMarking(Contestant contestant, Answer answer)
-		{
-			Answer = answer;
-			Contestant = contestant;
-		}
-	}
-
-	public class MarkingProgress
-	{
-		public int AnswersReceived { get; private set; }
-		public int AnswersMarked { get; private set; }
-		public MarkingProgress(int received, int marked)
-		{
-			AnswersReceived = received;
-			AnswersMarked = marked;
-		}
-	}
-
-	public class ContestantScore
-	{
-		public Contestant Contestant { get; private set; }
-		public string Name { get; private set; }
-		public int Score { get; private set; }
-		public bool Joint { get; private set; }
-		public int Position { get; private set; }
-		public string LastScoreString { get; private set; }
-		public AnswerResult LastResult { get; private set; }
-		public string PositionString
-		{
-			get
-			{
-				return "" + Position + (Joint ? "=" : "");
-			}
-		}
-		public string LastScore
-		{
-			get
-			{
-				return "" + Position + (Joint ? "=" : "");
-			}
-		}
-		public ContestantScore(int position, bool joint, int score, Contestant contestant, AnswerResult lastResult)
-		{
-			Joint = joint;
-			Name = contestant.Name;
-			Contestant = contestant;
-			Position = position;
-			Score = score;
-			LastScoreString = GetLastScoreString(lastResult);
-			LastResult = lastResult;
-		}
-		private string GetLastScoreString(AnswerResult result)
-		{
-			if (result == AnswerResult.Correct)
-				return "+" + Scores.CORRECT_ANSWER_SCORE;
-			else if (result == AnswerResult.AlmostCorrect)
-				return "+" + Scores.ALMOST_CORRECT_ANSWER_SCORE;
-			return "";
-		}
-	}
-
-	public class Levenshtein
-	{
-		private const double ACCEPTABLE_LEVENSHTEIN_THRESHOLD = 0.2;
-		public static bool LevMatch(string acceptableAnswer, string answer, out double levValue)
-		{
-			double x = CalculateLevenshtein(acceptableAnswer, answer);
-			x /= acceptableAnswer.Length;
-			levValue = x;
-			return x <= ACCEPTABLE_LEVENSHTEIN_THRESHOLD;
-		}
-		public static int CalculateLevenshtein(string s, string t)
-		{
-			int n = s.Length;
-			int m = t.Length;
-			int[,] d = new int[n + 1, m + 1];
-
-			// Step 1
-			if (n == 0)
-			{
-				return m;
-			}
-
-			if (m == 0)
-			{
-				return n;
-			}
-
-			// Step 2
-			for (int i = 0; i <= n; d[i, 0] = i++)
-			{
-			}
-
-			for (int j = 0; j <= m; d[0, j] = j++)
-			{
-			}
-
-			// Step 3
-			for (int i = 1; i <= n; i++)
-			{
-				//Step 4
-				for (int j = 1; j <= m; j++)
-				{
-					// Step 5
-					int cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
-
-					// Step 6
-					d[i, j] = Math.Min(
-							Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
-							d[i - 1, j - 1] + cost);
-				}
-			}
-			// Step 7
-			return d[n, m];
-		}
-	}
-
-	public class AnswerBin
-	{
-		private readonly Mutex m_answersMutex = new Mutex();
-		private readonly Dictionary<string, double> m_ratedAnswers = new Dictionary<string, double>();
-		public AnswerBin()
-		{
-		}
-		~AnswerBin()
-		{
-			m_answersMutex.Dispose();
-		}
-		public void Add(Answer answer, double levValue)
-		{
-			m_answersMutex.WaitOne();
-			m_ratedAnswers[answer.NormalizedAnswer] = levValue;
-			m_answersMutex.ReleaseMutex();
-		}
-		public bool Contains(Answer answer)
-		{
-			try
-			{
-				m_answersMutex.WaitOne();
-				return m_ratedAnswers.Keys.Contains(answer.NormalizedAnswer);
-			}
-			finally
-			{
-				m_answersMutex.ReleaseMutex();
-			}
-		}
-		public void GetLevenshteinRange(out double min, out double max)
-		{
-			min = m_ratedAnswers.Count == 0 ? 0.0 : m_ratedAnswers.Min(ra => ra.Value);
-			max = m_ratedAnswers.Count == 0 ? 0.0 : m_ratedAnswers.Max(ra => ra.Value);
-		}
-		public bool LevContains(Answer answer, out double levValue)
-		{
-			levValue = 0.0;
-			try
-			{
-				m_answersMutex.WaitOne();
-				string norm = answer.NormalizedAnswer;
-				foreach (string acceptableAnswer in m_ratedAnswers.Keys)
-				{
-					if (Levenshtein.LevMatch(norm, acceptableAnswer, out levValue))
-						return true;
-				}
-			}
-			finally
-			{
-				m_answersMutex.ReleaseMutex();
-			}
-			return false;
-		}
-	}
-
-	public class DuplicateKeyComparer<TKey> : IComparer<TKey> where TKey : IComparable
-	{
-		public int Compare(TKey x, TKey y)
-		{
-			int result = x.CompareTo(y);
-			if (result == 0)
-				return 1;   // Handle equality as being greater
-			else
-				return -result;
-		}
-	}
-
-	class MarkingPumpArgs
-	{
-		public bool UseLevenshtein { get; private set; }
-		public bool AutoCountdown { get; private set; }
-		public MarkingPumpArgs(bool useLevenshtein, bool autoCountdown)
-		{
-			UseLevenshtein = useLevenshtein;
-			AutoCountdown = autoCountdown;
-		}
-	}
-
-	class CountdownStartArgs
-	{
-		public CountdownStartArgs()
-		{
-		}
-	}
-
-	class FunnyAnswerArgs
-	{
-		public Answer Answer { get; private set; }
-		public Contestant Contestant { get; private set; }
-		public FunnyAnswerArgs(Answer answer, Contestant contestant)
-		{
-			Answer = answer;
-			Contestant = contestant;
-		}
-		public override string ToString()
-		{
-			return "😂 Answer from " + Contestant.Name + ": \"" + Answer.AnswerText.Trim('.') + "\"";
-		}
-	}
-
-	class ScoreReportEntry : IComparable
-	{
-		public Contestant Contestant { get; private set; }
-		public AnswerResult Result { get; private set; }
-		public TimeSpan AnswerTimeOffset { get; private set; }
-		public DateTime AnswerTime { get; private set; }
-		public Brush Colour
-		{
-			get
-			{
-				if (Result == AnswerResult.Correct)
-					return Brushes.LawnGreen;
-				if (Result == AnswerResult.AlmostCorrect)
-					return Brushes.Yellow;
-				if (Result == AnswerResult.Wrong)
-					return Brushes.Red;
-				return Brushes.LightGray;
-			}
-		}
-		public ScoreReportEntry(DateTime answerTime, Contestant contestant, AnswerResult result, TimeSpan answerTimeOffset)
-		{
-			AnswerTime = answerTime;
-			AnswerTimeOffset = answerTimeOffset;
-			Contestant = contestant;
-			Result = result;
-		}
-		public string GetScoreReportString(bool includeTime)
-		{
-			string str = "";
-			if (Result == AnswerResult.Correct)
-				str = "✓";
-			if (Result == AnswerResult.AlmostCorrect)
-				str = "✓";
-			if (Result == AnswerResult.Wrong)
-				str = "✕";
-			str += " " + Contestant.Name;
-			if (includeTime)
-				if (AnswerTimeOffset.TotalSeconds > 0)
-					str += " (+" + string.Format("{0:0.00}", AnswerTimeOffset.TotalSeconds) + "s)";
-			return str;
-		}
-		public int CompareTo(object obj)
-		{
-			if (obj is ScoreReportEntry entry)
-				return -AnswerTimeOffset.CompareTo(entry.AnswerTimeOffset);
-			return 1;
-		}
-	}
-
-
 	/// <summary>
 	/// Interaction logic for QuizControlPanel.xaml
 	/// </summary>
-	public partial class QuizControlPanel : Window
+	public partial class QuizControlPanel : Window, IQuizContext
 	{
 		[DllImport("user32.dll")]
 		private static extern IntPtr GetForegroundWindow();
@@ -461,7 +37,6 @@ namespace ZoomQuiz
 		[DllImport("USER32.DLL")]
 		public static extern bool SetForegroundWindow(IntPtr hWnd);
 
-		private const int COUNTDOWN_SECONDS = 15;
 		private const string SCORE_REPORT_FILENAME = "scoreReport.png";
 		private const string SCORE_REPORT_WITH_TIMES_FILENAME = "scoreReportWithTimes.png";
 		private const string SCORES_FILENAME = "scores.txt";
@@ -479,27 +54,38 @@ namespace ZoomQuiz
 		private const float VIDEO_VOLUME = 1.0f;
 		private const float BGM_VOLUME = 0.05f;
 
-		private readonly BackgroundWorker countdownWorker = new BackgroundWorker();
-		private readonly BackgroundWorker answerCounter = new BackgroundWorker();
-		private readonly BackgroundWorker markingPump = new BackgroundWorker();
-		private readonly BackgroundWorker faderWorker = new BackgroundWorker();
-		private readonly Mutex m_obsMutex = new Mutex();
-		private readonly Mutex m_volumeMutex = new Mutex();
-		private readonly Mutex m_answerListMutex = new Mutex();
+		public Mutex ObsMutex { get; } = new Mutex();
+		public Mutex VolumeMutex { get; } = new Mutex();
+		public Mutex AnswerListMutex { get; } = new Mutex();
+		public Mutex AnswerForMarkingMutex { get; } = new Mutex();
 		private readonly Mutex m_answerFileMutex = new Mutex();
 		private readonly Mutex m_scoreReportMutex = new Mutex();
-		private readonly Mutex m_answerForMarkingMutex = new Mutex();
-		private readonly AutoResetEvent m_answerReceivedEvent1 = new AutoResetEvent(false);
-		private readonly AutoResetEvent m_answerReceivedEvent2 = new AutoResetEvent(false);
-		private readonly AutoResetEvent m_answerMarkedEvent = new AutoResetEvent(false);
-		private readonly ManualResetEvent m_countdownCompleteEvent = new ManualResetEvent(true);
-		private readonly ManualResetEvent m_quitAppEvent = new ManualResetEvent(false);
+
+		private readonly BackgroundWorker countdownWorker;
+		private readonly BackgroundWorker answerCounter;
+		private readonly BackgroundWorker markingPump;
+		private readonly BackgroundWorker faderWorker;
+
+		public AutoResetEvent AnswerReceivedEvent { get; } = new AutoResetEvent(false);
+		public AutoResetEvent AnswerCounterAnswerReceivedEvent { get; } = new AutoResetEvent(false);
+		public AutoResetEvent AnswerMarkedEvent { get; } = new AutoResetEvent(false);
+		public ManualResetEvent CountdownCompleteEvent { get; } = new ManualResetEvent(true);
+		public ManualResetEvent QuitAppEvent { get; } = new ManualResetEvent(false);
+		public float BgmVolume { get; private set; } = BGM_VOLUME;
+		public float QuestionBGMVolume { get; private set; } = 0;
+		public float QuestionAudioVolume { get; private set; } = 0;
+		public float QuestionVideoVolume { get; private set; } = 0;
+
+		public Dictionary<Contestant, List<Answer>> Answers { get; } = new Dictionary<Contestant, List<Answer>>();
+		public Dictionary<AnswerResult, AnswerBin> AnswerBins { get; } = new Dictionary<AnswerResult, AnswerBin>();
+		private Quiz Quiz;
 		private readonly Dictionary<Contestant, int> m_scores = new Dictionary<Contestant, int>();
-		private readonly Dictionary<AnswerResult, AnswerBin> m_answerBins = new Dictionary<AnswerResult, AnswerBin>();
-		private readonly OBSWebsocket m_obs = new OBSWebsocket();
-		private readonly Dictionary<int, Question> m_quiz = new Dictionary<int, Question>();
-		private readonly Dictionary<string, string> m_mediaPaths = new Dictionary<string, string>();
 		private readonly List<ScoreReportEntry> m_scoreReport = new List<ScoreReportEntry>();
+		private readonly Dictionary<Contestant, AnswerResult> m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
+
+		public OBSWebsocket Obs { get; } = new OBSWebsocket();
+
+		public bool ShowTimeWarnings { get; private set; } = false;
 
 		private bool m_quizEnded = false;
 		private bool m_questionShowing = false;
@@ -508,20 +94,12 @@ namespace ZoomQuiz
 		private bool m_fullScreenPictureShowing = false;
 		private uint m_myID = 0;
 		private bool m_presenting = false;
-		private Dictionary<Contestant, List<Answer>> m_answers = new Dictionary<Contestant, List<Answer>>();
 		private AnswerForMarking m_answerForMarking = null;
-		private Dictionary<Contestant, AnswerResult> m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 		private int m_nextQuestion = 1;
 		private Question m_currentQuestion = null;
-		private float m_bgmVolume = BGM_VOLUME;
-		private float m_questionBGMVolume = 0;
-		private float m_questionAudioVolume = 0;
-		private float m_questionVideoVolume = 0;
 		private bool m_scoresDirty = true;
 		public bool StartedOK { get; private set; }
-		private bool m_timeWarnings = false;
 		private bool m_chatWarnings = false;
-
 		private bool PresentationOnly { get; set; }
 
 		public QuizControlPanel(bool presentationOnly)
@@ -530,24 +108,16 @@ namespace ZoomQuiz
 			StartedOK = false;
 			InitializeComponent();
 			ReadScoresFromFile();
-			countdownWorker.DoWork += CountdownWorker_DoWork;
-			countdownWorker.ProgressChanged += CountdownWorker_ProgressChanged;
-			countdownWorker.WorkerReportsProgress = true;
-			countdownWorker.RunWorkerCompleted += CountdownWorker_RunWorkerCompleted;
-			markingPump.DoWork += MarkingPump_DoWork;
-			markingPump.ProgressChanged += MarkingPump_ProgressChanged;
-			markingPump.WorkerReportsProgress = true;
-			markingPump.RunWorkerCompleted += MarkingPump_RunWorkerCompleted;
-			answerCounter.DoWork += AnswerCounter_DoWork;
-			answerCounter.ProgressChanged += AnswerCounter_ProgressChanged;
-			answerCounter.WorkerReportsProgress = true;
-			faderWorker.DoWork += FaderWorker_DoWork;
+			markingPump = new MarkingPumpBackgroundWorker(this);
+			countdownWorker = new CountdownBackgroundWorker(this);
+			answerCounter = new AnswerCounterBackgroundWorker(this);
+			faderWorker = new FaderBackgroundWorker(this);
 			ClearLeaderboards();
 			UpdateLeaderboard(true);
 			try
 			{
-				m_obs.Connect("ws://127.0.0.1:4444", "");
-				if (m_obs.IsConnected)
+				Obs.Connect("ws://127.0.0.1:4444", "");
+				if (Obs.IsConnected)
 				{
 					SetOBSScene("CamScene");
 					//File.Delete(Path.Combine(Directory.GetCurrentDirectory(), ANSWERS_FILENAME));
@@ -596,10 +166,10 @@ namespace ZoomQuiz
 		private void SetLeaderboardsPath()
 		{
 			string lbFolder = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
-			SourceSettings lbSourceSettings = m_obs.GetSourceSettings("Leaderboard");
+			SourceSettings lbSourceSettings = Obs.GetSourceSettings("Leaderboard");
 			JObject lbSettings = lbSourceSettings.sourceSettings;
 			lbSettings["files"][0]["value"] = lbFolder;
-			m_obs.SetSourceSettings("Leaderboard", lbSettings);
+			Obs.SetSourceSettings("Leaderboard", lbSettings);
 		}
 
 		private void SetScoreReportMedia()
@@ -614,74 +184,14 @@ namespace ZoomQuiz
 			string mp4Path = Path.Combine(presFolder, "Countdown.mp4");
 			string maskPath = Path.Combine(presFolder, "circle.png");
 			SetOBSFileSourceFromPath("Countdown", "local_file", mp4Path);
-			List<FilterSettings> filters = m_obs.GetSourceFilters("Countdown");
+			List<FilterSettings> filters = Obs.GetSourceFilters("Countdown");
 			foreach (FilterSettings st in filters)
 			{
 				if (st.Name.Contains("Image Mask"))
 				{
 					JObject maskSettings = st.Settings;
 					maskSettings["image_path"] = maskPath;
-					m_obs.SetSourceFilterSettings("Countdown", st.Name, maskSettings);
-				}
-			}
-		}
-
-		private void FaderWorker_DoWork(object sender, DoWorkEventArgs e)
-		{
-			const float bgmVolSpeed = 0.01f;
-			const float qbgmVolSpeed = 0.01f;
-			const float qaudVolSpeed = 0.04f;
-			const float qvidVolSpeed = 0.04f;
-
-			while (!m_quitAppEvent.WaitOne(100))
-			{
-				try
-				{
-					m_volumeMutex.WaitOne();
-					try
-					{
-						m_obsMutex.WaitOne();
-						VolumeInfo bgmVolInf = m_obs.GetVolume("BGM");
-						VolumeInfo qbgmVolInf = m_obs.GetVolume("QuestionBGM");
-						VolumeInfo qaVolInf = m_obs.GetVolume("QuestionAudio");
-						VolumeInfo qvVolInf = m_obs.GetVolume("QuestionVid");
-						float nBGMVol = bgmVolInf.Volume;
-						float nQBGMVol = qbgmVolInf.Volume;
-						float nQAVol = qaVolInf.Volume;
-						float nQVVol = qvVolInf.Volume;
-						float diff = nBGMVol - m_bgmVolume;
-						if (diff < -bgmVolSpeed)
-							m_obs.SetVolume("BGM", nBGMVol + bgmVolSpeed);
-						else if (diff > bgmVolSpeed)
-							m_obs.SetVolume("BGM", nBGMVol - bgmVolSpeed);
-						else if (nBGMVol != m_bgmVolume)
-							m_obs.SetVolume("BGM", m_bgmVolume);
-						diff = nQBGMVol - m_questionBGMVolume;
-						if (diff < -qbgmVolSpeed)
-							m_obs.SetVolume("QuestionBGM", nQBGMVol + qbgmVolSpeed);
-						else if (diff > qbgmVolSpeed)
-							m_obs.SetVolume("QuestionBGM", nQBGMVol - qbgmVolSpeed);
-						else if (nQBGMVol != m_questionBGMVolume)
-							m_obs.SetVolume("QuestionBGM", m_questionBGMVolume);
-						diff = nQAVol - m_questionAudioVolume;
-						if (diff > qaudVolSpeed)
-							m_obs.SetVolume("QuestionAudio", nQAVol - qaudVolSpeed);
-						else if (nQAVol != m_questionAudioVolume)
-							m_obs.SetVolume("QuestionAudio", m_questionAudioVolume);
-						diff = nQVVol - m_questionVideoVolume;
-						if (diff > qvidVolSpeed)
-							m_obs.SetVolume("QuestionVid", nQVVol - qvidVolSpeed);
-						else if (nQVVol != m_questionVideoVolume)
-							m_obs.SetVolume("QuestionVid", m_questionVideoVolume);
-					}
-					finally
-					{
-						m_obsMutex.ReleaseMutex();
-					}
-				}
-				finally
-				{
-					m_volumeMutex.ReleaseMutex();
+					Obs.SetSourceFilterSettings("Countdown", st.Name, maskSettings);
 				}
 			}
 		}
@@ -689,131 +199,20 @@ namespace ZoomQuiz
 		private void SetBGMShuffle()
 		{
 			string mediaPath = Path.Combine(Directory.GetCurrentDirectory(), "bgm");
-			SourceSettings bgmSettings = m_obs.GetSourceSettings("BGM");
+			SourceSettings bgmSettings = Obs.GetSourceSettings("BGM");
 			JObject bgmSourceSettings = bgmSettings.sourceSettings;
 			bgmSourceSettings["loop"] = true;
 			bgmSourceSettings["shuffle"] = true;
 			bgmSourceSettings["playlist"][0]["value"] = mediaPath;
-			m_obs.SetSourceSettings("BGM", bgmSourceSettings);
-		}
-
-		private string FixUnicode(string strIn)
-		{
-			strIn = strIn.Replace("Â£", "£");
-			strIn = strIn.Replace("Ã©", "é");
-			return strIn;
-		}
-
-		private MediaType GetMediaTypeFromFilename(string filename)
-		{
-			if (!String.IsNullOrEmpty(filename))
-			{
-				string ext = Path.GetExtension(filename).ToLower().Trim('.');
-				if (ext == "jpg" || ext == "png" || ext == "bmp" || ext == "tif" || ext == "tiff" || ext == "jpeg" || ext == "gif")
-					return MediaType.Image;
-				if (ext == "mp3" || ext == "wav" || ext == "ogg" || ext == "m4a" || ext == "wma")
-					return MediaType.Audio;
-				if (ext == "mp4" || ext == "mkv" || ext == "avi" || ext == "mov" || ext == "m4v")
-					return MediaType.Video;
-			}
-			return MediaType.Unknown;
+			Obs.SetSourceSettings("BGM", bgmSourceSettings);
 		}
 
 		private void LoadQuiz(string quizFilePath)
 		{
-			string[] ParseDelimitedString(string s)
-			{
-				if (!String.IsNullOrEmpty(s))
-				{
-					string[] bits = s.Split(',');
-					for (int f = 0; f < bits.Length; ++f)
-						bits[f] = bits[f].Trim();
-					return bits;
-				}
-				return new string[0];
-			}
+			Quiz = new Quiz(quizFilePath);
 
-			m_mediaPaths.Clear();
-			string mediaPath = new FileInfo(quizFilePath).DirectoryName;
-			if (Directory.Exists(mediaPath))
-			{
-				string[] files = Directory.GetFiles(mediaPath, "*.*", SearchOption.AllDirectories);
-				foreach (string file in files)
-					if (!Directory.Exists(file))
-						m_mediaPaths[Path.GetFileName(file).ToLower()] = file;
-			}
-
-			m_quiz.Clear();
-			IniFile quizIni = new IniFile(quizFilePath);
-			for (int qNum = 1; ; ++qNum)
-			{
-				string numSection = "" + qNum;
-				if (quizIni.KeyExists("Q", numSection))
-				{
-					string q = FixUnicode(quizIni.Read("Q", numSection).Trim());
-					string a = FixUnicode(quizIni.Read("A", numSection).Trim());
-					string aa = FixUnicode(quizIni.Read("AA", numSection).Trim());
-					string w = FixUnicode(quizIni.Read("W", numSection).Trim());
-					string n = FixUnicode(quizIni.Read("Almost", numSection).Trim());
-					string qmed = quizIni.Read("QMed", numSection).ToLower().Trim();
-					if (String.IsNullOrEmpty(qmed))
-					{
-						// Backwards compat.
-						qmed = quizIni.Read("QAud", numSection).ToLower().Trim();
-						if (String.IsNullOrEmpty(qmed))
-							qmed = quizIni.Read("QPic", numSection).ToLower().Trim();
-					}
-					MediaType qmedType = GetMediaTypeFromFilename(qmed);
-					string qsup = quizIni.Read("QSupMed", numSection).ToLower().Trim();
-					if (String.IsNullOrEmpty(qsup))
-					{
-						// Backwards compat.
-						// Can't have TWO images.
-						qsup = qmedType != MediaType.Image ? quizIni.Read("QPic", numSection).ToLower().Trim() : null;
-						if (String.IsNullOrEmpty(qsup))
-							qsup = quizIni.Read("QBGM", numSection).ToLower().Trim();
-					}
-					MediaType qsupType = GetMediaTypeFromFilename(qsup);
-					string apic = quizIni.Read("APic", numSection).ToLower().Trim();
-					string info = FixUnicode(quizIni.Read("Info", numSection).Trim());
-					string[] wArray = ParseDelimitedString(w);
-					string[] aaArray = ParseDelimitedString(aa);
-					string[] nArray = ParseDelimitedString(n);
-					for (int f = 0; f < aaArray.Length; ++f)
-						aaArray[f] = Answer.NormalizeAnswer(aaArray[f]);
-					for (int f = 0; f < nArray.Length; ++f)
-						nArray[f] = Answer.NormalizeAnswer(nArray[f]);
-					List<string> allAnswers = new List<string>();
-					allAnswers.AddRange(aaArray);
-					allAnswers.Add(Answer.NormalizeAnswer(a));
-					string useLevStr = quizIni.Read("Lev", numSection).ToLower().Trim();
-					if (!bool.TryParse(useLevStr, out bool useLev))
-						useLev = !allAnswers.Any(answerString => answerString.Length < 4 || int.TryParse(answerString, out int unusedInt));
-					QuestionValidity validity = QuestionValidity.Valid;
-					if ((!String.IsNullOrEmpty(qmed)) && (!m_mediaPaths.ContainsKey(qmed)))
-						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((!String.IsNullOrEmpty(qmed)) && qmedType == MediaType.Unknown)
-						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((!String.IsNullOrEmpty(qmed)) && qmedType == qsupType)
-						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((String.IsNullOrEmpty(q)) || (allAnswers.Count == 0))
-						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((!String.IsNullOrEmpty(qsup)) && (!m_mediaPaths.ContainsKey(qsup)))
-						validity = QuestionValidity.MissingSupplementary;
-					// Can't have supplementary video
-					else if (qsupType == MediaType.Video)
-						validity = QuestionValidity.MissingSupplementary;
-					else if ((!String.IsNullOrEmpty(qsup)) && qsupType == MediaType.Unknown)
-						validity = QuestionValidity.MissingSupplementary;
-					else if ((!String.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
-						validity = QuestionValidity.MissingSupplementary;
-					m_quiz[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType, qsup, qsupType, apic, info, useLev, validity);
-				}
-				else
-					break;
-			}
 			UpdateQuizList();
-			if (m_quiz.Values.Any(q => q.Validity != QuestionValidity.Valid))
+			if (Quiz.HasInvalidQuestions)
 				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
 			m_nextQuestion = 0;
 			NextQuestion(m_nextQuestion);
@@ -822,11 +221,11 @@ namespace ZoomQuiz
 
 		private void UpdateQuizList()
 		{
-			quizList.ItemsSource = m_quiz.Values;
+			quizList.ItemsSource = Quiz;
 			ICollectionView view = CollectionViewSource.GetDefaultView(quizList.ItemsSource);
 			view.Refresh();
 			quizList.SelectedIndex = 0;
-			quizList.ScrollIntoView(m_quiz[1]);
+			quizList.ScrollIntoView(Quiz[1]);
 		}
 
 		private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -834,7 +233,7 @@ namespace ZoomQuiz
 			if (!PresentationOnly && !m_quizEnded)
 				e.Cancel = true;
 			else
-				m_quitAppEvent.Set();
+				QuitAppEvent.Set();
 		}
 
 		public void EndQuiz()
@@ -843,13 +242,13 @@ namespace ZoomQuiz
 			Close();
 			try
 			{
-				m_obsMutex.WaitOne();
-				if (m_obs.IsConnected)
-					m_obs.Disconnect();
+				ObsMutex.WaitOne();
+				if (Obs.IsConnected)
+					Obs.Disconnect();
 			}
 			finally
 			{
-				m_obsMutex.ReleaseMutex();
+				ObsMutex.ReleaseMutex();
 			}
 		}
 
@@ -890,12 +289,12 @@ namespace ZoomQuiz
 		private void ResetAnswerBins(Question currentQuestion)
 		{
 			var values = Enum.GetValues(typeof(AnswerResult));
-			m_answerBins.Clear();
+			AnswerBins.Clear();
 			foreach (AnswerResult result in values)
-				m_answerBins[result] = new AnswerBin();
-			AnswerBin correctAnswers = m_answerBins[AnswerResult.Correct];
-			AnswerBin almostCorrectAnswers = m_answerBins[AnswerResult.AlmostCorrect];
-			AnswerBin wrongAnswers = m_answerBins[AnswerResult.Wrong];
+				AnswerBins[result] = new AnswerBin();
+			AnswerBin correctAnswers = AnswerBins[AnswerResult.Correct];
+			AnswerBin almostCorrectAnswers = AnswerBins[AnswerResult.AlmostCorrect];
+			AnswerBin wrongAnswers = AnswerBins[AnswerResult.Wrong];
 			currentQuestion.QuestionAnswers.Select(a => new Answer(a)).ToList().ForEach(a => correctAnswers.Add(a, 0.0));
 			currentQuestion.QuestionAlmostAnswers.Select(a => new Answer(a)).ToList().ForEach(a => almostCorrectAnswers.Add(a, 0.0));
 			currentQuestion.QuestionWrongAnswers.Select(a => new Answer(a)).ToList().ForEach(a => wrongAnswers.Add(a, 0.0));
@@ -915,6 +314,8 @@ namespace ZoomQuiz
 					for (int f = 0; f < (int)mode + 3; ++f)
 						kb.Send(Keyboard.VirtualKeyShort.DOWN);
 					kb.Send(Keyboard.VirtualKeyShort.RETURN);
+					if (m_chatWarnings)
+						SendPublicChat(mode == ChatMode.HostOnly ? "💬 Public chat is now OFF until the answers are in." : "💬 Public chat is ON");
 				}
 				else
 					MessageBox.Show("Can't find chat window (it must be separated from the main app).");
@@ -931,24 +332,24 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void AddAnswer(Contestant contestant, Answer answer)
+		public void AddAnswer(Contestant contestant, Answer answer)
 		{
 			try
 			{
-				m_answerListMutex.WaitOne();
-				m_answers.TryGetValue(contestant, out List<Answer> answerList);
+				AnswerListMutex.WaitOne();
+				Answers.TryGetValue(contestant, out List<Answer> answerList);
 				if (answerList == null)
 					answerList = new List<Answer>();
 				answerList.Add(answer);
-				m_answers[contestant] = answerList;
+				Answers[contestant] = answerList;
 			}
 			finally
 			{
-				m_answerListMutex.ReleaseMutex();
+				AnswerListMutex.ReleaseMutex();
 			}
 
-			m_answerReceivedEvent1.Set();
-			m_answerReceivedEvent2.Set();
+			AnswerReceivedEvent.Set();
+			AnswerCounterAnswerReceivedEvent.Set();
 		}
 
 		public void OnAnswerReceived(IChatMsgInfoDotNetWrap chatMsg)
@@ -1001,11 +402,11 @@ namespace ZoomQuiz
 				m_scoreReportMutex.ReleaseMutex();
 			}
 			UpdateScoreReports();
-			m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
-			m_answers = new Dictionary<Contestant, List<Answer>>();
+			m_lastAnswerResults.Clear();
+			Answers.Clear();
 			HideAnswer();
 			skipQuestionButton.IsEnabled = false;
-			m_currentQuestion = m_quiz[m_nextQuestion];
+			m_currentQuestion = Quiz[m_nextQuestion];
 			questionTextBox.Text = m_currentQuestion.QuestionText;
 			answerTextBox.Text = m_currentQuestion.AnswerText;
 			infoTextBox.Text = m_currentQuestion.Info;
@@ -1030,56 +431,21 @@ namespace ZoomQuiz
 				newQuestionButton.IsEnabled = showLeaderboardButton.IsEnabled = false;
 			showQuestionButton.IsEnabled = true;
 			if (!PresentationOnly)
-				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "✏️ Here comes the next question ...");
+				SendPublicChat("✏️ Here comes the next question ...");
 		}
 
-		private void CountdownWorker_DoWork(object sender, DoWorkEventArgs e)
+		public void SendPublicChat(string chatMessage)
 		{
-			for (int f = COUNTDOWN_SECONDS; f > 0; --f)
-			{
-				Thread.Sleep(1000);
-				if (((f % 5) == 0) && (f != COUNTDOWN_SECONDS))
-					countdownWorker.ReportProgress(f);
-			}
-		}
-
-		private void AnswerCounter_DoWork(object sender, DoWorkEventArgs e)
-		{
-			WaitHandle[] waitEvents = new WaitHandle[] { m_answerReceivedEvent2, m_countdownCompleteEvent, m_quitAppEvent };
-			for (; ; )
-			{
-				int result = WaitHandle.WaitAny(waitEvents);
-				if (result > 0)
-					break;
-				int answerCount = 0;
-				int markedAnswerCount = 0;
-				try
-				{
-					m_answerListMutex.WaitOne();
-					answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count);
-					markedAnswerCount = m_answers.Sum(kvp2 => kvp2.Value.Count(a => a.AnswerResult != AnswerResult.Unmarked));
-				}
-				finally
-				{
-					m_answerListMutex.ReleaseMutex();
-				}
-
-				answerCounter.ReportProgress(100, new MarkingProgress(answerCount, markedAnswerCount));
-			}
-		}
-
-		private void AnswerCounter_ProgressChanged(object sender, ProgressChangedEventArgs e)
-		{
-			UpdateMarkingProgressUI((MarkingProgress)e.UserState);
+			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, chatMessage);
 		}
 
 		private int GetNextQuestionNumber(int currentQuestion)
 		{
 			int next = currentQuestion;
-			while (m_quiz.ContainsKey(++next))
-				if (m_quiz[next].Validity != QuestionValidity.MissingQuestionOrAnswer)
+			while (Quiz.HasQuestion(++next))
+				if (Quiz[next].Validity != QuestionValidity.MissingQuestionOrAnswer)
 					break;
-			if (!m_quiz.ContainsKey(next))
+			if (!Quiz.HasQuestion(next))
 				next = -1;
 			return next;
 		}
@@ -1101,31 +467,20 @@ namespace ZoomQuiz
 			return m_nextQuestion;
 		}
 
-		private void CountdownWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		public void OnCountdownComplete()
 		{
-			if (m_timeWarnings)
-				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⌛ Time is up!");
-			if (m_chatWarnings)
-				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is ON");
-			m_countdownCompleteEvent.Set();
 			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
 			NextQuestion(m_nextQuestion);
 			SetChatMode(ChatMode.EveryonePublicly);
 			try
 			{
-				m_answerForMarkingMutex.WaitOne();
+				AnswerForMarkingMutex.WaitOne();
 				presentingButton.IsEnabled = m_answerForMarking == null;
 			}
 			finally
 			{
-				m_answerForMarkingMutex.ReleaseMutex();
+				AnswerForMarkingMutex.ReleaseMutex();
 			}
-		}
-
-		private void CountdownWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
-		{
-			if (m_timeWarnings)
-				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + e.ProgressPercentage + " seconds remaining ...");
 		}
 
 		private void UpdateScoreReports()
@@ -1225,10 +580,10 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void MarkAnswer(AnswerForMarking answer, AnswerResult result, double levValue, bool autoCountdown)
+		public void MarkAnswer(AnswerForMarking answer, AnswerResult result, double levValue, bool autoCountdown)
 		{
 			answer.Answer.AnswerResult = result;
-			AnswerBin bin = m_answerBins[result];
+			AnswerBin bin = AnswerBins[result];
 			if (bin != null)
 				bin.Add(answer.Answer, levValue);
 			if (result == AnswerResult.Correct)
@@ -1246,107 +601,15 @@ namespace ZoomQuiz
 				MarkOtherUserAnswers(answer.Contestant);
 		}
 
-		private bool AutoMarkAnswer(AnswerForMarking answer, bool useLev, bool autoCountdown)
+		public void SetAnswerForMarking(AnswerForMarking answerForMarking)
 		{
-			bool startsWithDot = answer.Answer.AnswerText.StartsWith(".");
-			// If user has already submitted an answer that was accepted, don't accept this new one as an answer.
-			if (!startsWithDot)
+			m_answerForMarking = answerForMarking;
+			if (m_answerForMarking != null)
 			{
-				if (m_answers.ContainsKey(answer.Contestant))
-				{
-					List<Answer> contestantAnswers = m_answers[answer.Contestant];
-					if (contestantAnswers.Any(a => a.IsAcceptedAnswer))
-					{
-						MarkAnswer(answer, startsWithDot ? AnswerResult.Funny : AnswerResult.NotAnAnswer, 0.0, autoCountdown);
-						return true;
-					}
-				}
-				// Otherwise, if the user has submitted an answer that has already been marked, use that marking.
-				double levValue = 0.0;
-				foreach (KeyValuePair<AnswerResult, AnswerBin> kvp in m_answerBins)
-					if (kvp.Value.Contains(answer.Answer) || (useLev && kvp.Value.LevContains(answer.Answer, out levValue)))
-					{
-						MarkAnswer(answer, kvp.Key, levValue, autoCountdown);
-						return true;
-					}
+				contestantName.Text = m_answerForMarking.Contestant.Name;
+				questionText.Text = m_answerForMarking.Answer.AnswerText;
+				correctAnswerButton.IsEnabled = almostCorrectAnswerButton.IsEnabled = wrongAnswerButton.IsEnabled = funnyAnswerButton.IsEnabled = notAnAnswerButton.IsEnabled = true;
 			}
-			else
-			{
-				MarkAnswer(answer, AnswerResult.Funny, 0.0, autoCountdown);
-				return true;
-			}
-			// Otherwise, no, have to do it manually.
-			return false;
-		}
-
-		private void MarkingPump_DoWork(object sender, DoWorkEventArgs e)
-		{
-			MarkingPumpArgs markingPumpArgs = (MarkingPumpArgs)e.Argument;
-			bool lev = (bool)markingPumpArgs.UseLevenshtein;
-			bool autoCountdown = (bool)markingPumpArgs.AutoCountdown;
-			void UpdateMarkingProgress(AnswerForMarking nextAnswerForMarking = null)
-			{
-				int answerCount = m_answers.Sum(kvp2 => kvp2.Value.Count);
-				int markedAnswerCount = m_answers.Sum(kvp2 => kvp2.Value.Count(a => a.AnswerResult != AnswerResult.Unmarked));
-				int percentage = answerCount == 0 ? 0 : (int)((double)markedAnswerCount / answerCount);
-				markingPump.ReportProgress(percentage * 100, new MarkingProgress(answerCount, markedAnswerCount));
-			}
-			void SetAnswerForMarking(AnswerForMarking nextAnswerForMarking)
-			{
-				markingPump.ReportProgress(0, nextAnswerForMarking);
-			}
-			bool waitingForMarking = false;
-			WaitHandle[] events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent, m_countdownCompleteEvent };
-			for (; ; )
-			{
-				int result = WaitHandle.WaitAny(events);
-				if (result == 2)
-					break;
-				if (result == 3)
-				{
-					if (!waitingForMarking)
-						break;
-					events = new WaitHandle[] { m_answerMarkedEvent, m_answerReceivedEvent1, m_quitAppEvent };
-				}
-				if (result == 0)
-					waitingForMarking = false;
-				try
-				{
-					m_answerListMutex.WaitOne();
-					foreach (KeyValuePair<Contestant, List<Answer>> kvp in m_answers)
-					{
-						Answer unmarkedAnswer = kvp.Value.FirstOrDefault(a => a.AnswerResult == AnswerResult.Unmarked);
-						if (unmarkedAnswer != null)
-						{
-							AnswerForMarking answerForMarking = new AnswerForMarking(kvp.Key, unmarkedAnswer);
-							if (!AutoMarkAnswer(answerForMarking, lev, autoCountdown))
-							{
-								if (!waitingForMarking)
-								{
-									waitingForMarking = true;
-									SetAnswerForMarking(answerForMarking);
-								}
-							}
-							else
-								UpdateMarkingProgress();
-						}
-						else
-							UpdateMarkingProgress();
-					}
-					if (waitingForMarking)
-						continue;
-					if (m_countdownCompleteEvent.WaitOne(0))
-						// Nothing left to mark, and no more answers incoming? We're done.
-						break;
-				}
-				finally
-				{
-					m_answerListMutex.ReleaseMutex();
-				}
-				if (result == 2)
-					break;
-			}
-			UpdateMarkingProgress();
 		}
 
 		private void ReadScoresFromFile()
@@ -1523,7 +786,7 @@ namespace ZoomQuiz
 
 		private string GetLevenshteinReport(AnswerResult result)
 		{
-			AnswerBin bin = m_answerBins[result];
+			AnswerBin bin = AnswerBins[result];
 			bin.GetLevenshteinRange(out double minLev, out double maxLev);
 			return result.ToString() + " answer Levenshtein values ranged from " + string.Format("{0:0.00}", minLev) + " to " + string.Format("{0:0.00}", maxLev);
 		}
@@ -1538,7 +801,7 @@ namespace ZoomQuiz
 				using (StreamWriter sw = File.AppendText(answersFilePath))
 				{
 					List<AnswerBackupString> answerBackupStrings = new List<AnswerBackupString>();
-					foreach (KeyValuePair<Contestant, List<Answer>> kvp in m_answers)
+					foreach (KeyValuePair<Contestant, List<Answer>> kvp in Answers)
 					{
 						m_scoresDirty = true;
 						m_lastAnswerResults[kvp.Key] = AnswerResult.NotAnAnswer;
@@ -1579,61 +842,13 @@ namespace ZoomQuiz
 			UpdateLeaderboard();
 		}
 
-		private void MarkingPump_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
-		{
-			contestantName.Text = "<contestant name>";
-			questionText.Text = "<no answers to mark yet>";
-			SetOBSScene("CamScene");
-			m_questionShowing = false;
-			HideFullScreenPicture(false);
-
-			presentingButton.IsEnabled = showLeaderboardButton.IsEnabled = showAnswerButton.IsEnabled = true;
-			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
-			loadQuizButton.IsEnabled = true;
-			showPictureButton.IsEnabled = false;
-
-			restartMarking.IsEnabled = false;
-			markingProgressBar.Value = markingProgressBar.Maximum;
-			ApplyScores();
-			UpdateMarkingProgressUI(null);
-		}
-
-		private void UpdateMarkingProgressUI(MarkingProgress markingProgress)
+		public void UpdateMarkingProgressUI(MarkingProgress markingProgress)
 		{
 			if (markingProgress != null)
 			{
 				markingProgressBar.Maximum = markingProgress.AnswersReceived;
 				markingProgressBar.Value = markingProgress.AnswersMarked;
 				markingProgressText.Text = markingProgress.AnswersMarked + " of " + markingProgress.AnswersReceived;
-			}
-		}
-
-		private void MarkingPump_ProgressChanged(object sender, ProgressChangedEventArgs e)
-		{
-			try
-			{
-				m_answerForMarkingMutex.WaitOne();
-				object o = e.UserState;
-				if (o is CountdownStartArgs)
-					StartCountdown();
-				else if (o is FunnyAnswerArgs)
-					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, o.ToString());
-				else if (o is MarkingProgress progress)
-					UpdateMarkingProgressUI(progress);
-				else if (o is AnswerForMarking marking)
-				{
-					m_answerForMarking = marking;
-					if (m_answerForMarking != null)
-					{
-						contestantName.Text = m_answerForMarking.Contestant.Name;
-						questionText.Text = m_answerForMarking.Answer.AnswerText;
-						correctAnswerButton.IsEnabled = almostCorrectAnswerButton.IsEnabled = wrongAnswerButton.IsEnabled = funnyAnswerButton.IsEnabled = notAnAnswerButton.IsEnabled = true;
-					}
-				}
-			}
-			finally
-			{
-				m_answerForMarkingMutex.ReleaseMutex();
 			}
 		}
 
@@ -1654,13 +869,11 @@ namespace ZoomQuiz
 			ShowOBSSource("CountdownOverlay", "FullScreenPictureAnswerScene");
 		}
 
-		private void StartCountdown()
+		public void StartCountdown()
 		{
 			if (startCountdownButton.IsEnabled)
 			{
 				startCountdownButton.IsEnabled = false;
-				if (m_timeWarnings)
-					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
 				countdownWorker.RunWorkerAsync();
 				ShowCountdownOverlay();
 			}
@@ -1669,87 +882,6 @@ namespace ZoomQuiz
 		private void StartCountdownButtonClick(object sender, RoutedEventArgs e)
 		{
 			StartCountdown();
-		}
-
-		private void FakeAnswersWorker_DoWork(object sender, DoWorkEventArgs e)
-		{
-			uint un = 235423;
-			List<Contestant> contestants = new List<Contestant>();
-			string[] contestantNames = new string[]
-			{
-				"David Bowie",
-				"Ralph Stanley",
-				"Clarissa Hetheridge",
-				"Mark Ruffalo",
-				"Stacy's Mom",
-				"Olivia Coleman",
-				"Jimmy Dewar",
-				"Kristin Hersh",
-				"Bob Mortimer",
-				"Julius Caesar",
-				"Fred Flintstone",
-				"Lana Del Rey",
-				"Bertie Bassett",
-				"Darkwing Duck",
-				"King Arthur",
-				"Humphrey Lyttleton",
-				"Shawn Colvin",
-				"Tori Amos",
-				"Stewart Lee"
-			};
-			foreach (string name in contestantNames)
-				contestants.Add(new Contestant(un++, name));
-			string[] answers = new string[]
-			{
-				"paul scholes",
-				"Shearer",
-				"Alan Sharrer",
-				"alan shearer",
-				"Bobby moore",
-				"diego maradona",
-				"Bobby Ball 😂",
-				"i've got a pot noodle!",
-				"Alan shearer",
-				"alan shearer",
-				"alan shearer",
-				"a shearer",
-				"giggsy",
-				"paul scholes",
-				"allan shearer",
-				"bananaman",
-				"alan shearer",
-				"shearer",
-				"ALAN SHERER"
-			};
-			int[] timings = new int[]
-			{
-				3785,
-				234,
-				9,
-				109,
-				1300,
-				90,
-				988,
-				123,
-				2010,
-				54,
-				111,
-				1422,
-				61,
-				88,
-				1082,
-				21,
-				15,
-				578,
-				2101
-			};
-			int n = 0;
-			foreach (int timing in timings)
-			{
-				Thread.Sleep(timing);
-				AddAnswer(contestants[n], new Answer(answers[n]));
-				++n;
-			}
 		}
 
 		private void PresentingButton_Click(object sender, RoutedEventArgs e)
@@ -1766,8 +898,8 @@ namespace ZoomQuiz
 			// in case they're guessing numeric answers.
 			try
 			{
-				m_answerListMutex.WaitOne();
-				List<Answer> answers = m_answers[contestant];
+				AnswerListMutex.WaitOne();
+				List<Answer> answers = Answers[contestant];
 				if (answers != null)
 				{
 					IEnumerable<Answer> unmarkedAnswers = answers.Where(a => a.AnswerResult == AnswerResult.Unmarked);
@@ -1785,7 +917,7 @@ namespace ZoomQuiz
 			}
 			finally
 			{
-				m_answerListMutex.ReleaseMutex();
+				AnswerListMutex.ReleaseMutex();
 			}
 		}
 
@@ -1793,19 +925,19 @@ namespace ZoomQuiz
 		{
 			try
 			{
-				m_answerForMarkingMutex.WaitOne();
+				AnswerForMarkingMutex.WaitOne();
 				if (m_answerForMarking != null)
 				{
 					m_answerForMarking = null;
 					contestantName.Text = "<contestant name>";
 					questionText.Text = "<no answers to mark yet>";
 					correctAnswerButton.IsEnabled = almostCorrectAnswerButton.IsEnabled = wrongAnswerButton.IsEnabled = funnyAnswerButton.IsEnabled = notAnAnswerButton.IsEnabled = false;
-					m_answerMarkedEvent.Set();
+					AnswerMarkedEvent.Set();
 				}
 			}
 			finally
 			{
-				m_answerForMarkingMutex.ReleaseMutex();
+				AnswerForMarkingMutex.ReleaseMutex();
 			}
 		}
 
@@ -1828,18 +960,18 @@ namespace ZoomQuiz
 		{
 			try
 			{
-				m_answerForMarkingMutex.WaitOne();
+				AnswerForMarkingMutex.WaitOne();
 				if (m_answerForMarking != null)
 				{
 					restartMarking.IsEnabled = true;
 					MarkAnswer(m_answerForMarking, result, GetBestLevenshtein(result, m_answerForMarking.Answer.NormalizedAnswer), autoCountdown.IsChecked == true);
 					ClearAnswerForMarking();
-					m_answerMarkedEvent.Set();
+					AnswerMarkedEvent.Set();
 				}
 			}
 			finally
 			{
-				m_answerForMarkingMutex.ReleaseMutex();
+				AnswerForMarkingMutex.ReleaseMutex();
 			}
 		}
 
@@ -1872,15 +1004,15 @@ namespace ZoomQuiz
 		{
 			try
 			{
-				m_answerListMutex.WaitOne();
-				foreach (KeyValuePair<Contestant, List<Answer>> kvp in m_answers)
+				AnswerListMutex.WaitOne();
+				foreach (KeyValuePair<Contestant, List<Answer>> kvp in Answers)
 					foreach (Answer a in kvp.Value)
 						a.AnswerResult = AnswerResult.Unmarked;
 				ResetAnswerBins(m_currentQuestion);
 			}
 			finally
 			{
-				m_answerListMutex.ReleaseMutex();
+				AnswerListMutex.ReleaseMutex();
 			}
 			restartMarking.IsEnabled = false;
 			ClearAnswerForMarking();
@@ -1919,33 +1051,33 @@ namespace ZoomQuiz
 		{
 			try
 			{
-				m_volumeMutex.WaitOne();
-				bool hasAudioOrVideo = (currentQuestion.QuestionMediaType == MediaType.Audio || currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(currentQuestion.QuestionMediaFilename.ToLower());
+				VolumeMutex.WaitOne();
+				bool hasAudioOrVideo = (currentQuestion.QuestionMediaType == MediaType.Audio || currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(currentQuestion.QuestionMediaFilename);
 				if (questionShowing && hasAudioOrVideo)
 				{
-					m_bgmVolume = 0;
-					m_questionBGMVolume = 0;
-					m_questionAudioVolume = AUDIO_VOLUME;
-					m_questionVideoVolume = VIDEO_VOLUME;
+					BgmVolume = 0;
+					QuestionBGMVolume = 0;
+					QuestionAudioVolume = AUDIO_VOLUME;
+					QuestionVideoVolume = VIDEO_VOLUME;
 				}
-				else if (!String.IsNullOrEmpty(currentQuestion.QuestionBGMFilename) && m_mediaPaths.ContainsKey(currentQuestion.QuestionBGMFilename.ToLower()))
+				else if (!String.IsNullOrEmpty(currentQuestion.QuestionBGMFilename) && Quiz.HasMediaFile(currentQuestion.QuestionBGMFilename))
 				{
-					m_bgmVolume = 0;
-					m_questionBGMVolume = BGM_VOLUME;
-					m_questionAudioVolume = 0;
-					m_questionVideoVolume = 0;
+					BgmVolume = 0;
+					QuestionBGMVolume = BGM_VOLUME;
+					QuestionAudioVolume = 0;
+					QuestionVideoVolume = 0;
 				}
 				else
 				{
-					m_bgmVolume = BGM_VOLUME;
-					m_questionBGMVolume = 0;
-					m_questionAudioVolume = 0;
-					m_questionVideoVolume = 0;
+					BgmVolume = BGM_VOLUME;
+					QuestionBGMVolume = 0;
+					QuestionAudioVolume = 0;
+					QuestionVideoVolume = 0;
 				}
 			}
 			finally
 			{
-				m_volumeMutex.ReleaseMutex();
+				VolumeMutex.ReleaseMutex();
 			}
 		}
 
@@ -1953,15 +1085,15 @@ namespace ZoomQuiz
 		{
 			if (!PresentationOnly)
 			{
-				m_countdownCompleteEvent.Reset();
+				CountdownCompleteEvent.Reset();
 				markingPump.RunWorkerAsync(new MarkingPumpArgs(m_currentQuestion.UseLevenshtein, autoCountdown.IsChecked == true));
 				answerCounter.RunWorkerAsync();
 			}
 
-			bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
-			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
-			bool hasAudio = !String.IsNullOrEmpty(m_currentQuestion.QuestionAudioFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionAudioFilename);
-			bool hasVideo = m_currentQuestion.QuestionMediaType == MediaType.Video && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
+			bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
+			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
+			bool hasAudio = !String.IsNullOrEmpty(m_currentQuestion.QuestionAudioFilename) && Quiz.HasMediaFile(m_currentQuestion.QuestionAudioFilename);
+			bool hasVideo = m_currentQuestion.QuestionMediaType == MediaType.Video && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
 			SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
 			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", ANSWER_SIZE, "answer.png");
 			SetOBSImageSource("AnswerPic", m_currentQuestion.AnswerImageFilename);
@@ -1976,8 +1108,6 @@ namespace ZoomQuiz
 			{
 				startCountdownButton.IsEnabled = true;
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Add_CB_onChatMsgNotifcation(OnAnswerReceived);
-				if (m_chatWarnings)
-					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "💬 Public chat is now OFF until the answers are in.");
 			}
 			else
 			{
@@ -1988,17 +1118,17 @@ namespace ZoomQuiz
 
 		private void SetQuestionAudio(string questionAudioFilename)
 		{
-			bool hasAudio = !String.IsNullOrEmpty(questionAudioFilename) && m_mediaPaths.ContainsKey(questionAudioFilename.ToLower());
+			bool hasAudio = !String.IsNullOrEmpty(questionAudioFilename) && Quiz.HasMediaFile(questionAudioFilename);
 			if (hasAudio)
 			{
 				try
 				{
-					m_obsMutex.WaitOne();
-					m_obs.SetVolume("QuestionAudio", AUDIO_VOLUME);
+					ObsMutex.WaitOne();
+					Obs.SetVolume("QuestionAudio", AUDIO_VOLUME);
 				}
 				finally
 				{
-					m_obsMutex.ReleaseMutex();
+					ObsMutex.ReleaseMutex();
 				}
 			}
 			SetOBSAudioSource("QuestionAudio", questionAudioFilename);
@@ -2009,17 +1139,17 @@ namespace ZoomQuiz
 			HideLeaderboard();
 			try
 			{
-				m_volumeMutex.WaitOne();
-				m_bgmVolume = BGM_VOLUME;
-				m_questionBGMVolume = 0;
-				m_questionAudioVolume = 0;
-				m_questionVideoVolume = 0;
+				VolumeMutex.WaitOne();
+				BgmVolume = BGM_VOLUME;
+				QuestionBGMVolume = 0;
+				QuestionAudioVolume = 0;
+				QuestionVideoVolume = 0;
 			}
 			finally
 			{
-				m_volumeMutex.ReleaseMutex();
+				VolumeMutex.ReleaseMutex();
 			}
-			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
+			bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
 			showPictureButton.IsEnabled = hasPic;
 			SetOBSScene(hasPic ? (m_fullScreenPictureShowing ? "FullScreenPictureAnswerScene" : "AnswerScene") : "NoPicAnswerScene");
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
@@ -2070,7 +1200,7 @@ namespace ZoomQuiz
 			SetOBSScene("CamScene");
 			showLeaderboardButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showLeaderboardText.Text = "Show Leaderboard";
-			showPictureButton.IsEnabled = m_questionShowing && !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename.ToLower());
+			showPictureButton.IsEnabled = m_questionShowing && !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && Quiz.HasMediaFile(m_currentQuestion.QuestionImageFilename);
 			m_leaderboardShowing = false;
 		}
 
@@ -2097,12 +1227,12 @@ namespace ZoomQuiz
 		{
 			try
 			{
-				m_obsMutex.WaitOne();
-				m_obs.SetCurrentScene(scene);
+				ObsMutex.WaitOne();
+				Obs.SetCurrentScene(scene);
 			}
 			finally
 			{
-				m_obsMutex.ReleaseMutex();
+				ObsMutex.ReleaseMutex();
 			}
 		}
 
@@ -2110,12 +1240,12 @@ namespace ZoomQuiz
 		{
 			try
 			{
-				m_obsMutex.WaitOne();
-				m_obs.SetSourceRender(sourceName, visible, sceneName);
+				ObsMutex.WaitOne();
+				Obs.SetSourceRender(sourceName, visible, sceneName);
 			}
 			finally
 			{
-				m_obsMutex.ReleaseMutex();
+				ObsMutex.ReleaseMutex();
 			}
 		}
 
@@ -2131,9 +1261,7 @@ namespace ZoomQuiz
 
 		private void SetOBSImageSource(string sourceName, string mediaName)
 		{
-			string path = null;
-			if (mediaName != null)
-				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
+			string path = Quiz.GetMediaPath(mediaName);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
 			{
 				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
@@ -2145,9 +1273,7 @@ namespace ZoomQuiz
 		private void SetOBSVideoSource(string sourceName, string mediaName)
 		{
 			string[] scenes = new string[] { "QuestionScene", "FullScreenPictureQuestionScene" };
-			string path = null;
-			if (mediaName != null)
-				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
+			string path = Quiz.GetMediaPath(mediaName);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
 			{
 				foreach (string sceneName in scenes)
@@ -2165,12 +1291,12 @@ namespace ZoomQuiz
 		{
 			try
 			{
-				m_obsMutex.WaitOne();
-				m_obs.SetSourceSettings(sourceName, settings);
+				ObsMutex.WaitOne();
+				Obs.SetSourceSettings(sourceName, settings);
 			}
 			finally
 			{
-				m_obsMutex.ReleaseMutex();
+				ObsMutex.ReleaseMutex();
 			}
 		}
 
@@ -2185,9 +1311,7 @@ namespace ZoomQuiz
 
 		private void SetOBSAudioSource(string sourceName, string mediaName)
 		{
-			string path = null;
-			if (mediaName != null)
-				m_mediaPaths.TryGetValue(mediaName.ToLower(), out path);
+			string path = Quiz.GetMediaPath(mediaName);
 			if ((String.IsNullOrEmpty(path)) || (!File.Exists(path)))
 			{
 				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
@@ -2297,13 +1421,13 @@ namespace ZoomQuiz
 			if (setScene)
 				if (m_answerShowing)
 				{
-					bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
+					bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
 					SetOBSScene(hasPic ? "AnswerScene" : "NoPicAnswerScene");
 				}
 				else if (m_questionShowing)
 				{
-					bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionMediaFilename);
-					bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionSupplementaryMediaFilename);
+					bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
+					bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
 					SetOBSScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
 				}
 			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
@@ -2315,7 +1439,7 @@ namespace ZoomQuiz
 		{
 			if (m_answerShowing)
 			{
-				bool hasPic = !string.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
+				bool hasPic = !string.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
 				SetOBSScene(hasPic ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
 			}
 			else if (m_questionShowing)
@@ -2360,13 +1484,13 @@ namespace ZoomQuiz
 		{
 			try
 			{
-				m_obsMutex.WaitOne();
-				m_obs.SetMute("BGM", mute);
-				m_obs.SetMute("QuestionBGM", mute);
+				ObsMutex.WaitOne();
+				Obs.SetMute("BGM", mute);
+				Obs.SetMute("QuestionBGM", mute);
 			}
 			finally
 			{
-				m_obsMutex.ReleaseMutex();
+				ObsMutex.ReleaseMutex();
 			}
 		}
 
@@ -2396,7 +1520,7 @@ namespace ZoomQuiz
 		private void SetQuestionVideo(string filename)
 		{
 			SetOBSVideoSource("QuestionVid", filename);
-			m_obs.SetVolume("QuestionVid", VIDEO_VOLUME);
+			Obs.SetVolume("QuestionVid", VIDEO_VOLUME);
 		}
 
 		private void ReplayAudioButton_Click(object sender, RoutedEventArgs e)
@@ -2409,19 +1533,18 @@ namespace ZoomQuiz
 
 		private void DummyAnswersButton_Click(object sender, RoutedEventArgs e)
 		{
-			BackgroundWorker fakeAnswersWorker = new BackgroundWorker();
-			fakeAnswersWorker.DoWork += FakeAnswersWorker_DoWork;
-			fakeAnswersWorker.RunWorkerAsync();
+			BackgroundWorker testAnswersWorker = new TestAnswersBackgroundWorker(this);
+			testAnswersWorker.RunWorkerAsync();
 		}
 
 		private void ShowTimeWarnings_Checked(object sender, RoutedEventArgs e)
 		{
-			m_timeWarnings = true;
+			ShowTimeWarnings = true;
 		}
 
 		private void ShowTimeWarnings_Unchecked(object sender, RoutedEventArgs e)
 		{
-			m_timeWarnings = false;
+			ShowTimeWarnings = false;
 		}
 
 		private void ShowChatWarnings_Checked(object sender, RoutedEventArgs e)
@@ -2442,6 +1565,25 @@ namespace ZoomQuiz
 			};
 			if (openFileDialog.ShowDialog() == true)
 				LoadQuiz(openFileDialog.FileName);
+		}
+
+		public void OnMarkingComplete()
+		{
+			contestantName.Text = "<contestant name>";
+			questionText.Text = "<no answers to mark yet>";
+			SetOBSScene("CamScene");
+			m_questionShowing = false;
+			HideFullScreenPicture(false);
+
+			presentingButton.IsEnabled = showLeaderboardButton.IsEnabled = showAnswerButton.IsEnabled = true;
+			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			loadQuizButton.IsEnabled = true;
+			showPictureButton.IsEnabled = false;
+
+			restartMarking.IsEnabled = false;
+			markingProgressBar.Value = markingProgressBar.Maximum;
+			ApplyScores();
+			UpdateMarkingProgressUI(null);
 		}
 	}
 }

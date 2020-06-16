@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>ZoomQuiz</RootNamespace>
     <AssemblyName>ZoomQuiz</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{60dc8134-eba5-43b8-bcc9-bb4bc16c2548};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
     <WarningLevel>4</WarningLevel>
@@ -29,6 +29,7 @@
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <UseApplicationTrust>false</UseApplicationTrust>
     <BootstrapperEnabled>true</BootstrapperEnabled>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>x86</PlatformTarget>
@@ -75,17 +76,52 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Answer.cs" />
+    <Compile Include="AnswerBin.cs" />
+    <Compile Include="AnswerCounterBackgroundWorker.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="AnswerForMarking.cs" />
+    <Compile Include="AnswerResult.cs" />
+    <Compile Include="ChatMode.cs" />
+    <Compile Include="Contestant.cs" />
+    <Compile Include="ContestantScore.cs" />
+    <Compile Include="CountdownBackgroundWorker.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="CountdownStartArgs.cs" />
+    <Compile Include="DuplicateKeyComparer.cs" />
+    <Compile Include="FaderBackgroundWorker.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="FunnyAnswerArgs.cs" />
     <Compile Include="INIReader.cs" />
+    <Compile Include="IQuizContext.cs" />
     <Compile Include="Keyboard.cs" />
+    <Compile Include="Levenshtein.cs" />
+    <Compile Include="MarkingProgress.cs" />
+    <Compile Include="MarkingPumpArgs.cs" />
+    <Compile Include="MarkingPumpBackgroundWorker.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="MediaType.cs" />
+    <Compile Include="Question.cs" />
+    <Compile Include="QuestionValidity.cs" />
+    <Compile Include="Quiz.cs" />
     <Compile Include="QuizControlPanel.xaml.cs">
       <DependentUpon>QuizControlPanel.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ScoreReportEntry.cs" />
+    <Compile Include="Scores.cs" />
     <Compile Include="start_join_meeting.xaml.cs">
       <DependentUpon>start_join_meeting.xaml</DependentUpon>
     </Compile>
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="TestAnswersBackgroundWorker.cs">
+      <SubType>Component</SubType>
     </Compile>
     <Page Include="QuizControlPanel.xaml">
       <SubType>Designer</SubType>
