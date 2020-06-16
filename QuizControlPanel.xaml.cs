@@ -159,9 +159,8 @@ namespace ZoomQuiz
 		}
 		public override bool Equals(object obj)
 		{
-			if (obj is Contestant)
+			if (obj is Contestant c2)
 			{
-				Contestant c2 = (Contestant)obj;
 				// ID is NOT constant between join/leave.
 				return c2.Name == Name;// && c2.ID == ID;
 			}
@@ -296,8 +295,8 @@ namespace ZoomQuiz
 
 	public class AnswerBin
 	{
-		private Mutex m_answersMutex = new Mutex();
-		private Dictionary<string, double> m_ratedAnswers = new Dictionary<string, double>();
+		private readonly Mutex m_answersMutex = new Mutex();
+		private readonly Dictionary<string, double> m_ratedAnswers = new Dictionary<string, double>();
 		public AnswerBin()
 		{
 		}
@@ -437,8 +436,8 @@ namespace ZoomQuiz
 		}
 		public int CompareTo(object obj)
 		{
-			if (obj is ScoreReportEntry)
-				return -AnswerTimeOffset.CompareTo(((ScoreReportEntry)obj).AnswerTimeOffset);
+			if (obj is ScoreReportEntry entry)
+				return -AnswerTimeOffset.CompareTo(entry.AnswerTimeOffset);
 			return 1;
 		}
 	}
@@ -467,7 +466,6 @@ namespace ZoomQuiz
 		private const string SCORE_REPORT_WITH_TIMES_FILENAME = "scoreReportWithTimes.png";
 		private const string SCORES_FILENAME = "scores.txt";
 		private const string ANSWERS_FILENAME = "answers.txt";
-		private const string QUIZ_FILENAME = "quiz.ini";
 		private const string ZoomQuizTitle = "ZoomQuiz";
 		private readonly System.Drawing.Size QUESTION_SIZE = new System.Drawing.Size(1600, 360);
 		private readonly System.Drawing.Size ANSWER_SIZE = new System.Drawing.Size(1600, 360);
@@ -481,44 +479,45 @@ namespace ZoomQuiz
 		private const float VIDEO_VOLUME = 1.0f;
 		private const float BGM_VOLUME = 0.05f;
 
+		private readonly BackgroundWorker countdownWorker = new BackgroundWorker();
+		private readonly BackgroundWorker answerCounter = new BackgroundWorker();
+		private readonly BackgroundWorker markingPump = new BackgroundWorker();
+		private readonly BackgroundWorker faderWorker = new BackgroundWorker();
+		private readonly Mutex m_obsMutex = new Mutex();
+		private readonly Mutex m_volumeMutex = new Mutex();
+		private readonly Mutex m_answerListMutex = new Mutex();
+		private readonly Mutex m_answerFileMutex = new Mutex();
+		private readonly Mutex m_scoreReportMutex = new Mutex();
+		private readonly Mutex m_answerForMarkingMutex = new Mutex();
+		private readonly AutoResetEvent m_answerReceivedEvent1 = new AutoResetEvent(false);
+		private readonly AutoResetEvent m_answerReceivedEvent2 = new AutoResetEvent(false);
+		private readonly AutoResetEvent m_answerMarkedEvent = new AutoResetEvent(false);
+		private readonly ManualResetEvent m_countdownCompleteEvent = new ManualResetEvent(true);
+		private readonly ManualResetEvent m_quitAppEvent = new ManualResetEvent(false);
+		private readonly Dictionary<Contestant, int> m_scores = new Dictionary<Contestant, int>();
+		private readonly Dictionary<AnswerResult, AnswerBin> m_answerBins = new Dictionary<AnswerResult, AnswerBin>();
+		private readonly OBSWebsocket m_obs = new OBSWebsocket();
+		private readonly Dictionary<int, Question> m_quiz = new Dictionary<int, Question>();
+		private readonly Dictionary<string, string> m_mediaPaths = new Dictionary<string, string>();
+		private readonly List<ScoreReportEntry> m_scoreReport = new List<ScoreReportEntry>();
+
 		private bool m_quizEnded = false;
 		private bool m_questionShowing = false;
 		private bool m_answerShowing = false;
 		private bool m_leaderboardShowing = false;
 		private bool m_fullScreenPictureShowing = false;
-		private readonly BackgroundWorker countdownWorker = new BackgroundWorker();
-		private readonly BackgroundWorker answerCounter = new BackgroundWorker();
-		private readonly BackgroundWorker markingPump = new BackgroundWorker();
-		private readonly BackgroundWorker faderWorker = new BackgroundWorker();
 		private uint m_myID = 0;
 		private bool m_presenting = false;
 		private Dictionary<Contestant, List<Answer>> m_answers = new Dictionary<Contestant, List<Answer>>();
-		private Mutex m_obsMutex = new Mutex();
-		private Mutex m_volumeMutex = new Mutex();
-		private Mutex m_answerListMutex = new Mutex();
-		private Mutex m_answerFileMutex = new Mutex();
-		private Mutex m_scoreReportMutex = new Mutex();
 		private AnswerForMarking m_answerForMarking = null;
-		private Mutex m_answerForMarkingMutex = new Mutex();
-		private AutoResetEvent m_answerReceivedEvent1 = new AutoResetEvent(false);
-		private AutoResetEvent m_answerReceivedEvent2 = new AutoResetEvent(false);
-		private AutoResetEvent m_answerMarkedEvent = new AutoResetEvent(false);
-		private ManualResetEvent m_countdownCompleteEvent = new ManualResetEvent(true);
-		private ManualResetEvent m_quitAppEvent = new ManualResetEvent(false);
-		private Dictionary<Contestant, int> m_scores = new Dictionary<Contestant, int>();
 		private Dictionary<Contestant, AnswerResult> m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
-		private Dictionary<AnswerResult, AnswerBin> m_answerBins = new Dictionary<AnswerResult, AnswerBin>();
-		private OBSWebsocket m_obs = new OBSWebsocket();
-		private Dictionary<int, Question> m_quiz = new Dictionary<int, Question>();
 		private int m_nextQuestion = 1;
-		private Dictionary<string, string> m_mediaPaths = new Dictionary<string, string>();
 		private Question m_currentQuestion = null;
 		private float m_bgmVolume = BGM_VOLUME;
 		private float m_questionBGMVolume = 0;
 		private float m_questionAudioVolume = 0;
 		private float m_questionVideoVolume = 0;
 		private bool m_scoresDirty = true;
-		private List<ScoreReportEntry> m_scoreReport = new List<ScoreReportEntry>();
 		public bool StartedOK { get; private set; }
 		private bool m_timeWarnings = false;
 		private bool m_chatWarnings = false;
@@ -531,16 +530,16 @@ namespace ZoomQuiz
 			StartedOK = false;
 			InitializeComponent();
 			ReadScoresFromFile();
-			countdownWorker.DoWork += countdownWorker_DoWork;
-			countdownWorker.ProgressChanged += countdownWorker_ProgressChanged;
+			countdownWorker.DoWork += CountdownWorker_DoWork;
+			countdownWorker.ProgressChanged += CountdownWorker_ProgressChanged;
 			countdownWorker.WorkerReportsProgress = true;
-			countdownWorker.RunWorkerCompleted += countdownWorker_RunWorkerCompleted;
-			markingPump.DoWork += markingPump_DoWork;
-			markingPump.ProgressChanged += markingPump_ProgressChanged;
+			countdownWorker.RunWorkerCompleted += CountdownWorker_RunWorkerCompleted;
+			markingPump.DoWork += MarkingPump_DoWork;
+			markingPump.ProgressChanged += MarkingPump_ProgressChanged;
 			markingPump.WorkerReportsProgress = true;
-			markingPump.RunWorkerCompleted += markingPump_RunWorkerCompleted;
-			answerCounter.DoWork += answerCounter_DoWork;
-			answerCounter.ProgressChanged += answerCounter_ProgressChanged;
+			markingPump.RunWorkerCompleted += MarkingPump_RunWorkerCompleted;
+			answerCounter.DoWork += AnswerCounter_DoWork;
+			answerCounter.ProgressChanged += AnswerCounter_ProgressChanged;
 			answerCounter.WorkerReportsProgress = true;
 			faderWorker.DoWork += FaderWorker_DoWork;
 			ClearLeaderboards();
@@ -787,11 +786,9 @@ namespace ZoomQuiz
 					List<string> allAnswers = new List<string>();
 					allAnswers.AddRange(aaArray);
 					allAnswers.Add(Answer.NormalizeAnswer(a));
-					bool useLev;
 					string useLevStr = quizIni.Read("Lev", numSection).ToLower().Trim();
-					int unusedInt;
-					if (!bool.TryParse(useLevStr, out useLev))
-						useLev = !allAnswers.Any(answerString => answerString.Length < 4 || int.TryParse(answerString, out unusedInt));
+					if (!bool.TryParse(useLevStr, out bool useLev))
+						useLev = !allAnswers.Any(answerString => answerString.Length < 4 || int.TryParse(answerString, out int unusedInt));
 					QuestionValidity validity = QuestionValidity.Valid;
 					if ((!String.IsNullOrEmpty(qmed)) && (!m_mediaPaths.ContainsKey(qmed)))
 						validity = QuestionValidity.MissingQuestionOrAnswer;
@@ -878,8 +875,10 @@ namespace ZoomQuiz
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().JoinVoip();
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "🥂 Welcome to the quiz!");
 
-				ShowChatDlgParam showDlgParam = new ShowChatDlgParam();
-				showDlgParam.rect = new System.Drawing.Rectangle(10, 10, 200, 200);
+				ShowChatDlgParam showDlgParam = new ShowChatDlgParam
+				{
+					rect = new Rectangle(10, 10, 200, 200)
+				};
 				ValueType dlgParam = showDlgParam;
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetUIController().ShowChatDlg(ref dlgParam);
 
@@ -1031,12 +1030,10 @@ namespace ZoomQuiz
 				newQuestionButton.IsEnabled = showLeaderboardButton.IsEnabled = false;
 			showQuestionButton.IsEnabled = true;
 			if (!PresentationOnly)
-			{
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "✏️ Here comes the next question ...");
-			}
 		}
 
-		private void countdownWorker_DoWork(object sender, DoWorkEventArgs e)
+		private void CountdownWorker_DoWork(object sender, DoWorkEventArgs e)
 		{
 			for (int f = COUNTDOWN_SECONDS; f > 0; --f)
 			{
@@ -1046,7 +1043,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void answerCounter_DoWork(object sender, DoWorkEventArgs e)
+		private void AnswerCounter_DoWork(object sender, DoWorkEventArgs e)
 		{
 			WaitHandle[] waitEvents = new WaitHandle[] { m_answerReceivedEvent2, m_countdownCompleteEvent, m_quitAppEvent };
 			for (; ; )
@@ -1071,7 +1068,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void answerCounter_ProgressChanged(object sender, ProgressChangedEventArgs e)
+		private void AnswerCounter_ProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			UpdateMarkingProgressUI((MarkingProgress)e.UserState);
 		}
@@ -1104,7 +1101,7 @@ namespace ZoomQuiz
 			return m_nextQuestion;
 		}
 
-		private void countdownWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		private void CountdownWorker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			if (m_timeWarnings)
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⌛ Time is up!");
@@ -1125,7 +1122,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void countdownWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
+		private void CountdownWorker_ProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			if (m_timeWarnings)
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, "⏳ " + e.ProgressPercentage + " seconds remaining ...");
@@ -1282,7 +1279,7 @@ namespace ZoomQuiz
 			return false;
 		}
 
-		private void markingPump_DoWork(object sender, DoWorkEventArgs e)
+		private void MarkingPump_DoWork(object sender, DoWorkEventArgs e)
 		{
 			MarkingPumpArgs markingPumpArgs = (MarkingPumpArgs)e.Argument;
 			bool lev = (bool)markingPumpArgs.UseLevenshtein;
@@ -1393,8 +1390,7 @@ namespace ZoomQuiz
 			SortedList<int, List<Contestant>> scores = new SortedList<int, List<Contestant>>();
 			foreach (KeyValuePair<Contestant, int> kvp in m_scores)
 			{
-				List<Contestant> cs = null;
-				scores.TryGetValue(kvp.Value, out cs);
+				scores.TryGetValue(kvp.Value, out List<Contestant> cs);
 				if (cs == null)
 				{
 					cs = new List<Contestant>();
@@ -1450,8 +1446,10 @@ namespace ZoomQuiz
 			if (score != null)
 				using (Font leaderboardFont = new Font(LEADERBOARD_FONT_NAME, 36, System.Drawing.FontStyle.Bold))
 				{
-					StringFormat sf = new StringFormat();
-					sf.Trimming = StringTrimming.EllipsisCharacter;
+					StringFormat sf = new StringFormat
+					{
+						Trimming = StringTrimming.EllipsisCharacter
+					};
 					g.DrawString(score.Name, leaderboardFont, Brushes.Black, nameRect, sf);
 					sf.Alignment = StringAlignment.Center;
 					sf.Trimming = StringTrimming.None;
@@ -1464,8 +1462,10 @@ namespace ZoomQuiz
 		{
 			int n = 0;
 			int leaderboardCount = 1;
-			StringFormat sf = new StringFormat();
-			sf.Alignment = StringAlignment.Center;
+			StringFormat sf = new StringFormat
+			{
+				Alignment = StringAlignment.Center
+			};
 			for (; ; )
 			{
 				using (Bitmap b = new Bitmap(LEADERBOARD_SIZE.Width, LEADERBOARD_SIZE.Height))
@@ -1509,9 +1509,9 @@ namespace ZoomQuiz
 
 			public int CompareTo(object obj)
 			{
-				if (obj is AnswerBackupString)
+				if (obj is AnswerBackupString @string)
 				{
-					return AnswerTime.CompareTo(((AnswerBackupString)obj).AnswerTime);
+					return AnswerTime.CompareTo(@string.AnswerTime);
 				}
 				return 1;
 			}
@@ -1524,8 +1524,7 @@ namespace ZoomQuiz
 		private string GetLevenshteinReport(AnswerResult result)
 		{
 			AnswerBin bin = m_answerBins[result];
-			double minLev, maxLev;
-			bin.GetLevenshteinRange(out minLev, out maxLev);
+			bin.GetLevenshteinRange(out double minLev, out double maxLev);
 			return result.ToString() + " answer Levenshtein values ranged from " + string.Format("{0:0.00}", minLev) + " to " + string.Format("{0:0.00}", maxLev);
 		}
 
@@ -1555,8 +1554,7 @@ namespace ZoomQuiz
 								scoreForAnswer = 0;
 							else
 								continue;
-							int oldScore;
-							m_scores.TryGetValue(kvp.Key, out oldScore);
+							m_scores.TryGetValue(kvp.Key, out int oldScore);
 							int newScore = oldScore;
 							newScore += scoreForAnswer;
 							m_scores[kvp.Key] = newScore;
@@ -1581,7 +1579,7 @@ namespace ZoomQuiz
 			UpdateLeaderboard();
 		}
 
-		private void markingPump_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		private void MarkingPump_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			contestantName.Text = "<contestant name>";
 			questionText.Text = "<no answers to mark yet>";
@@ -1610,7 +1608,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void markingPump_ProgressChanged(object sender, ProgressChangedEventArgs e)
+		private void MarkingPump_ProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			try
 			{
@@ -1620,11 +1618,11 @@ namespace ZoomQuiz
 					StartCountdown();
 				else if (o is FunnyAnswerArgs)
 					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, o.ToString());
-				else if (o is MarkingProgress)
-					UpdateMarkingProgressUI((MarkingProgress)o);
-				else if (o is AnswerForMarking)
+				else if (o is MarkingProgress progress)
+					UpdateMarkingProgressUI(progress);
+				else if (o is AnswerForMarking marking)
 				{
-					m_answerForMarking = (AnswerForMarking)o;
+					m_answerForMarking = marking;
 					if (m_answerForMarking != null)
 					{
 						contestantName.Text = m_answerForMarking.Contestant.Name;
@@ -1754,7 +1752,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void presentingButton_Click(object sender, RoutedEventArgs e)
+		private void PresentingButton_Click(object sender, RoutedEventArgs e)
 		{
 			if (m_presenting)
 				StopPresenting();
@@ -1845,32 +1843,32 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void correctAnswerButton_Click(object sender, RoutedEventArgs e)
+		private void CorrectAnswerButton_Click(object sender, RoutedEventArgs e)
 		{
 			MarkAnswerViaUI(AnswerResult.Correct);
 		}
 
-		private void almostCorrectAnswerButton_Click(object sender, RoutedEventArgs e)
+		private void AlmostCorrectAnswerButton_Click(object sender, RoutedEventArgs e)
 		{
 			MarkAnswerViaUI(AnswerResult.AlmostCorrect);
 		}
 
-		private void wrongAnswerButton_Click(object sender, RoutedEventArgs e)
+		private void WrongAnswerButton_Click(object sender, RoutedEventArgs e)
 		{
 			MarkAnswerViaUI(AnswerResult.Wrong);
 		}
 
-		private void funnyAnswerButton_Click(object sender, RoutedEventArgs e)
+		private void FunnyAnswerButton_Click(object sender, RoutedEventArgs e)
 		{
 			MarkAnswerViaUI(AnswerResult.Funny);
 		}
 
-		private void notAnAnswerButton_Click(object sender, RoutedEventArgs e)
+		private void NotAnAnswerButton_Click(object sender, RoutedEventArgs e)
 		{
 			MarkAnswerViaUI(AnswerResult.NotAnAnswer);
 		}
 
-		private void restartMarking_Click(object sender, RoutedEventArgs e)
+		private void RestartMarking_Click(object sender, RoutedEventArgs e)
 		{
 			try
 			{
@@ -1951,7 +1949,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void showQuestionButton_Click(object sender, RoutedEventArgs e)
+		private void ShowQuestionButton_Click(object sender, RoutedEventArgs e)
 		{
 			if (!PresentationOnly)
 			{
@@ -2044,7 +2042,7 @@ namespace ZoomQuiz
 			m_answerShowing = false;
 		}
 
-		private void showAnswerButton_Click(object sender, RoutedEventArgs e)
+		private void ShowAnswerButton_Click(object sender, RoutedEventArgs e)
 		{
 			if (m_answerShowing)
 				HideAnswer();
@@ -2076,7 +2074,7 @@ namespace ZoomQuiz
 			m_leaderboardShowing = false;
 		}
 
-		private void showLeaderboardButton_Click(object sender, RoutedEventArgs e)
+		private void ShowLeaderboardButton_Click(object sender, RoutedEventArgs e)
 		{
 			if (m_leaderboardShowing)
 				HideLeaderboard();
@@ -2237,9 +2235,10 @@ namespace ZoomQuiz
 				Brushes.WhiteSmoke,
 				Brushes.Yellow
 			};
-			StringFormat sf = new StringFormat();
-			sf.Alignment = StringAlignment.Center;
-			int charactersFitted, linesFitted;
+			StringFormat sf = new StringFormat
+			{
+				Alignment = StringAlignment.Center
+			};
 			Brush textColor = availableColors[new Random().Next(0, availableColors.Length)];
 			using (Bitmap b = new Bitmap(size.Width, size.Height))
 			{
@@ -2253,7 +2252,7 @@ namespace ZoomQuiz
 						{
 							// We need room for the outline
 							System.Drawing.Size clientRect = new System.Drawing.Size(size.Width - (TEXT_OUTLINE_THICKNESS * 2), size.Height - (TEXT_OUTLINE_THICKNESS * 2));
-							SizeF textSize = g.MeasureString(text, font, clientRect, sf, out charactersFitted, out linesFitted);
+							SizeF textSize = g.MeasureString(text, font, clientRect, sf, out int charactersFitted, out int linesFitted);
 							bool wordLimitReached = false;
 							foreach (string word in words)
 							{
@@ -2316,20 +2315,17 @@ namespace ZoomQuiz
 		{
 			if (m_answerShowing)
 			{
-				bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
+				bool hasPic = !string.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.AnswerImageFilename);
 				SetOBSScene(hasPic ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
 			}
 			else if (m_questionShowing)
-			{
-				bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && m_mediaPaths.ContainsKey(m_currentQuestion.QuestionImageFilename);
 				SetOBSScene("FullScreenPictureQuestionScene");
-			}
 			showPictureButton.Background = System.Windows.Media.Brushes.Pink;
 			showPictureText.Text = "Embedded Picture";
 			m_fullScreenPictureShowing = true;
 		}
 
-		private void showPictureButton_Click(object sender, RoutedEventArgs e)
+		private void ShowPictureButton_Click(object sender, RoutedEventArgs e)
 		{
 			if (m_fullScreenPictureShowing)
 				HideFullScreenPicture();
@@ -2337,7 +2333,7 @@ namespace ZoomQuiz
 				ShowFullScreenPicture();
 		}
 
-		private void increaseScoreButton_Click(object sender, RoutedEventArgs e)
+		private void IncreaseScoreButton_Click(object sender, RoutedEventArgs e)
 		{
 			ContestantScore score = (ContestantScore)leaderboardList.SelectedItem;
 			m_scores[score.Contestant] = m_scores[score.Contestant] + 1;
@@ -2346,7 +2342,7 @@ namespace ZoomQuiz
 			UpdateLeaderboard(false, score.Contestant);
 		}
 
-		private void decreaseScoreButton_Click(object sender, RoutedEventArgs e)
+		private void DecreaseScoreButton_Click(object sender, RoutedEventArgs e)
 		{
 			ContestantScore score = (ContestantScore)leaderboardList.SelectedItem;
 			m_scores[score.Contestant] = m_scores[score.Contestant] - 1;
@@ -2355,7 +2351,7 @@ namespace ZoomQuiz
 			UpdateLeaderboard(false, score.Contestant);
 		}
 
-		private void leaderboardList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+		private void LeaderboardList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
 		{
 			decreaseScoreButton.IsEnabled = increaseScoreButton.IsEnabled = (leaderboardList.SelectedItems.Count == 1);
 		}
@@ -2374,17 +2370,17 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void muteBGM_Checked(object sender, RoutedEventArgs e)
+		private void MuteBGM_Checked(object sender, RoutedEventArgs e)
 		{
 			MuteBGM(true);
 		}
 
-		private void muteBGM_Unchecked(object sender, RoutedEventArgs e)
+		private void MuteBGM_Unchecked(object sender, RoutedEventArgs e)
 		{
 			MuteBGM(false);
 		}
 
-		private void viewAnswerHistory_Click(object sender, RoutedEventArgs e)
+		private void ViewAnswerHistory_Click(object sender, RoutedEventArgs e)
 		{
 			string dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
 			string answersFilePath = Path.Combine(dataFolder, ANSWERS_FILENAME);
@@ -2392,7 +2388,7 @@ namespace ZoomQuiz
 				System.Diagnostics.Process.Start(answersFilePath);
 		}
 
-		private void skipQuestion_Click(object sender, RoutedEventArgs e)
+		private void SkipQuestion_Click(object sender, RoutedEventArgs e)
 		{
 			NextQuestion(m_nextQuestion);
 		}
@@ -2403,7 +2399,7 @@ namespace ZoomQuiz
 			m_obs.SetVolume("QuestionVid", VIDEO_VOLUME);
 		}
 
-		private void replayAudioButton_Click(object sender, RoutedEventArgs e)
+		private void ReplayAudioButton_Click(object sender, RoutedEventArgs e)
 		{
 			if (m_currentQuestion.QuestionMediaType == MediaType.Audio)
 				SetQuestionAudio(m_currentQuestion.QuestionAudioFilename);
@@ -2411,37 +2407,39 @@ namespace ZoomQuiz
 				SetQuestionVideo(m_currentQuestion.QuestionVideoFilename);
 		}
 
-		private void dummyAnswersButton_Click(object sender, RoutedEventArgs e)
+		private void DummyAnswersButton_Click(object sender, RoutedEventArgs e)
 		{
 			BackgroundWorker fakeAnswersWorker = new BackgroundWorker();
 			fakeAnswersWorker.DoWork += FakeAnswersWorker_DoWork;
 			fakeAnswersWorker.RunWorkerAsync();
 		}
 
-		private void showTimeWarnings_Checked(object sender, RoutedEventArgs e)
+		private void ShowTimeWarnings_Checked(object sender, RoutedEventArgs e)
 		{
 			m_timeWarnings = true;
 		}
 
-		private void showTimeWarnings_Unchecked(object sender, RoutedEventArgs e)
+		private void ShowTimeWarnings_Unchecked(object sender, RoutedEventArgs e)
 		{
 			m_timeWarnings = false;
 		}
 
-		private void showChatWarnings_Checked(object sender, RoutedEventArgs e)
+		private void ShowChatWarnings_Checked(object sender, RoutedEventArgs e)
 		{
 			m_chatWarnings = true;
 		}
 
-		private void showChatWarnings_Unchecked(object sender, RoutedEventArgs e)
+		private void ShowChatWarnings_Unchecked(object sender, RoutedEventArgs e)
 		{
 			m_chatWarnings = false;
 		}
 
 		private void Button_Click_1(object sender, RoutedEventArgs e)
 		{
-			OpenFileDialog openFileDialog = new OpenFileDialog();
-			openFileDialog.Filter = "INI files (*.ini)|*.ini";
+			OpenFileDialog openFileDialog = new OpenFileDialog
+			{
+				Filter = "INI files (*.ini)|*.ini"
+			};
 			if (openFileDialog.ShowDialog() == true)
 				LoadQuiz(openFileDialog.FileName);
 		}
