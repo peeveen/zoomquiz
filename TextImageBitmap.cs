@@ -86,7 +86,7 @@ namespace ZoomQuiz
 									{
 										Rectangle borderRect = new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height);
 										borderRect.Offset(x, y);
-										g.DrawString(text, realFont, System.Drawing.Brushes.Black, borderRect, sf);
+										g.DrawString(text, realFont, Brushes.Black, borderRect, sf);
 									}
 								g.DrawString(text, realFont, textColor, rect, sf);
 								break;

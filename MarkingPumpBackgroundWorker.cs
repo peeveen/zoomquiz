@@ -37,16 +37,16 @@ namespace ZoomQuiz
 			for (; ; )
 			{
 				int result = WaitHandle.WaitAny(events);
-				if (result == 2)
+				if (result == 0)
+					waitingForMarking = false;
+				else if (result == 2)
 					break;
-				if (result == 3)
+				else if (result == 3)
 				{
 					if (!waitingForMarking)
 						break;
 					events = new WaitHandle[] { Context.AnswerMarkedEvent, Context.AnswerReceivedEvent, Context.QuitAppEvent };
 				}
-				if (result == 0)
-					waitingForMarking = false;
 				try
 				{
 					Context.AnswerListMutex.WaitOne();

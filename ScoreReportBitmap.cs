@@ -1,17 +1,15 @@
-﻿using Microsoft.Win32;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Text;
-using System.IO;
 
 namespace ZoomQuiz
 {
 	class ScoreReportBitmap:IDisposable
 	{
 		private const string SCORE_REPORT_FONT_NAME = "Bahnschrift Condensed";
-		private readonly Size SCORE_REPORT_SIZE = new System.Drawing.Size(386, 585);
+		private readonly Size SCORE_REPORT_SIZE = new Size(386, 585);
 		static SizeF rowSize = new SizeF(0, 0);
 
 		Bitmap m_bitmap;

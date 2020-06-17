@@ -6,7 +6,7 @@ using System.Linq;
 
 namespace ZoomQuiz
 {
-	class Quiz:IEnumerable
+	public class Quiz:IEnumerable
 	{
 		private Dictionary<int, Question> m_questions = new Dictionary<int, Question>();
 		private readonly Dictionary<string, string> m_mediaPaths = new Dictionary<string, string>();
@@ -103,21 +103,21 @@ namespace ZoomQuiz
 					string w = FixUnicode(quizIni.Read("W", numSection).Trim());
 					string n = FixUnicode(quizIni.Read("Almost", numSection).Trim());
 					string qmed = quizIni.Read("QMed", numSection).ToLower().Trim();
-					if (String.IsNullOrEmpty(qmed))
+					if (string.IsNullOrEmpty(qmed))
 					{
 						// Backwards compat.
 						qmed = quizIni.Read("QAud", numSection).ToLower().Trim();
-						if (String.IsNullOrEmpty(qmed))
+						if (string.IsNullOrEmpty(qmed))
 							qmed = quizIni.Read("QPic", numSection).ToLower().Trim();
 					}
 					MediaType qmedType = GetMediaTypeFromFilename(qmed);
 					string qsup = quizIni.Read("QSupMed", numSection).ToLower().Trim();
-					if (String.IsNullOrEmpty(qsup))
+					if (string.IsNullOrEmpty(qsup))
 					{
 						// Backwards compat.
 						// Can't have TWO images.
 						qsup = qmedType != MediaType.Image ? quizIni.Read("QPic", numSection).ToLower().Trim() : null;
-						if (String.IsNullOrEmpty(qsup))
+						if (string.IsNullOrEmpty(qsup))
 							qsup = quizIni.Read("QBGM", numSection).ToLower().Trim();
 					}
 					MediaType qsupType = GetMediaTypeFromFilename(qsup);
@@ -137,24 +137,25 @@ namespace ZoomQuiz
 					if (!bool.TryParse(useLevStr, out bool useLev))
 						useLev = !allAnswers.Any(answerString => answerString.Length < 4 || int.TryParse(answerString, out int unusedInt));
 					QuestionValidity validity = QuestionValidity.Valid;
-					if ((!String.IsNullOrEmpty(qmed)) && (!m_mediaPaths.ContainsKey(qmed)))
+					if ((!string.IsNullOrEmpty(qmed)) && (!m_mediaPaths.ContainsKey(qmed)))
 						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((!String.IsNullOrEmpty(qmed)) && qmedType == MediaType.Unknown)
+					else if ((!string.IsNullOrEmpty(qmed)) && qmedType == MediaType.Unknown)
 						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((!String.IsNullOrEmpty(qmed)) && qmedType == qsupType)
+					else if ((!string.IsNullOrEmpty(qmed)) && qmedType == qsupType)
 						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((String.IsNullOrEmpty(q)) || (allAnswers.Count == 0))
+					else if ((string.IsNullOrEmpty(q)) || (allAnswers.Count == 0))
 						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((!String.IsNullOrEmpty(qsup)) && (!m_mediaPaths.ContainsKey(qsup)))
+					else if ((!string.IsNullOrEmpty(qsup)) && (!m_mediaPaths.ContainsKey(qsup)))
 						validity = QuestionValidity.MissingSupplementary;
 					// Can't have supplementary video
 					else if (qsupType == MediaType.Video)
 						validity = QuestionValidity.MissingSupplementary;
-					else if ((!String.IsNullOrEmpty(qsup)) && qsupType == MediaType.Unknown)
+					else if ((!string.IsNullOrEmpty(qsup)) && qsupType == MediaType.Unknown)
 						validity = QuestionValidity.MissingSupplementary;
-					else if ((!String.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
+					else if ((!string.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
 						validity = QuestionValidity.MissingSupplementary;
-					m_questions[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType, qsup, qsupType, apic, info, useLev, validity);
+					MediaType amedType = GetMediaTypeFromFilename(apic);
+					m_questions[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType, qsup, qsupType, apic, amedType, info, useLev, validity);
 				}
 				else
 					break;

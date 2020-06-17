@@ -3,6 +3,7 @@ using OBSWebsocketDotNet;
 using OBSWebsocketDotNet.Types;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -13,10 +14,6 @@ namespace ZoomQuiz
 	{
 		public OBSWebsocket m_obs = new OBSWebsocket();
 		public Mutex m_obsMutex = new Mutex();
-
-		public ObsController()
-		{
-		}
 
 		private void ObsDoAction(Action action)
 		{
@@ -83,7 +80,7 @@ namespace ZoomQuiz
 		{
 			ObsDoAction(() => m_obs.SetCurrentScene(scene));
 		}
-		public void SetSourceRender(string source,bool visible,string scene)
+		public void SetSourceRender(string source,string scene, bool visible)
 		{
 			ObsDoAction(() => m_obs.SetSourceRender(source, visible, scene));
 		}
@@ -94,6 +91,69 @@ namespace ZoomQuiz
 		public VolumeInfo GetVolume(string source)
 		{
 			return ObsDoFunc(() => m_obs.GetVolume(source));
+		}
+
+		public void HideSource(string sourceName, string sceneName)
+		{
+			SetSourceRender(sourceName, sceneName,false);
+		}
+
+		public void ShowSource(string sourceName, string sceneName)
+		{
+			SetSourceRender(sourceName, sceneName, true);
+		}
+
+		public void SetImageSource(Quiz quiz,string sourceName, string mediaName)
+		{
+			string path = quiz.GetMediaPath(mediaName);
+			if ((string.IsNullOrEmpty(path)) || (!File.Exists(path)))
+			{
+				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+				path = Path.Combine(presFolder, "transparent.png");
+			}
+			SetFileSourceFromPath(sourceName, "file", path);
+		}
+
+		public void SetVideoSource(Quiz quiz, string sourceName, string mediaName)
+		{
+			string[] scenes = new string[] { "QuestionScene", "FullScreenPictureQuestionScene" };
+			string path = quiz.GetMediaPath(mediaName);
+			if ((string.IsNullOrEmpty(path)) || (!File.Exists(path)))
+			{
+				foreach (string sceneName in scenes)
+					HideSource(sourceName, sceneName);
+			}
+			else
+			{
+				SetFileSourceFromPath(sourceName, "local_file", path);
+				foreach (string sceneName in scenes)
+					ShowSource(sourceName, sceneName);
+			}
+		}
+
+		public void SetFileSourceFromPath(string sourceName, string setting, string path)
+		{
+			JObject settings = new JObject()
+			{
+				{setting,path }
+			};
+			SetSourceSettings(sourceName, settings);
+		}
+
+		public void SetAudioSource(Quiz quiz,string sourceName, string mediaName)
+		{
+			string path = quiz.GetMediaPath(mediaName);
+			if ((string.IsNullOrEmpty(path)) || (!File.Exists(path)))
+			{
+				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
+				path = Path.Combine(presFolder, "silence.wav");
+			}
+			SetFileSourceFromPath(sourceName, "local_file", path);
+			JObject settings = new JObject()
+			{
+				{"NonExistent",""+new Random().Next() }
+			};
+			SetSourceSettings(sourceName, settings);
 		}
 	}
 }
