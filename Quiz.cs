@@ -76,7 +76,7 @@ namespace ZoomQuiz
 
 		public IEnumerator GetEnumerator()
 		{
-			return m_questions.GetEnumerator();
+			return m_questions.Values.GetEnumerator();
 		}
 
 		internal Quiz(string iniPath)

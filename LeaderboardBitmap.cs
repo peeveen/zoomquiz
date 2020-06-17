@@ -8,7 +8,7 @@ namespace ZoomQuiz
 {
 	class LeaderboardBitmap:IDisposable
 	{
-		private readonly System.Drawing.Size LEADERBOARD_SIZE = new Size(1860, 1000);
+		private readonly Size LEADERBOARD_SIZE = new Size(1860, 1000);
 		private const string LEADERBOARD_FONT_NAME = "Bahnschrift Condensed";
 
 		Bitmap m_bitmap;
