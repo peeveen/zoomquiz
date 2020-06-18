@@ -160,7 +160,7 @@
 		<Button x:Name="replayAudioButton" Background="LightGreen" Content="▶️ Play Media" HorizontalAlignment="Left" Height="25" Margin="184,388,0,0" VerticalAlignment="Top" Width="176" RenderTransformOrigin="0.58,0.52" Click="ReplayAudioButton_Click" IsEnabled="False"/>
 		<CheckBox x:Name="showTimeWarnings" Content="Show Time Warnings" HorizontalAlignment="Left" Height="19" Margin="572,735,0,0" VerticalAlignment="Top" Width="158" Checked="ShowTimeWarnings_Checked" Unchecked="ShowTimeWarnings_Unchecked"/>
 		<CheckBox x:Name="showChatWarnings" Content="Show Chat Warnings" HorizontalAlignment="Left" Height="19" Margin="572,754,0,0" VerticalAlignment="Top" Width="158" Checked="ShowChatWarnings_Checked" Unchecked="ShowChatWarnings_Unchecked"/>
-		<Button x:Name="loadQuizButton" Content="💾 Load Quiz" HorizontalAlignment="Left" Height="57" Margin="428,697,0,0" VerticalAlignment="Top" Width="119" Click="Button_Click_1"/>
+		<Button x:Name="loadQuizButton" Content="💾 Load Quiz" HorizontalAlignment="Left" Height="57" Margin="428,697,0,0" VerticalAlignment="Top" Width="119" Click="LoadQuiz_Clicked"/>
 		<CheckBox x:Name="autoCountdown" Content="Auto Countdown" HorizontalAlignment="Left" Height="19" Margin="572,773,0,0" VerticalAlignment="Top" Width="158" Checked="ShowChatWarnings_Checked" Unchecked="ShowChatWarnings_Unchecked" IsChecked="True"/>
 	</Grid>
 </Window>

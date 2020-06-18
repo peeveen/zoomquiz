@@ -1170,7 +1170,7 @@ namespace ZoomQuiz
 			m_chatWarnings = false;
 		}
 
-		private void Button_Click_1(object sender, RoutedEventArgs e)
+		private void LoadQuiz_Clicked(object sender, RoutedEventArgs e)
 		{
 			OpenFileDialog openFileDialog = new OpenFileDialog
 			{
