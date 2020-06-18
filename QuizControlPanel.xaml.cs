@@ -151,10 +151,19 @@ namespace ZoomQuiz
 			QuitAppEvent.Dispose();
 		}
 
+		private string GetFolderPath(string folder)
+		{
+			return Path.Combine(Directory.GetCurrentDirectory(), folder);
+		}
+
+		private string GetFilePath(string folder, string filename)
+		{
+			return Path.Combine(GetFolderPath(folder), filename);
+		}
+
 		private void ClearLeaderboards()
 		{
-			string lbFolder = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
-			string[] files = Directory.GetFiles(lbFolder);
+			string[] files = Directory.GetFiles(GetFolderPath("leaderboards"));
 			foreach (string file in files)
 				if (File.Exists(file))
 					File.Delete(file);
@@ -162,45 +171,35 @@ namespace ZoomQuiz
 
 		private void SetLeaderboardsPath()
 		{
-			string lbFolder = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
 			SourceSettings lbSourceSettings = Obs.GetSourceSettings("Leaderboard");
 			JObject lbSettings = lbSourceSettings.sourceSettings;
-			lbSettings["files"][0]["value"] = lbFolder;
+			lbSettings["files"][0]["value"] = GetFolderPath("leaderboards");
 			Obs.SetSourceSettings("Leaderboard", lbSettings);
 		}
 
 		private void SetScoreReportMedia()
 		{
-			string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
-			Obs.SetFileSourceFromPath("ScoreReport", "file", Path.Combine(presFolder, SCORE_REPORT_FILENAME));
+			Obs.SetFileSourceFromPath("ScoreReport", "file", GetFilePath("presentation", SCORE_REPORT_FILENAME));
 		}
 
 		private void SetCountdownMedia()
 		{
-			string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
-			string mp4Path = Path.Combine(presFolder, "Countdown.mp4");
-			string maskPath = Path.Combine(presFolder, "circle.png");
-			Obs.SetFileSourceFromPath("Countdown", "local_file", mp4Path);
+			Obs.SetFileSourceFromPath("Countdown", "local_file", GetFilePath("presentation", "Countdown.mp4"));
 			List<FilterSettings> filters = Obs.GetSourceFilters("Countdown");
-			foreach (FilterSettings st in filters)
+			foreach (FilterSettings st in filters.Where(f=>f.Name.Contains("Image Mask")))
 			{
-				if (st.Name.Contains("Image Mask"))
-				{
-					JObject maskSettings = st.Settings;
-					maskSettings["image_path"] = maskPath;
-					Obs.SetSourceFilterSettings("Countdown", st.Name, maskSettings);
-				}
+				JObject maskSettings = st.Settings;
+				maskSettings["image_path"] = GetFilePath("presentation", "circle.png");
+				Obs.SetSourceFilterSettings("Countdown", st.Name, maskSettings);
 			}
 		}
 
 		private void SetBGMShuffle()
 		{
-			string mediaPath = Path.Combine(Directory.GetCurrentDirectory(), "bgm");
 			SourceSettings bgmSettings = Obs.GetSourceSettings("BGM");
 			JObject bgmSourceSettings = bgmSettings.sourceSettings;
-			bgmSourceSettings["loop"] = true;
-			bgmSourceSettings["shuffle"] = true;
-			bgmSourceSettings["playlist"][0]["value"] = mediaPath;
+			bgmSourceSettings["loop"] = bgmSourceSettings["shuffle"] = true;
+			bgmSourceSettings["playlist"][0]["value"] = GetFolderPath("bgm");
 			Obs.SetSourceSettings("BGM", bgmSourceSettings);
 		}
 
@@ -224,7 +223,7 @@ namespace ZoomQuiz
 			quizList.ScrollIntoView(Quiz[1]);
 		}
 
-		private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+		private void Window_Closing(object sender, CancelEventArgs e)
 		{
 			if (!PresentationOnly && !m_quizEnded)
 				e.Cancel = true;
@@ -248,16 +247,7 @@ namespace ZoomQuiz
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingWaitingRoomController().EnableWaitingRoomOnEntry(false);
 
 				IMeetingParticipantsControllerDotNetWrap partCon = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController();
-				uint[] participantIDs = partCon.GetParticipantsList();
-				for (int f = 0; f < participantIDs.Length; ++f)
-				{
-					IUserInfoDotNetWrap user = partCon.GetUserByUserID(participantIDs[f]);
-					if (user.IsMySelf())
-					{
-						m_myID = participantIDs[f];
-						break;
-					}
-				}
+				m_myID = partCon.GetParticipantsList().Where(id => partCon.GetUserByUserID(id).IsMySelf()).FirstOrDefault();
 
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().JoinVoip();
 				SendPublicChat("🥂 Welcome to the quiz!");
@@ -325,8 +315,7 @@ namespace ZoomQuiz
 			try
 			{
 				AnswerListMutex.WaitOne();
-				Answers.TryGetValue(contestant, out List<Answer> answerList);
-				if (answerList == null)
+				if(!Answers.TryGetValue(contestant, out List<Answer> answerList))
 					answerList = new List<Answer>();
 				answerList.Add(answer);
 				Answers[contestant] = answerList;
@@ -393,7 +382,6 @@ namespace ZoomQuiz
 			m_lastAnswerResults.Clear();
 			Answers.Clear();
 			HideAnswer();
-			skipQuestionButton.IsEnabled = false;
 			m_currentQuestion = Quiz[m_nextQuestion];
 			questionTextBox.Text = m_currentQuestion.QuestionText;
 			answerTextBox.Text = m_currentQuestion.AnswerText;
@@ -409,14 +397,17 @@ namespace ZoomQuiz
 			SetChatMode(ChatMode.HostOnly);
 			StartPresenting();
 			HideFullScreenPicture(false);
-			showPictureButton.IsEnabled = false;
-			replayAudioButton.IsEnabled = false;
-			showAnswerButton.IsEnabled = presentingButton.IsEnabled = false;
+			showPictureButton.IsEnabled =
+				replayAudioButton.IsEnabled =
+				skipQuestionButton.IsEnabled =
+				showAnswerButton.IsEnabled =
+				presentingButton.IsEnabled =
+				loadQuizButton.IsEnabled =
+				newQuestionButton.IsEnabled =
+				showLeaderboardButton.IsEnabled = false;
 			markingProgressBar.Maximum = 1;
 			markingProgressBar.Value = 0;
 			markingProgressText.Text = "";
-			loadQuizButton.IsEnabled =
-				newQuestionButton.IsEnabled = showLeaderboardButton.IsEnabled = false;
 			showQuestionButton.IsEnabled = true;
 			if (!PresentationOnly)
 				SendPublicChat("✏️ Here comes the next question ...");
@@ -473,8 +464,7 @@ namespace ZoomQuiz
 				m_scoreReportMutex.WaitOne();
 				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(m_scoreReport, times))
 				{
-					string path = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
-					string bitmapPath = Path.Combine(path, times? SCORE_REPORT_WITH_TIMES_FILENAME: SCORE_REPORT_FILENAME);
+					string bitmapPath = GetFilePath("presentation", times ? SCORE_REPORT_WITH_TIMES_FILENAME : SCORE_REPORT_FILENAME);
 					bitmap.Save(bitmapPath);
 				}
 			}
@@ -534,8 +524,7 @@ namespace ZoomQuiz
 
 		private void ReadScoresFromFile()
 		{
-			string dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
-			string scoresFilePath = Path.Combine(dataFolder, SCORES_FILENAME);
+			string scoresFilePath = GetFilePath("data", SCORES_FILENAME);
 			if (File.Exists(scoresFilePath))
 			{
 				using (StreamReader sr = File.OpenText(scoresFilePath))
@@ -557,8 +546,7 @@ namespace ZoomQuiz
 
 		private void WriteScoresToFile()
 		{
-			string dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
-			string scoresFilePath = Path.Combine(dataFolder, SCORES_FILENAME);
+			string scoresFilePath = GetFilePath("data",SCORES_FILENAME);
 			if (File.Exists(scoresFilePath))
 				File.Delete(scoresFilePath);
 			using (StreamWriter sw = new StreamWriter(File.OpenWrite(scoresFilePath)))
@@ -573,8 +561,7 @@ namespace ZoomQuiz
 			SortedList<int, List<Contestant>> scores = new SortedList<int, List<Contestant>>();
 			foreach (KeyValuePair<Contestant, int> kvp in m_scores)
 			{
-				scores.TryGetValue(kvp.Value, out List<Contestant> cs);
-				if (cs == null)
+				if(!scores.TryGetValue(kvp.Value, out List<Contestant> cs))
 				{
 					cs = new List<Contestant>();
 					scores[kvp.Value] = cs;
@@ -615,20 +602,12 @@ namespace ZoomQuiz
 
 		private void DrawLeaderboard(List<ContestantScore> scores)
 		{
-			int n = 0;
-			int leaderboardCount = 1;
-			for (; ; )
-			{
+			for (int n=0, leaderboardCount=1; n < scores.Count; ++leaderboardCount)
 				using (LeaderboardBitmap b = new LeaderboardBitmap(scores,leaderboardCount,ref n))
 				{
-					string path = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
-					path = Path.Combine(path, "leaderboard" + leaderboardCount + ".png");
+					string path = GetFilePath("leaderboards", "leaderboard" + leaderboardCount + ".png");
 					b.Save(path);
-					++leaderboardCount;
 				}
-				if (n >= scores.Count)
-					break;
-			}
 		}
 
 		private string GetLevenshteinReport(AnswerResult result)
@@ -640,8 +619,7 @@ namespace ZoomQuiz
 
 		private void ApplyScores()
 		{
-			string dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
-			string answersFilePath = Path.Combine(dataFolder, ANSWERS_FILENAME);
+			string answersFilePath = GetFilePath("data", ANSWERS_FILENAME);
 			using (StreamWriter sw = File.AppendText(answersFilePath))
 			{
 				List<AnswerBackupString> answerBackupStrings = new List<AnswerBackupString>();
@@ -770,7 +748,11 @@ namespace ZoomQuiz
 					m_answerForMarking = null;
 					contestantName.Text = "<contestant name>";
 					questionText.Text = "<no answers to mark yet>";
-					correctAnswerButton.IsEnabled = almostCorrectAnswerButton.IsEnabled = wrongAnswerButton.IsEnabled = funnyAnswerButton.IsEnabled = notAnAnswerButton.IsEnabled = false;
+					correctAnswerButton.IsEnabled =
+						almostCorrectAnswerButton.IsEnabled =
+						wrongAnswerButton.IsEnabled =
+						funnyAnswerButton.IsEnabled =
+						notAnAnswerButton.IsEnabled = false;
 					AnswerMarkedEvent.Set();
 				}
 			}
@@ -894,24 +876,19 @@ namespace ZoomQuiz
 				bool hasAudioOrVideo = (currentQuestion.QuestionMediaType == MediaType.Audio || currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(currentQuestion.QuestionMediaFilename);
 				if (questionShowing && hasAudioOrVideo)
 				{
-					BgmVolume = 0;
-					QuestionBGMVolume = 0;
 					QuestionAudioVolume = AUDIO_VOLUME;
 					QuestionVideoVolume = VIDEO_VOLUME;
+					BgmVolume = QuestionBGMVolume = 0;
 				}
 				else if (!string.IsNullOrEmpty(currentQuestion.QuestionBGMFilename) && Quiz.HasMediaFile(currentQuestion.QuestionBGMFilename))
 				{
-					BgmVolume = 0;
 					QuestionBGMVolume = BGM_VOLUME;
-					QuestionAudioVolume = 0;
-					QuestionVideoVolume = 0;
+					BgmVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 				}
 				else
 				{
 					BgmVolume = BGM_VOLUME;
-					QuestionBGMVolume = 0;
-					QuestionAudioVolume = 0;
-					QuestionVideoVolume = 0;
+					QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 				}
 			}
 			finally
@@ -970,9 +947,7 @@ namespace ZoomQuiz
 			{
 				VolumeMutex.WaitOne();
 				BgmVolume = BGM_VOLUME;
-				QuestionBGMVolume = 0;
-				QuestionAudioVolume = 0;
-				QuestionVideoVolume = 0;
+				QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 			}
 			finally
 			{
@@ -1054,8 +1029,7 @@ namespace ZoomQuiz
 
 		private void GenerateTextImage(string text, string sourceName, string filename)
 		{
-			string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
-			string path = Path.Combine(presFolder, filename);
+			string path = GetFilePath("presentation", filename);
 			using (TextImageBitmap tiBitmap=new TextImageBitmap(text))
 			{
 				tiBitmap.Save(path);
@@ -1104,22 +1078,23 @@ namespace ZoomQuiz
 				ShowFullScreenPicture();
 		}
 
-		private void IncreaseScoreButton_Click(object sender, RoutedEventArgs e)
+		private void AlterSelectedContestantScore(int diff)
 		{
 			ContestantScore score = (ContestantScore)leaderboardList.SelectedItem;
-			m_scores[score.Contestant] = m_scores[score.Contestant] + 1;
+			m_scores[score.Contestant] = m_scores[score.Contestant] + diff;
 			WriteScoresToFile();
 			m_scoresDirty = true;
 			UpdateLeaderboard(false, score.Contestant);
 		}
 
+		private void IncreaseScoreButton_Click(object sender, RoutedEventArgs e)
+		{
+			AlterSelectedContestantScore(1);
+		}
+
 		private void DecreaseScoreButton_Click(object sender, RoutedEventArgs e)
 		{
-			ContestantScore score = (ContestantScore)leaderboardList.SelectedItem;
-			m_scores[score.Contestant] = m_scores[score.Contestant] - 1;
-			WriteScoresToFile();
-			m_scoresDirty = true;
-			UpdateLeaderboard(false, score.Contestant);
+			AlterSelectedContestantScore(-1);
 		}
 
 		private void LeaderboardList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -1145,8 +1120,7 @@ namespace ZoomQuiz
 
 		private void ViewAnswerHistory_Click(object sender, RoutedEventArgs e)
 		{
-			string dataFolder = Path.Combine(Directory.GetCurrentDirectory(), "data");
-			string answersFilePath = Path.Combine(dataFolder, ANSWERS_FILENAME);
+			string answersFilePath = GetFilePath("data", ANSWERS_FILENAME);
 			if (File.Exists(answersFilePath))
 				System.Diagnostics.Process.Start(answersFilePath);
 		}
@@ -1214,12 +1188,14 @@ namespace ZoomQuiz
 			m_questionShowing = false;
 			HideFullScreenPicture(false);
 
-			presentingButton.IsEnabled = showLeaderboardButton.IsEnabled = showAnswerButton.IsEnabled = true;
-			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
-			loadQuizButton.IsEnabled = true;
-			showPictureButton.IsEnabled = false;
-
-			restartMarking.IsEnabled = false;
+			presentingButton.IsEnabled =
+				showLeaderboardButton.IsEnabled =
+				showAnswerButton.IsEnabled =
+				loadQuizButton.IsEnabled = true;
+			showPictureButton.IsEnabled =
+				restartMarking.IsEnabled = false;
+			skipQuestionButton.IsEnabled =
+				newQuestionButton.IsEnabled = m_nextQuestion != -1;
 			markingProgressBar.Value = markingProgressBar.Maximum;
 			ApplyScores();
 			UpdateMarkingProgressUI(null);
