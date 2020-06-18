@@ -10,7 +10,6 @@ namespace ZoomQuiz
 		const float qaudVolSpeed = 0.04f;
 		const float qvidVolSpeed = 0.04f;
 
-		private IQuizContext Context { get; set; }
 		internal FaderBackgroundWorker(IQuizContext context):base(context)
 		{
 		}
