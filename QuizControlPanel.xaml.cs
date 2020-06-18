@@ -138,6 +138,19 @@ namespace ZoomQuiz
 				presentingButton.IsEnabled = false;
 		}
 
+		~QuizControlPanel()
+		{
+			VolumeMutex.Dispose();
+			AnswerListMutex.Dispose();
+			AnswerForMarkingMutex.Dispose();
+			m_scoreReportMutex.Dispose();
+			AnswerReceivedEvent.Dispose();
+			AnswerCounterAnswerReceivedEvent.Dispose();
+			AnswerMarkedEvent.Dispose();
+			CountdownCompleteEvent.Dispose();
+			QuitAppEvent.Dispose();
+		}
+
 		private void ClearLeaderboards()
 		{
 			string lbFolder = Path.Combine(Directory.GetCurrentDirectory(), "leaderboards");
@@ -194,7 +207,6 @@ namespace ZoomQuiz
 		private void LoadQuiz(string quizFilePath)
 		{
 			Quiz = new Quiz(quizFilePath);
-
 			UpdateQuizList();
 			if (Quiz.HasInvalidQuestions)
 				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);

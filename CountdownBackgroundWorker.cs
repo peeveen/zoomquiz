@@ -3,19 +3,13 @@ using System.ComponentModel;
 
 namespace ZoomQuiz
 {
-	class CountdownBackgroundWorker : BackgroundWorker
+	class CountdownBackgroundWorker : QuizBackgroundWorker
 	{
 		private const int COUNTDOWN_SECONDS = 15;
-		private IQuizContext Context { get; set; }
-		internal CountdownBackgroundWorker(IQuizContext context)
+		internal CountdownBackgroundWorker(IQuizContext context) : base(context, true)
 		{
-			Context = context;
-			DoWork += CountdownDoWork;
-			ProgressChanged += CountdownProgressChanged;
-			WorkerReportsProgress = true;
-			RunWorkerCompleted += CountdownRunWorkerCompleted;
 		}
-		private void CountdownDoWork(object sender, DoWorkEventArgs e)
+		protected override void DoQuizWork(object sender, DoWorkEventArgs e)
 		{
 			if (Context.ShowTimeWarnings)
 				Context.SendPublicChat("⏳ " + COUNTDOWN_SECONDS + " seconds remaining ...");
@@ -25,14 +19,13 @@ namespace ZoomQuiz
 				if (((f % 5) == 0) && (f != COUNTDOWN_SECONDS))
 					ReportProgress(f);
 			}
-
 		}
-		private void CountdownProgressChanged(object sender, ProgressChangedEventArgs e)
+		protected override void QuizProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			if (Context.ShowTimeWarnings)
 				Context.SendPublicChat("⏳ " + e.ProgressPercentage + " seconds remaining ...");
 		}
-		private void CountdownRunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		protected override void QuizWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			if (Context.ShowTimeWarnings)
 				Context.SendPublicChat("⌛ Time is up!");

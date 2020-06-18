@@ -111,6 +111,9 @@
     <Compile Include="Question.cs" />
     <Compile Include="QuestionValidity.cs" />
     <Compile Include="Quiz.cs" />
+    <Compile Include="QuizBackgroundWorker.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="QuizControlPanel.xaml.cs">
       <DependentUpon>QuizControlPanel.xaml</DependentUpon>
     </Compile>

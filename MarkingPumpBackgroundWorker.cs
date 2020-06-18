@@ -5,18 +5,12 @@ using System.ComponentModel;
 
 namespace ZoomQuiz
 {
-	class MarkingPumpBackgroundWorker:BackgroundWorker
+	class MarkingPumpBackgroundWorker:QuizBackgroundWorker
 	{
-		private IQuizContext Context { get; set; }
-		internal MarkingPumpBackgroundWorker(IQuizContext context)
+		internal MarkingPumpBackgroundWorker(IQuizContext context):base(context,true)
 		{
-			Context = context;
-			DoWork += MarkingPumpDoWork;
-			ProgressChanged += MarkingPumpProgressChanged;
-			WorkerReportsProgress = true;
-			RunWorkerCompleted += MarkingPumpRunWorkerCompleted;
 		}
-		private void MarkingPumpDoWork(object sender, DoWorkEventArgs e)
+		protected override void DoQuizWork(object sender, DoWorkEventArgs e)
 		{
 			MarkingPumpArgs markingPumpArgs = (MarkingPumpArgs)e.Argument;
 			bool lev = markingPumpArgs.UseLevenshtein;
@@ -119,7 +113,7 @@ namespace ZoomQuiz
 			return false;
 		}
 
-		private void MarkingPumpProgressChanged(object sender, ProgressChangedEventArgs e)
+		protected override void QuizProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			try
 			{
@@ -140,7 +134,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void MarkingPumpRunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
+		protected override void QuizWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
 		{
 			Context.OnMarkingComplete();
 		}

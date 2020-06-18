@@ -1,15 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using OBSWebsocketDotNet.Types;
+﻿using OBSWebsocketDotNet.Types;
 using System.ComponentModel;
-using System.Threading.Tasks;
-using System.Drawing.Text;
 
 namespace ZoomQuiz
 {
-	class FaderBackgroundWorker:BackgroundWorker
+	class FaderBackgroundWorker:QuizBackgroundWorker
 	{
 		const float bgmVolSpeed = 0.01f;
 		const float qbgmVolSpeed = 0.01f;
@@ -17,12 +11,10 @@ namespace ZoomQuiz
 		const float qvidVolSpeed = 0.04f;
 
 		private IQuizContext Context { get; set; }
-		internal FaderBackgroundWorker(IQuizContext context)
+		internal FaderBackgroundWorker(IQuizContext context):base(context)
 		{
-			Context = context;
-			DoWork += FaderDoWork;
 		}
-		private void FaderDoWork(object sender, DoWorkEventArgs e)
+		protected override void DoQuizWork(object sender, DoWorkEventArgs e)
 		{
 			void FixVolume(string source,float obsVol,float desiredVol,float volChangeSpeed,bool isBgm=false)
 			{
@@ -58,7 +50,5 @@ namespace ZoomQuiz
 				}
 			}
 		}
-
-
 	}
 }

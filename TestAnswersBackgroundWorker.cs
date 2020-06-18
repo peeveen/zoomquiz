@@ -4,15 +4,12 @@ using System.Threading;
 
 namespace ZoomQuiz
 {
-	class TestAnswersBackgroundWorker:BackgroundWorker
+	class TestAnswersBackgroundWorker:QuizBackgroundWorker
 	{
-		private IQuizContext Context { get; set; }
-		internal TestAnswersBackgroundWorker(IQuizContext context)
+		internal TestAnswersBackgroundWorker(IQuizContext context):base(context)
 		{
-			Context = context;
-			DoWork += TestAnswersDoWork;
 		}
-		private void TestAnswersDoWork(object sender, DoWorkEventArgs e)
+		protected override void DoQuizWork(object sender, DoWorkEventArgs e)
 		{
 			uint un = 235423;
 			List<Contestant> contestants = new List<Contestant>();

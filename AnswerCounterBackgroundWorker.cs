@@ -4,17 +4,12 @@ using System.ComponentModel;
 
 namespace ZoomQuiz
 {
-	class AnswerCounterBackgroundWorker:BackgroundWorker
+	class AnswerCounterBackgroundWorker:QuizBackgroundWorker
 	{
-		private IQuizContext Context { get; set; }
-		internal AnswerCounterBackgroundWorker(IQuizContext context)
+		internal AnswerCounterBackgroundWorker(IQuizContext context):base(context,true)
 		{
-			Context = context;
-			DoWork += AnswerCounterDoWork;
-			ProgressChanged += AnswerCounterProgressChanged;
-			WorkerReportsProgress = true;
 		}
-		private void AnswerCounterDoWork(object sender, DoWorkEventArgs e)
+		protected override void DoQuizWork(object sender, DoWorkEventArgs e)
 		{
 			WaitHandle[] waitEvents = new WaitHandle[] { Context.AnswerCounterAnswerReceivedEvent, Context.CountdownCompleteEvent, Context.QuitAppEvent };
 			for (; ; )
@@ -39,7 +34,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void AnswerCounterProgressChanged(object sender, ProgressChangedEventArgs e)
+		protected override void QuizProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
 			Context.UpdateMarkingProgressUI((MarkingProgress)e.UserState);
 		}
