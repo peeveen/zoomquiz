@@ -64,7 +64,7 @@ namespace ZoomQuiz
 
 		public bool HasMediaFile(string filename)
 		{
-			return m_mediaPaths.ContainsKey(filename.ToLower());
+			return !string.IsNullOrEmpty(filename) && m_mediaPaths.ContainsKey(filename.ToLower());
 		}
 
 		public string GetMediaPath(string filename)
