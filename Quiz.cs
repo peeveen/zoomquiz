@@ -38,6 +38,7 @@ namespace ZoomQuiz
 		{
 			strIn = strIn.Replace("Â£", "£");
 			strIn = strIn.Replace("Ã©", "é");
+			strIn = strIn.Replace("\\n", "\n");
 			return strIn;
 		}
 
