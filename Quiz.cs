@@ -44,7 +44,7 @@ namespace ZoomQuiz
 
 		private static MediaType GetMediaTypeFromFilename(string filename)
 		{
-			if (!String.IsNullOrEmpty(filename))
+			if (!string.IsNullOrEmpty(filename))
 			{
 				string ext = Path.GetExtension(filename).ToLower().Trim('.');
 				if (ext == "jpg" || ext == "png" || ext == "bmp" || ext == "tif" || ext == "tiff" || ext == "jpeg" || ext == "gif")

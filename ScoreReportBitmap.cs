@@ -9,6 +9,7 @@ namespace ZoomQuiz
 	class ScoreReportBitmap:IDisposable
 	{
 		private const string SCORE_REPORT_FONT_NAME = "Bahnschrift Condensed";
+		private const int SCORE_REPORT_FONT_SIZE = 24;
 		private readonly Size SCORE_REPORT_SIZE = new Size(386, 585);
 		static SizeF rowSize = new SizeF(0, 0);
 
@@ -23,7 +24,7 @@ namespace ZoomQuiz
 					using (Graphics testGraphics = Graphics.FromImage(testBitmap))
 					{
 						testGraphics.TextRenderingHint = TextRenderingHint.AntiAlias;
-						using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20, System.Drawing.FontStyle.Bold))
+						using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, SCORE_REPORT_FONT_SIZE, FontStyle.Bold))
 						{
 							rowSize = testGraphics.MeasureString("Wg", scoreReportFont);
 						}
@@ -33,11 +34,8 @@ namespace ZoomQuiz
 
 			int xMargin = 4, yMargin = 4, ySpacing = 4;
 			int rows = scoreReport.Count;
-			int initialRowOffset = 9 - rows;
-			if (initialRowOffset < 0 || times)
-				initialRowOffset = 0;
-			int currentY = yMargin + (initialRowOffset * (int)(rowSize.Height + ySpacing));
-			int scoreReportHeight = ((int)(rowSize.Height + ySpacing) * (rows + 1 + initialRowOffset)) + yMargin;
+			int currentY = yMargin;
+			int scoreReportHeight = ((int)(rowSize.Height + ySpacing) * (rows + 1)) + yMargin;
 
 			m_bitmap = new Bitmap(SCORE_REPORT_SIZE.Width, fixedHeight == 0 ? scoreReportHeight : fixedHeight);
 			using (Graphics graphics = Graphics.FromImage(m_bitmap))
@@ -49,7 +47,7 @@ namespace ZoomQuiz
 					Alignment = StringAlignment.Center,
 					Trimming = StringTrimming.EllipsisCharacter
 				};
-				using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, 20, System.Drawing.FontStyle.Bold))
+				using (Font scoreReportFont = new Font(SCORE_REPORT_FONT_NAME, SCORE_REPORT_FONT_SIZE, FontStyle.Bold))
 				{
 					List<ScoreReportEntry> workingScoreReport = new List<ScoreReportEntry>(scoreReport);
 					if (times)
@@ -67,7 +65,7 @@ namespace ZoomQuiz
 									RectangleF blackRect = new RectangleF(xMargin + x, currentY + y, (SCORE_REPORT_SIZE.Width - (xMargin * 2)) + x, rowSize.Height + y);
 									graphics.DrawString(sreString, scoreReportFont, Brushes.Black, blackRect, sf);
 								}
-						RectangleF rect = new RectangleF(xMargin, currentY, (SCORE_REPORT_SIZE.Width - (xMargin * 2)), rowSize.Height);
+						RectangleF rect = new RectangleF(xMargin, currentY, SCORE_REPORT_SIZE.Width - (xMargin * 2), rowSize.Height);
 						graphics.DrawString(sreString, scoreReportFont, sre.Colour, rect, sf);
 						currentY += (int)(rowSize.Height + ySpacing);
 					}

@@ -88,6 +88,8 @@ namespace ZoomQuiz
 		public bool StartedOK { get; private set; }
 		private bool m_chatWarnings = false;
 		private bool PresentationOnly { get; set; }
+		private static readonly System.Drawing.Size TEXT_IMAGE_SIZE = new System.Drawing.Size(1123,320);
+		private static readonly System.Drawing.Size NO_PIC_TEXT_IMAGE_SIZE = new System.Drawing.Size(1515,320);
 
 		public QuizControlPanel(bool presentationOnly)
 		{
@@ -387,7 +389,9 @@ namespace ZoomQuiz
 			answerTextBox.Text = m_currentQuestion.AnswerText;
 			infoTextBox.Text = m_currentQuestion.Info;
 			ResetAnswerBins(m_currentQuestion);
-			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png");
+			bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
+			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
+			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png",hasPicOrVid|| hasSupPicOrVid ? TEXT_IMAGE_SIZE:NO_PIC_TEXT_IMAGE_SIZE);
 			Obs.SetImageSource(Quiz, "QuestionPic", m_currentQuestion.QuestionImageFilename);
 			// Show no video until it's ready.
 			Obs.SetVideoSource(Quiz, "QuestionVid", null);
@@ -466,6 +470,9 @@ namespace ZoomQuiz
 				{
 					string bitmapPath = GetFilePath("presentation", times ? SCORE_REPORT_WITH_TIMES_FILENAME : SCORE_REPORT_FILENAME);
 					bitmap.Save(bitmapPath);
+					Obs.SetFileSourceFromPath(times ? "ScoreReportWithTimes" : "ScoreReport", "file", bitmapPath);
+					if (times)
+						Obs.SetFileSourceFromPath("ScrollingScoreReportWithTimes", "file", bitmapPath);
 				}
 			}
 			finally
@@ -910,8 +917,9 @@ namespace ZoomQuiz
 			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
 			bool hasAudio = m_currentQuestion.QuestionMediaType==MediaType.Audio && Quiz.HasMediaFile(m_currentQuestion.QuestionAudioFilename);
 			bool hasVideo = m_currentQuestion.QuestionMediaType == MediaType.Video && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
+			bool hasAnswerPic= m_currentQuestion.AnswerMediaType == MediaType.Image && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
 			Obs.SetCurrentScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
-			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png");
+			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png", hasAnswerPic? TEXT_IMAGE_SIZE : NO_PIC_TEXT_IMAGE_SIZE);
 			Obs.SetImageSource(Quiz, "AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
 			// Set question audio to silence, wait for play button
@@ -1027,10 +1035,10 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void GenerateTextImage(string text, string sourceName, string filename)
+		private void GenerateTextImage(string text, string sourceName, string filename, System.Drawing.Size textSize)
 		{
 			string path = GetFilePath("presentation", filename);
-			using (TextImageBitmap tiBitmap=new TextImageBitmap(text))
+			using (TextImageBitmap tiBitmap=new TextImageBitmap(text,textSize))
 			{
 				tiBitmap.Save(path);
 			}

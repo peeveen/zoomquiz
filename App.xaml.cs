@@ -19,11 +19,11 @@ namespace ZoomQuiz
 		private string m_meetingID;
 		public void onAuthenticationReturn(AuthResult ret)
 		{
-			if (ZOOM_SDK_DOTNET_WRAP.AuthResult.AUTHRET_SUCCESS == ret)
+			if (AuthResult.AUTHRET_SUCCESS == ret)
 			{
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLoginRet(onLoginRet);
-				ZOOM_SDK_DOTNET_WRAP.LoginParam loginParam = new ZOOM_SDK_DOTNET_WRAP.LoginParam();
-				ZOOM_SDK_DOTNET_WRAP.LoginParam4Email emailLogin = new ZOOM_SDK_DOTNET_WRAP.LoginParam4Email
+				CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLoginRet(onLoginRet);
+				LoginParam loginParam = new LoginParam();
+				LoginParam4Email emailLogin = new LoginParam4Email
 				{
 					userName = m_loginName,
 					password = m_loginPassword,
@@ -31,7 +31,7 @@ namespace ZoomQuiz
 				};
 				loginParam.emailLogin = emailLogin;
 				loginParam.loginType = LoginType.LoginType_Email;
-				ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Login(loginParam);
+				CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Login(loginParam);
 			}
 			else
 				MessageBox.Show("Failed to authenticate SDK key/secret.", "ZoomQuiz");
@@ -41,14 +41,14 @@ namespace ZoomQuiz
 		{
 			switch (status)
 			{
-				case ZOOM_SDK_DOTNET_WRAP.MeetingStatus.MEETING_STATUS_ENDED:
-				case ZOOM_SDK_DOTNET_WRAP.MeetingStatus.MEETING_STATUS_FAILED:
+				case MeetingStatus.MEETING_STATUS_ENDED:
+				case MeetingStatus.MEETING_STATUS_FAILED:
 					quizControlPanelWindow.EndQuiz();
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLogout(onLogout);
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().LogOut();
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.CleanUp();
+					CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onLogout(onLogout);
+					CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().LogOut();
+					CZoomSDKeDotNetWrap.Instance.CleanUp();
 					break;
-				case ZOOM_SDK_DOTNET_WRAP.MeetingStatus.MEETING_STATUS_INMEETING:
+				case MeetingStatus.MEETING_STATUS_INMEETING:
 					quizControlPanelWindow.StartQuiz();
 					break;
 			}
@@ -56,11 +56,11 @@ namespace ZoomQuiz
 
 		public void onLoginRet(LOGINSTATUS ret, IAccountInfo pAccountInfo)
 		{
-			if (ZOOM_SDK_DOTNET_WRAP.LOGINSTATUS.LOGIN_SUCCESS == ret)
+			if (LOGINSTATUS.LOGIN_SUCCESS == ret)
 			{
-				ZOOM_SDK_DOTNET_WRAP.StartParam param = new ZOOM_SDK_DOTNET_WRAP.StartParam();
-				param.userType = ZOOM_SDK_DOTNET_WRAP.SDKUserType.SDK_UT_NORMALUSER;
-				ZOOM_SDK_DOTNET_WRAP.StartParam4NormalUser startParam = new ZOOM_SDK_DOTNET_WRAP.StartParam4NormalUser
+				StartParam param = new StartParam();
+				param.userType = SDKUserType.SDK_UT_NORMALUSER;
+				StartParam4NormalUser startParam = new StartParam4NormalUser
 				{
 					isAudioOff = false,
 					isVideoOff = false
@@ -71,11 +71,11 @@ namespace ZoomQuiz
 				if(UInt64.TryParse(m_meetingID, out meetingID))
 					startParam.meetingNumber = meetingID;
 				param.normaluserStart = startParam;
-				ZOOM_SDK_DOTNET_WRAP.SDKError err = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().Start(param);
+				SDKError err = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().Start(param);
 				if (err == SDKError.SDKERR_SUCCESS)
-					ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().Add_CB_onMeetingStatusChanged(onMeetingStatusChanged);
+					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().Add_CB_onMeetingStatusChanged(onMeetingStatusChanged);
 			}
-			else if (ZOOM_SDK_DOTNET_WRAP.LOGINSTATUS.LOGIN_FAILED == ret)
+			else if (LOGINSTATUS.LOGIN_FAILED == ret)
 				MessageBox.Show("Failed to login.", "ZoomQuiz");
 		}
 
@@ -99,19 +99,19 @@ namespace ZoomQuiz
 
 				if (quizControlPanelWindow.StartedOK)
 				{
-					ZOOM_SDK_DOTNET_WRAP.InitParam initParam = new ZOOM_SDK_DOTNET_WRAP.InitParam();
+					InitParam initParam = new InitParam();
 					initParam.web_domain = m_zoomDomain;
-					ZOOM_SDK_DOTNET_WRAP.SDKError err = ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.Initialize(initParam);
-					if (ZOOM_SDK_DOTNET_WRAP.SDKError.SDKERR_SUCCESS == err)
+					SDKError err = CZoomSDKeDotNetWrap.Instance.Initialize(initParam);
+					if (SDKError.SDKERR_SUCCESS == err)
 					{
 						//register callback
-						ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onAuthenticationReturn(onAuthenticationReturn);
-						ZOOM_SDK_DOTNET_WRAP.AuthParam authParam = new ZOOM_SDK_DOTNET_WRAP.AuthParam
+						CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onAuthenticationReturn(onAuthenticationReturn);
+						AuthParam authParam = new AuthParam
 						{
 							appKey = m_sdkKey,
 							appSecret = m_sdkSecret
 						};
-						ZOOM_SDK_DOTNET_WRAP.CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
+						CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
 					}
 					else
 						MessageBox.Show("Failed to initialize Zoom SDK.", "ZoomQuiz");

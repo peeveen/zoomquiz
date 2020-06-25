@@ -7,12 +7,12 @@ namespace ZoomQuiz
 {
 	class TextImageBitmap:IDisposable
 	{
-		private readonly Size TEXT_SIZE = new Size(1600, 360);
 		private const string QUESTION_FONT_NAME = "Impact";
+		private const float FONT_SIZE_CALCULATION_PRECISION = 2.0f;
 		private const int TEXT_OUTLINE_THICKNESS = 5;
 		readonly Bitmap m_bitmap;
 
-		internal TextImageBitmap(string text)
+		internal TextImageBitmap(string text,Size textGraphicSize)
 		{
 			string[] words = text.Split(' ');
 			int textLength = text.Length;
@@ -51,18 +51,21 @@ namespace ZoomQuiz
 				Alignment = StringAlignment.Center
 			};
 			Brush textColor = availableColors[new Random().Next(0, availableColors.Length)];
-			m_bitmap = new Bitmap(TEXT_SIZE.Width, TEXT_SIZE.Height);
+			m_bitmap = new Bitmap(textGraphicSize.Width, textGraphicSize.Height);
 			using (Graphics g = Graphics.FromImage(m_bitmap))
 			{
 				g.TextRenderingHint = TextRenderingHint.AntiAlias;
 				g.Clear(Color.Transparent);
-				for (int f = 10; ; f += 4)
+				float fontSizeDiff = 32.0f;
+				int measurements = 0;
+				for (float f = 50; ; f += fontSizeDiff)
 				{
 					using (Font font = new Font(QUESTION_FONT_NAME, f, FontStyle.Regular))
 					{
 						// We need room for the outline
-						Size clientRect = new Size(TEXT_SIZE.Width - (TEXT_OUTLINE_THICKNESS * 2), TEXT_SIZE.Height - (TEXT_OUTLINE_THICKNESS * 2));
+						Size clientRect = new Size(textGraphicSize.Width - (TEXT_OUTLINE_THICKNESS * 2), textGraphicSize.Height - (TEXT_OUTLINE_THICKNESS * 2));
 						SizeF textSize = g.MeasureString(text, font, clientRect, sf, out int charactersFitted, out int linesFitted);
+						++measurements;
 						bool wordLimitReached = false;
 						foreach (string word in words)
 						{
@@ -73,25 +76,32 @@ namespace ZoomQuiz
 								break;
 							}
 						}
-						if ((textSize.Width >= clientRect.Width) || (textSize.Height >= clientRect.Height) || (wordLimitReached) || (charactersFitted < textLength))
+						// If we exceed the size, we need to start reducing, unless the fontSizeDiff is already as small as it can get
+						if ((textSize.Width >= clientRect.Width) || (textSize.Height >= clientRect.Height) || wordLimitReached || (charactersFitted < textLength))
 						{
-							using (Font realFont = new Font(QUESTION_FONT_NAME, f - 4, System.Drawing.FontStyle.Regular))
-							{
-								textSize = g.MeasureString(text, realFont, clientRect, sf, out charactersFitted, out linesFitted);
-								int nVertOffset = (int)((TEXT_SIZE.Height - textSize.Height) / 2.0);
-								Rectangle rect = new Rectangle(new Point(0, 0), TEXT_SIZE);
-								rect.Offset(0, nVertOffset);
-								for (int x = -TEXT_OUTLINE_THICKNESS; x <= TEXT_OUTLINE_THICKNESS; ++x)
-									for (int y = -TEXT_OUTLINE_THICKNESS; y <= TEXT_OUTLINE_THICKNESS; ++y)
-									{
-										Rectangle borderRect = new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height);
-										borderRect.Offset(x, y);
-										g.DrawString(text, realFont, Brushes.Black, borderRect, sf);
-									}
-								g.DrawString(text, realFont, textColor, rect, sf);
-								break;
-							}
+							if (fontSizeDiff>0.0 && fontSizeDiff<= FONT_SIZE_CALCULATION_PRECISION)
+								using (Font realFont = new Font(QUESTION_FONT_NAME, f - FONT_SIZE_CALCULATION_PRECISION, FontStyle.Regular))
+								{
+									//System.Windows.MessageBox.Show("" + measurements);
+									textSize = g.MeasureString(text, realFont, clientRect, sf, out charactersFitted, out linesFitted);
+									int nVertOffset = (int)((textGraphicSize.Height - textSize.Height) / 2.0);
+									Rectangle rect = new Rectangle(new Point(0, 0), textGraphicSize);
+									rect.Offset(0, nVertOffset);
+									for (int x = -TEXT_OUTLINE_THICKNESS; x <= TEXT_OUTLINE_THICKNESS; ++x)
+										for (int y = -TEXT_OUTLINE_THICKNESS; y <= TEXT_OUTLINE_THICKNESS; ++y)
+										{
+											Rectangle borderRect = new Rectangle(rect.Left, rect.Top, rect.Width, rect.Height);
+											borderRect.Offset(x, y);
+											g.DrawString(text, realFont, Brushes.Black, borderRect, sf);
+										}
+									g.DrawString(text, realFont, textColor, rect, sf);
+									break;
+								}
+							else if (fontSizeDiff > 0.0f)
+								fontSizeDiff = -fontSizeDiff / 2.0f;
 						}
+						else if(fontSizeDiff<0.0f)
+							fontSizeDiff = -fontSizeDiff / 2.0f;
 					}
 				}
 			}
