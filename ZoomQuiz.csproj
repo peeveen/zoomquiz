@@ -90,8 +90,6 @@
     <Compile Include="CountdownBackgroundWorker.cs">
       <SubType>Component</SubType>
     </Compile>
-    <Compile Include="CountdownStartArgs.cs" />
-    <Compile Include="DuplicateKeyComparer.cs" />
     <Compile Include="FaderBackgroundWorker.cs">
       <SubType>Component</SubType>
     </Compile>

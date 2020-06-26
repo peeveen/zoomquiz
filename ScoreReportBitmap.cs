@@ -32,8 +32,7 @@ namespace ZoomQuiz
 				}
 			}
 
-			int xMargin = 4, yMargin = 4, ySpacing = 4;
-			int rows = scoreReport.Count;
+			int xMargin = 4, yMargin = 4, ySpacing = 4, rows = scoreReport.Count;
 			int currentY = yMargin;
 			int scoreReportHeight = ((int)(rowSize.Height + ySpacing) * (rows + 1)) + yMargin;
 

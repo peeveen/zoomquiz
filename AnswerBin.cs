@@ -52,10 +52,8 @@ namespace ZoomQuiz
 				m_answersMutex.WaitOne();
 				string norm = answer.NormalizedAnswer;
 				foreach (string acceptableAnswer in m_ratedAnswers.Keys)
-				{
 					if (Levenshtein.LevMatch(norm, acceptableAnswer, out levValue))
 						return true;
-				}
 			}
 			finally
 			{

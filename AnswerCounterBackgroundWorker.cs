@@ -17,8 +17,7 @@ namespace ZoomQuiz
 				int result = WaitHandle.WaitAny(waitEvents);
 				if (result > 0)
 					break;
-				int answerCount = 0;
-				int markedAnswerCount = 0;
+				int answerCount = 0, markedAnswerCount = 0;
 				try
 				{
 					Context.AnswerListMutex.WaitOne();

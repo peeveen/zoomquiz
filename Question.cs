@@ -1,4 +1,6 @@
-﻿namespace ZoomQuiz
+﻿using System.Linq;
+
+namespace ZoomQuiz
 {
 	public class Question
 	{
@@ -6,7 +8,8 @@
 		public string AnswerText { get; private set; }
 		public string QuestionMediaFilename { get; private set; }
 		public string QuestionSupplementaryMediaFilename { get; private set; }
-		public string AnswerImageFilename { get; private set; }
+		public string AnswerMediaFilename { get; private set; }
+		public string AnswerImageFilename { get { return AnswerMediaType == MediaType.Image ? AnswerMediaFilename : null; } }
 		public MediaType QuestionMediaType { get; private set; }
 		public MediaType AnswerMediaType { get; private set; }
 		public MediaType QuestionSupplementaryMediaType { get; private set; }
@@ -22,7 +25,31 @@
 		public bool UseLevenshtein { get; private set; }
 		public int QuestionNumber { get; private set; }
 		public QuestionValidity Validity { get; private set; }
-		public Question(int number, string questionText, string answerText, string[] answers, string[] almostAnswers, string[] wrongAnswers, string questionMediaFile, MediaType questionMediaType, string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerImageFile, MediaType answerMediaType, string info, bool useLevenshtein, QuestionValidity validity)
+		private bool HasMedia(Quiz quiz, MediaType mediaType, string mediaFilename, params MediaType[] types)
+		{
+			return types.Contains(mediaType) && quiz.HasMediaFile(mediaFilename);
+		}
+		public bool HasAnyQuestionMedia(Quiz quiz, params MediaType[] types)
+		{
+			return HasQuestionMedia(quiz, types) || HasQuestionSupplementaryMedia(quiz, types);
+		}
+		public bool HasQuestionMedia(Quiz quiz, params MediaType[] types)
+		{
+			return HasMedia(quiz, QuestionMediaType, QuestionMediaFilename, types);
+		}
+		public bool HasQuestionSupplementaryMedia(Quiz quiz, params MediaType[] types)
+		{
+			return HasMedia(quiz, QuestionSupplementaryMediaType, QuestionSupplementaryMediaFilename, types);
+		}
+		public bool HasAnswerMedia(Quiz quiz, params MediaType[] types)
+		{
+			return HasMedia(quiz, AnswerMediaType, AnswerMediaFilename, types);
+		}
+		public bool HasQuestionBGM(Quiz quiz)
+		{
+			return quiz.HasMediaFile(QuestionBGMFilename);
+		}
+		public Question(int number, string questionText, string answerText, string[] answers, string[] almostAnswers, string[] wrongAnswers, string questionMediaFile, MediaType questionMediaType, string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerMediaFile, MediaType answerMediaType, string info, bool useLevenshtein, QuestionValidity validity)
 		{
 			QuestionNumber = number;
 			QuestionText = questionText.Trim();
@@ -35,7 +62,7 @@
 			QuestionAnswers = answers;
 			QuestionWrongAnswers = wrongAnswers;
 			QuestionAlmostAnswers = almostAnswers;
-			AnswerImageFilename = answerImageFile.Trim();
+			AnswerMediaFilename = answerMediaFile.Trim();
 			Validity = validity;
 			Info = info.Trim();
 			UseLevenshtein = useLevenshtein;

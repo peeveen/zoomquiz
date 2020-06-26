@@ -389,9 +389,8 @@ namespace ZoomQuiz
 			answerTextBox.Text = m_currentQuestion.AnswerText;
 			infoTextBox.Text = m_currentQuestion.Info;
 			ResetAnswerBins(m_currentQuestion);
-			bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
-			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
-			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png",hasPicOrVid|| hasSupPicOrVid ? TEXT_IMAGE_SIZE:NO_PIC_TEXT_IMAGE_SIZE);
+			bool hasPicOrVid = m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image);
+			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png",hasPicOrVid ? TEXT_IMAGE_SIZE:NO_PIC_TEXT_IMAGE_SIZE);
 			Obs.SetImageSource(Quiz, "QuestionPic", m_currentQuestion.QuestionImageFilename);
 			// Show no video until it's ready.
 			Obs.SetVideoSource(Quiz, "QuestionVid", null);
@@ -507,7 +506,7 @@ namespace ZoomQuiz
 			{
 				AddToScoreReport(answer.Answer.AnswerTime, answer.Contestant, result);
 				if (autoCountdown)
-					markingPump.ReportProgress(0, new CountdownStartArgs());
+					markingPump.ReportProgress(0, null);
 			}
 			else if (result == AnswerResult.AlmostCorrect)
 				AddToScoreReport(answer.Answer.AnswerTime, answer.Contestant, result);
@@ -880,14 +879,14 @@ namespace ZoomQuiz
 			try
 			{
 				VolumeMutex.WaitOne();
-				bool hasAudioOrVideo = (currentQuestion.QuestionMediaType == MediaType.Audio || currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(currentQuestion.QuestionMediaFilename);
+				bool hasAudioOrVideo = currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio, MediaType.Video);
 				if (questionShowing && hasAudioOrVideo)
 				{
 					QuestionAudioVolume = AUDIO_VOLUME;
 					QuestionVideoVolume = VIDEO_VOLUME;
 					BgmVolume = QuestionBGMVolume = 0;
 				}
-				else if (!string.IsNullOrEmpty(currentQuestion.QuestionBGMFilename) && Quiz.HasMediaFile(currentQuestion.QuestionBGMFilename))
+				else if (currentQuestion.HasQuestionBGM(Quiz))
 				{
 					QuestionBGMVolume = BGM_VOLUME;
 					BgmVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
@@ -913,12 +912,11 @@ namespace ZoomQuiz
 				answerCounter.RunWorkerAsync();
 			}
 
-			bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
-			bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
-			bool hasAudio = m_currentQuestion.QuestionMediaType==MediaType.Audio && Quiz.HasMediaFile(m_currentQuestion.QuestionAudioFilename);
-			bool hasVideo = m_currentQuestion.QuestionMediaType == MediaType.Video && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
-			bool hasAnswerPic= m_currentQuestion.AnswerMediaType == MediaType.Image && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
-			Obs.SetCurrentScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
+			bool hasPicOrVid = m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image);
+			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
+			bool hasVideo = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Video);
+			bool hasAnswerPic= m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
+			Obs.SetCurrentScene(hasPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
 			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png", hasAnswerPic? TEXT_IMAGE_SIZE : NO_PIC_TEXT_IMAGE_SIZE);
 			Obs.SetImageSource(Quiz, "AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
@@ -926,7 +924,7 @@ namespace ZoomQuiz
 			SetQuestionAudio(null);
 			SetVolumes(true, m_currentQuestion);
 			replayAudioButton.IsEnabled = hasAudio | hasVideo;
-			showPictureButton.IsEnabled = hasPicOrVid || hasSupPicOrVid;
+			showPictureButton.IsEnabled = hasPicOrVid;
 			showQuestionButton.IsEnabled = false;
 			if (!PresentationOnly)
 			{
@@ -942,7 +940,7 @@ namespace ZoomQuiz
 
 		private void SetQuestionAudio(string questionAudioFilename)
 		{
-			bool hasAudio = m_currentQuestion.QuestionMediaType == MediaType.Audio && Quiz.HasMediaFile(questionAudioFilename);
+			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
 			if (hasAudio)
 				Obs.SetVolume("QuestionAudio", AUDIO_VOLUME);
 			Obs.SetAudioSource(Quiz, "QuestionAudio", questionAudioFilename);
@@ -961,7 +959,7 @@ namespace ZoomQuiz
 			{
 				VolumeMutex.ReleaseMutex();
 			}
-			bool hasPic = m_currentQuestion.AnswerMediaType == MediaType.Image && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
+			bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
 			showPictureButton.IsEnabled = hasPic;
 			Obs.SetCurrentScene(hasPic ? (m_fullScreenPictureShowing ? "FullScreenPictureAnswerScene" : "AnswerScene") : "NoPicAnswerScene");
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
@@ -1012,7 +1010,7 @@ namespace ZoomQuiz
 			Obs.SetCurrentScene("CamScene");
 			showLeaderboardButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showLeaderboardText.Text = "Show Leaderboard";
-			showPictureButton.IsEnabled = m_questionShowing && !String.IsNullOrEmpty(m_currentQuestion.QuestionImageFilename) && Quiz.HasMediaFile(m_currentQuestion.QuestionImageFilename);
+			showPictureButton.IsEnabled = m_questionShowing && m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Image);
 			m_leaderboardShowing = false;
 		}
 
@@ -1050,14 +1048,13 @@ namespace ZoomQuiz
 			if (setScene)
 				if (m_answerShowing)
 				{
-					bool hasPic = !String.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
+					bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
 					Obs.SetCurrentScene(hasPic ? "AnswerScene" : "NoPicAnswerScene");
 				}
 				else if (m_questionShowing)
 				{
-					bool hasPicOrVid = (m_currentQuestion.QuestionMediaType == MediaType.Image || m_currentQuestion.QuestionMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionMediaFilename);
-					bool hasSupPicOrVid = (m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Image || m_currentQuestion.QuestionSupplementaryMediaType == MediaType.Video) && Quiz.HasMediaFile(m_currentQuestion.QuestionSupplementaryMediaFilename);
-					Obs.SetCurrentScene(hasPicOrVid || hasSupPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
+					bool hasPicOrVid = m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image);
+					Obs.SetCurrentScene(hasPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
 				}
 			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showPictureText.Text = "Fullscreen Picture";
@@ -1068,7 +1065,7 @@ namespace ZoomQuiz
 		{
 			if (m_answerShowing)
 			{
-				bool hasPic = !string.IsNullOrEmpty(m_currentQuestion.AnswerImageFilename) && Quiz.HasMediaFile(m_currentQuestion.AnswerImageFilename);
+				bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
 				Obs.SetCurrentScene(hasPic ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
 			}
 			else if (m_questionShowing)

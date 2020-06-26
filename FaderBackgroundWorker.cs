@@ -34,14 +34,10 @@ namespace ZoomQuiz
 					VolumeInfo qbgmVolInf = Context.Obs.GetVolume("QuestionBGM");
 					VolumeInfo qaVolInf = Context.Obs.GetVolume("QuestionAudio");
 					VolumeInfo qvVolInf = Context.Obs.GetVolume("QuestionVid");
-					float nBGMVol = bgmVolInf.Volume;
-					float nQBGMVol = qbgmVolInf.Volume;
-					float nQAVol = qaVolInf.Volume;
-					float nQVVol = qvVolInf.Volume;
-					FixVolume("BGM", nBGMVol, Context.BgmVolume, bgmVolSpeed,true);
-					FixVolume("QuestionBGM", nQBGMVol, Context.QuestionBGMVolume, qbgmVolSpeed,true);
-					FixVolume("QuestionAudio", nQAVol, Context.QuestionAudioVolume, qaudVolSpeed);
-					FixVolume("QuestionVid", nQVVol, Context.QuestionVideoVolume, qvidVolSpeed);
+					FixVolume("BGM", bgmVolInf.Volume, Context.BgmVolume, bgmVolSpeed,true);
+					FixVolume("QuestionBGM", qbgmVolInf.Volume, Context.QuestionBGMVolume, qbgmVolSpeed,true);
+					FixVolume("QuestionAudio", qaVolInf.Volume, Context.QuestionAudioVolume, qaudVolSpeed);
+					FixVolume("QuestionVid", qvVolInf.Volume, Context.QuestionVideoVolume, qvidVolSpeed);
 				}
 				finally
 				{

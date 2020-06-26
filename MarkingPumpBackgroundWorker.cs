@@ -119,7 +119,7 @@ namespace ZoomQuiz
 			{
 				Context.AnswerForMarkingMutex.WaitOne();
 				object o = e.UserState;
-				if (o is CountdownStartArgs)
+				if (o==null)
 					Context.StartCountdown();
 				else if (o is FunnyAnswerArgs)
 					Context.SendPublicChat(o.ToString());
