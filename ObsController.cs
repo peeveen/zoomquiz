@@ -3,6 +3,7 @@ using OBSWebsocketDotNet;
 using OBSWebsocketDotNet.Types;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -138,6 +139,13 @@ namespace ZoomQuiz
 				{setting,path }
 			};
 			SetSourceSettings(sourceName, settings);
+		}
+
+		public Size GetSourceBoundsSize(string sceneName,string sourceName)
+		{
+			SceneItemProperties itemProperties=m_obs.GetSceneItemProperties(sourceName, sceneName);
+			SceneItemBoundsInfo boundsInfo = itemProperties.Bounds;
+			return new Size((int)Math.Ceiling(boundsInfo.Width), (int)Math.Ceiling(boundsInfo.Height));
 		}
 
 		public void SetAudioSource(Quiz quiz,string sourceName, string mediaName)

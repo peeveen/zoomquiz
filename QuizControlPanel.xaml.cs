@@ -88,8 +88,10 @@ namespace ZoomQuiz
 		public bool StartedOK { get; private set; }
 		private bool m_chatWarnings = false;
 		private bool PresentationOnly { get; set; }
-		private static readonly System.Drawing.Size TEXT_IMAGE_SIZE = new System.Drawing.Size(1123,320);
-		private static readonly System.Drawing.Size NO_PIC_TEXT_IMAGE_SIZE = new System.Drawing.Size(1515,320);
+		private readonly System.Drawing.Size QuestionTextSize;
+		private readonly System.Drawing.Size NoPicQuestionTextSize;
+		private readonly System.Drawing.Size AnswerTextSize;
+		private readonly System.Drawing.Size NoPicAnswerTextSize;
 
 		public QuizControlPanel(bool presentationOnly)
 		{
@@ -109,6 +111,10 @@ namespace ZoomQuiz
 				if (Obs.IsConnected)
 				{
 					Obs.SetCurrentScene("CamScene");
+					QuestionTextSize = Obs.GetSourceBoundsSize("QuestionScene", "QuestionText");
+					NoPicQuestionTextSize = Obs.GetSourceBoundsSize("NoPicQuestionScene", "QuestionText");
+					AnswerTextSize = Obs.GetSourceBoundsSize("AnswerScene", "AnswerText");
+					NoPicAnswerTextSize = Obs.GetSourceBoundsSize("NoPicAnswerScene", "AnswerText");
 					SetCountdownMedia();
 					UpdateScoreReports();
 					SetScoreReportMedia();
@@ -390,7 +396,7 @@ namespace ZoomQuiz
 			infoTextBox.Text = m_currentQuestion.Info;
 			ResetAnswerBins(m_currentQuestion);
 			bool hasPicOrVid = m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image);
-			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png",hasPicOrVid ? TEXT_IMAGE_SIZE:NO_PIC_TEXT_IMAGE_SIZE);
+			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png",hasPicOrVid ? QuestionTextSize:NoPicQuestionTextSize);
 			Obs.SetImageSource(Quiz, "QuestionPic", m_currentQuestion.QuestionImageFilename);
 			// Show no video until it's ready.
 			Obs.SetVideoSource(Quiz, "QuestionVid", null);
@@ -917,7 +923,7 @@ namespace ZoomQuiz
 			bool hasVideo = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Video);
 			bool hasAnswerPic= m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
 			Obs.SetCurrentScene(hasPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
-			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png", hasAnswerPic? TEXT_IMAGE_SIZE : NO_PIC_TEXT_IMAGE_SIZE);
+			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png", hasAnswerPic? AnswerTextSize : NoPicAnswerTextSize);
 			Obs.SetImageSource(Quiz, "AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
 			// Set question audio to silence, wait for play button
