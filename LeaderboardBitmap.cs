@@ -9,11 +9,10 @@ namespace ZoomQuiz
 	class LeaderboardBitmap:IDisposable
 	{
 		private readonly Size LEADERBOARD_SIZE = new Size(1860, 1000);
-		private const string LEADERBOARD_FONT_NAME = "Bahnschrift Condensed";
 
 		Bitmap m_bitmap;
 
-		private void DrawScore(Graphics g, Rectangle r, ContestantScore score, bool odd)
+		private void DrawScore(string fontName,Graphics g, Rectangle r, ContestantScore score, bool odd)
 		{
 			int textOffset = 25;
 			g.FillRectangle(odd ? Brushes.WhiteSmoke : Brushes.GhostWhite, r);
@@ -28,7 +27,7 @@ namespace ZoomQuiz
 			nameRect.Offset(12, 0);
 			scoreRect.Offset(0, textOffset);
 			if (score != null)
-				using (Font leaderboardFont = new Font(LEADERBOARD_FONT_NAME, 36, FontStyle.Bold))
+				using (Font leaderboardFont = new Font(fontName, 36, FontStyle.Bold))
 				{
 					StringFormat sf = new StringFormat
 					{
@@ -52,7 +51,7 @@ namespace ZoomQuiz
 			m_bitmap.Save(path, ImageFormat.Png);
 		}
 
-		internal LeaderboardBitmap(List<ContestantScore> scores,int leaderboardIndex,ref int scoreIndex)
+		internal LeaderboardBitmap(string fontName,List<ContestantScore> scores,int leaderboardIndex,ref int scoreIndex)
 		{
 			StringFormat sf = new StringFormat
 			{
@@ -64,7 +63,7 @@ namespace ZoomQuiz
 				g.TextRenderingHint = TextRenderingHint.AntiAlias;
 				g.Clear(Color.Transparent);
 				Rectangle headerRect = new Rectangle(0, 0, LEADERBOARD_SIZE.Width, 100);
-				using (Font leaderboardHeaderFont = new Font(LEADERBOARD_FONT_NAME, 40, FontStyle.Bold))
+				using (Font leaderboardHeaderFont = new Font(fontName, 40, FontStyle.Bold))
 				{
 					g.FillRectangle(Brushes.PapayaWhip, headerRect);
 					g.DrawRectangle(Pens.Black, headerRect.Left, headerRect.Top, headerRect.Width - 1, headerRect.Height - 1);
@@ -74,7 +73,7 @@ namespace ZoomQuiz
 				// Leaves 900 pixels.
 				for (int x = 0; x < 3; ++x)
 					for (int y = 0; y < 9; ++y)
-						DrawScore(g, new Rectangle(x * 620, 100 + (y * 100), 620, 100), scoreIndex < scores.Count ? scores[scoreIndex++] : null, y % 2 == 1);
+						DrawScore(fontName,g, new Rectangle(x * 620, 100 + (y * 100), 620, 100), scoreIndex < scores.Count ? scores[scoreIndex++] : null, y % 2 == 1);
 				g.DrawRectangle(Pens.Black, 0, 0, LEADERBOARD_SIZE.Width - 1, LEADERBOARD_SIZE.Height - 1);
 			}
 		}

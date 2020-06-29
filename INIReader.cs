@@ -22,10 +22,10 @@ namespace ZoomQuiz
       Path = new FileInfo(IniPath ?? EXE + ".ini").FullName.ToString();
     }
 
-    public string Read(string Key, string Section = null)
+    public string Read(string Key, string Section = null, string defaultValue="")
     {
       var RetVal = new StringBuilder(1023);
-      GetPrivateProfileString(Section ?? EXE, Key, "", RetVal, 1023, Path);
+      GetPrivateProfileString(Section ?? EXE, Key, defaultValue, RetVal, 1023, Path);
       return RetVal.ToString();
     }
 

@@ -7,12 +7,11 @@ namespace ZoomQuiz
 {
 	class TextImageBitmap:IDisposable
 	{
-		private const string QUESTION_FONT_NAME = "Impact";
 		private const float FONT_SIZE_CALCULATION_PRECISION = 2.0f;
 		private const int TEXT_OUTLINE_THICKNESS = 5;
 		readonly Bitmap m_bitmap;
 
-		internal TextImageBitmap(string text,Size textGraphicSize)
+		internal TextImageBitmap(string text,string fontName,Size textGraphicSize)
 		{
 			string[] words = text.Split(' ');
 			int textLength = text.Length;
@@ -60,7 +59,7 @@ namespace ZoomQuiz
 				int measurements = 0;
 				for (float f = 50; ; f += fontSizeDiff)
 				{
-					using (Font font = new Font(QUESTION_FONT_NAME, f, FontStyle.Regular))
+					using (Font font = new Font(fontName, f, FontStyle.Regular))
 					{
 						// We need room for the outline
 						Size clientRect = new Size(textGraphicSize.Width - (TEXT_OUTLINE_THICKNESS * 2), textGraphicSize.Height - (TEXT_OUTLINE_THICKNESS * 2));
@@ -80,7 +79,7 @@ namespace ZoomQuiz
 						if ((textSize.Width >= clientRect.Width) || (textSize.Height >= clientRect.Height) || wordLimitReached || (charactersFitted < textLength))
 						{
 							if (fontSizeDiff>0.0 && fontSizeDiff<= FONT_SIZE_CALCULATION_PRECISION)
-								using (Font realFont = new Font(QUESTION_FONT_NAME, f - FONT_SIZE_CALCULATION_PRECISION, FontStyle.Regular))
+								using (Font realFont = new Font(fontName, f - FONT_SIZE_CALCULATION_PRECISION, FontStyle.Regular))
 								{
 									//System.Windows.MessageBox.Show("" + measurements);
 									textSize = g.MeasureString(text, realFont, clientRect, sf, out charactersFitted, out linesFitted);

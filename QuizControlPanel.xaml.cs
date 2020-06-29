@@ -92,6 +92,11 @@ namespace ZoomQuiz
 		private readonly System.Drawing.Size NoPicQuestionTextSize;
 		private readonly System.Drawing.Size AnswerTextSize;
 		private readonly System.Drawing.Size NoPicAnswerTextSize;
+		private readonly System.Drawing.Size ScoreReportWithTimesSize;
+		private readonly System.Drawing.Size ScoreReportSize;
+		private string QuestionAndAnswerFont { get; set; } = "Impact";
+		private string LeaderboardFont { get; set; } = "Bahnschrift Condensed";
+		private string ScoreReportFont { get; set; } = "Bahnschrift Condensed";
 
 		public QuizControlPanel(bool presentationOnly)
 		{
@@ -99,6 +104,7 @@ namespace ZoomQuiz
 			StartedOK = false;
 			InitializeComponent();
 			ReadScoresFromFile();
+			ReadConfigFile();
 			markingPump = new MarkingPumpBackgroundWorker(this);
 			countdownWorker = new CountdownBackgroundWorker(this);
 			answerCounter = new AnswerCounterBackgroundWorker(this);
@@ -115,6 +121,8 @@ namespace ZoomQuiz
 					NoPicQuestionTextSize = Obs.GetSourceBoundsSize("NoPicQuestionScene", "QuestionText");
 					AnswerTextSize = Obs.GetSourceBoundsSize("AnswerScene", "AnswerText");
 					NoPicAnswerTextSize = Obs.GetSourceBoundsSize("NoPicAnswerScene", "AnswerText");
+					ScoreReportWithTimesSize = Obs.GetSourceBoundsSize("ScoreReportOverlay", "ScoreReportWithTimes");
+					ScoreReportSize = Obs.GetSourceBoundsSize("ScoreReportOverlay", "ScoreReport");
 					SetCountdownMedia();
 					UpdateScoreReports();
 					SetScoreReportMedia();
@@ -144,6 +152,17 @@ namespace ZoomQuiz
 			}
 			if (PresentationOnly)
 				presentingButton.IsEnabled = false;
+		}
+
+		private void ReadConfigFile()
+		{
+			string configPath = GetFilePath("config", "config.ini");
+			if (File.Exists(configPath)) {
+				IniFile configIni = new IniFile();
+				QuestionAndAnswerFont = configIni.Read("QuestionAndAnswerFont", null, QuestionAndAnswerFont);
+				LeaderboardFont = configIni.Read("LeaderboardFont", null, LeaderboardFont);
+				ScoreReportFont = configIni.Read("ScoreReportFont", null, ScoreReportFont);
+			}
 		}
 
 		~QuizControlPanel()
@@ -471,7 +490,7 @@ namespace ZoomQuiz
 			try
 			{
 				m_scoreReportMutex.WaitOne();
-				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(m_scoreReport, times))
+				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(ScoreReportFont,m_scoreReport, times, times ? ScoreReportWithTimesSize : ScoreReportSize))
 				{
 					string bitmapPath = GetFilePath("presentation", times ? SCORE_REPORT_WITH_TIMES_FILENAME : SCORE_REPORT_FILENAME);
 					bitmap.Save(bitmapPath);
@@ -615,7 +634,7 @@ namespace ZoomQuiz
 		private void DrawLeaderboard(List<ContestantScore> scores)
 		{
 			for (int n=0, leaderboardCount=1; n < scores.Count; ++leaderboardCount)
-				using (LeaderboardBitmap b = new LeaderboardBitmap(scores,leaderboardCount,ref n))
+				using (LeaderboardBitmap b = new LeaderboardBitmap(LeaderboardFont,scores,leaderboardCount,ref n))
 				{
 					string path = GetFilePath("leaderboards", "leaderboard" + leaderboardCount + ".png");
 					b.Save(path);
@@ -1042,7 +1061,7 @@ namespace ZoomQuiz
 		private void GenerateTextImage(string text, string sourceName, string filename, System.Drawing.Size textSize)
 		{
 			string path = GetFilePath("presentation", filename);
-			using (TextImageBitmap tiBitmap=new TextImageBitmap(text,textSize))
+			using (TextImageBitmap tiBitmap=new TextImageBitmap(text, QuestionAndAnswerFont, textSize))
 			{
 				tiBitmap.Save(path);
 			}
