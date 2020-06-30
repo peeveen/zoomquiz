@@ -633,7 +633,7 @@ namespace ZoomQuiz
 
 		private void DrawLeaderboard(List<ContestantScore> scores)
 		{
-			for (int n=0, leaderboardCount=1; n < scores.Count; ++leaderboardCount)
+			for (int n=0, leaderboardCount = 1; n < scores.Count; ++leaderboardCount)
 				using (LeaderboardBitmap b = new LeaderboardBitmap(LeaderboardFont,scores,leaderboardCount,ref n))
 				{
 					string path = GetFilePath("leaderboards", "leaderboard" + leaderboardCount + ".png");
@@ -1055,6 +1055,10 @@ namespace ZoomQuiz
 				m_scores.Clear();
 				WriteScoresToFile();
 				UpdateLeaderboard();
+				string leaderboardsFolder = GetFolderPath("leaderboards");
+				string[] files = Directory.GetFiles(leaderboardsFolder, "leaderboard*.png", SearchOption.AllDirectories);
+				foreach(string file in files)
+					File.Delete(file);
 			}
 		}
 
