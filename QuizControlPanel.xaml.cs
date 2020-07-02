@@ -110,13 +110,13 @@ namespace ZoomQuiz
 			answerCounter = new AnswerCounterBackgroundWorker(this);
 			faderWorker = new FaderBackgroundWorker(this);
 			ClearLeaderboards();
-			UpdateLeaderboard(true);
 			try
 			{
 				Obs.Connect("ws://127.0.0.1:4444");
 				if (Obs.IsConnected)
 				{
 					Obs.SetCurrentScene("CamScene");
+					UpdateLeaderboard(true);
 					QuestionTextSize = Obs.GetSourceBoundsSize("QuestionScene", "QuestionText");
 					NoPicQuestionTextSize = Obs.GetSourceBoundsSize("NoPicQuestionScene", "QuestionText");
 					AnswerTextSize = Obs.GetSourceBoundsSize("AnswerScene", "AnswerText");
@@ -127,7 +127,6 @@ namespace ZoomQuiz
 					UpdateScoreReports();
 					SetScoreReportMedia();
 					SetBGMShuffle();
-					SetLeaderboardsPath();
 					HideCountdownOverlay();
 					faderWorker.RunWorkerAsync();
 					StartedOK = true;
@@ -157,7 +156,8 @@ namespace ZoomQuiz
 		private void ReadConfigFile()
 		{
 			string configPath = GetFilePath("config", "config.ini");
-			if (File.Exists(configPath)) {
+			if (File.Exists(configPath))
+			{
 				IniFile configIni = new IniFile();
 				QuestionAndAnswerFont = configIni.Read("QuestionAndAnswerFont", null, QuestionAndAnswerFont);
 				LeaderboardFont = configIni.Read("LeaderboardFont", null, LeaderboardFont);
@@ -196,14 +196,6 @@ namespace ZoomQuiz
 					File.Delete(file);
 		}
 
-		private void SetLeaderboardsPath()
-		{
-			SourceSettings lbSourceSettings = Obs.GetSourceSettings("Leaderboard");
-			JObject lbSettings = lbSourceSettings.sourceSettings;
-			lbSettings["files"][0]["value"] = GetFolderPath("leaderboards");
-			Obs.SetSourceSettings("Leaderboard", lbSettings);
-		}
-
 		private void SetScoreReportMedia()
 		{
 			Obs.SetFileSourceFromPath("ScoreReport", "file", GetFilePath("presentation", SCORE_REPORT_FILENAME));
@@ -213,7 +205,7 @@ namespace ZoomQuiz
 		{
 			Obs.SetFileSourceFromPath("Countdown", "local_file", GetFilePath("presentation", "Countdown.mp4"));
 			List<FilterSettings> filters = Obs.GetSourceFilters("Countdown");
-			foreach (FilterSettings st in filters.Where(f=>f.Name.Contains("Image Mask")))
+			foreach (FilterSettings st in filters.Where(f => f.Name.Contains("Image Mask")))
 			{
 				JObject maskSettings = st.Settings;
 				maskSettings["image_path"] = GetFilePath("presentation", "circle.png");
@@ -233,9 +225,14 @@ namespace ZoomQuiz
 		private void LoadQuiz(string quizFilePath)
 		{
 			Quiz = new Quiz(quizFilePath);
-			UpdateQuizList();
-			if (Quiz.HasInvalidQuestions)
-				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
+			if (Quiz.HasQuestions)
+			{
+				UpdateQuizList();
+				if (Quiz.HasInvalidQuestions)
+					MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
+			}
+			else
+				MessageBox.Show("Error: no questions found.", ZoomQuizTitle);
 			m_nextQuestion = 0;
 			NextQuestion(m_nextQuestion);
 			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
@@ -339,19 +336,13 @@ namespace ZoomQuiz
 
 		public void AddAnswer(Contestant contestant, Answer answer)
 		{
-			try
+			AnswerListMutex.With(() =>
 			{
-				AnswerListMutex.WaitOne();
-				if(!Answers.TryGetValue(contestant, out List<Answer> answerList))
+				if (!Answers.TryGetValue(contestant, out List<Answer> answerList))
 					answerList = new List<Answer>();
 				answerList.Add(answer);
 				Answers[contestant] = answerList;
-			}
-			finally
-			{
-				AnswerListMutex.ReleaseMutex();
-			}
-
+			});
 			AnswerReceivedEvent.Set();
 			AnswerCounterAnswerReceivedEvent.Set();
 		}
@@ -396,15 +387,7 @@ namespace ZoomQuiz
 
 		private void StartQuestionButtonClick(object sender, RoutedEventArgs e)
 		{
-			try
-			{
-				m_scoreReportMutex.WaitOne();
-				m_scoreReport.Clear();
-			}
-			finally
-			{
-				m_scoreReportMutex.ReleaseMutex();
-			}
+			m_scoreReportMutex.With(() => m_scoreReport.Clear());
 			UpdateScoreReports();
 			m_lastAnswerResults.Clear();
 			Answers.Clear();
@@ -415,7 +398,7 @@ namespace ZoomQuiz
 			infoTextBox.Text = m_currentQuestion.Info;
 			ResetAnswerBins(m_currentQuestion);
 			bool hasPicOrVid = m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image);
-			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png",hasPicOrVid ? QuestionTextSize:NoPicQuestionTextSize);
+			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png", hasPicOrVid ? QuestionTextSize : NoPicQuestionTextSize);
 			Obs.SetImageSource(Quiz, "QuestionPic", m_currentQuestion.QuestionImageFilename);
 			// Show no video until it's ready.
 			Obs.SetVideoSource(Quiz, "QuestionVid", null);
@@ -468,15 +451,7 @@ namespace ZoomQuiz
 			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
 			NextQuestion(m_nextQuestion);
 			SetChatMode(ChatMode.EveryonePublicly);
-			try
-			{
-				AnswerForMarkingMutex.WaitOne();
-				presentingButton.IsEnabled = m_answerForMarking == null;
-			}
-			finally
-			{
-				AnswerForMarkingMutex.ReleaseMutex();
-			}
+			AnswerForMarkingMutex.With(() => presentingButton.IsEnabled = m_answerForMarking == null);
 		}
 
 		private void UpdateScoreReports()
@@ -487,10 +462,9 @@ namespace ZoomQuiz
 
 		private void UpdateScoreReport(bool times)
 		{
-			try
+			m_scoreReportMutex.With(() =>
 			{
-				m_scoreReportMutex.WaitOne();
-				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(ScoreReportFont,m_scoreReport, times, times ? ScoreReportWithTimesSize : ScoreReportSize))
+				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(ScoreReportFont, m_scoreReport, times, times ? ScoreReportWithTimesSize : ScoreReportSize))
 				{
 					string bitmapPath = GetFilePath("presentation", times ? SCORE_REPORT_WITH_TIMES_FILENAME : SCORE_REPORT_FILENAME);
 					bitmap.Save(bitmapPath);
@@ -498,27 +472,18 @@ namespace ZoomQuiz
 					if (times)
 						Obs.SetFileSourceFromPath("ScrollingScoreReportWithTimes", "file", bitmapPath);
 				}
-			}
-			finally
-			{
-				m_scoreReportMutex.ReleaseMutex();
-			}
+			});
 		}
 
 		private void AddToScoreReport(DateTime answerTime, Contestant contestant, AnswerResult result)
 		{
-			try
+			m_scoreReportMutex.With(() =>
 			{
-				m_scoreReportMutex.WaitOne();
 				ScoreReportEntry firstReport = m_scoreReport.LastOrDefault();
 				TimeSpan offset = firstReport == null ? new TimeSpan(0) : answerTime - firstReport.AnswerTime;
 				m_scoreReport.Insert(0, new ScoreReportEntry(answerTime, contestant, result, offset));
 				UpdateScoreReports();
-			}
-			finally
-			{
-				m_scoreReportMutex.ReleaseMutex();
-			}
+			});
 		}
 
 		public void MarkAnswer(AnswerForMarking answer, AnswerResult result, double levValue, bool autoCountdown)
@@ -577,7 +542,7 @@ namespace ZoomQuiz
 
 		private void WriteScoresToFile()
 		{
-			string scoresFilePath = GetFilePath("data",SCORES_FILENAME);
+			string scoresFilePath = GetFilePath("data", SCORES_FILENAME);
 			if (File.Exists(scoresFilePath))
 				File.Delete(scoresFilePath);
 			using (StreamWriter sw = new StreamWriter(File.OpenWrite(scoresFilePath)))
@@ -592,7 +557,7 @@ namespace ZoomQuiz
 			SortedList<int, List<Contestant>> scores = new SortedList<int, List<Contestant>>();
 			foreach (KeyValuePair<Contestant, int> kvp in m_scores)
 			{
-				if(!scores.TryGetValue(kvp.Value, out List<Contestant> cs))
+				if (!scores.TryGetValue(kvp.Value, out List<Contestant> cs))
 				{
 					cs = new List<Contestant>();
 					scores[kvp.Value] = cs;
@@ -633,12 +598,16 @@ namespace ZoomQuiz
 
 		private void DrawLeaderboard(List<ContestantScore> scores)
 		{
-			for (int n=0, leaderboardCount = 1; n < scores.Count; ++leaderboardCount)
-				using (LeaderboardBitmap b = new LeaderboardBitmap(LeaderboardFont,scores,leaderboardCount,ref n))
+			for (int n = 0, leaderboardCount = 1; n < scores.Count; ++leaderboardCount)
+				using (LeaderboardBitmap b = new LeaderboardBitmap(LeaderboardFont, scores, leaderboardCount, ref n))
 				{
 					string path = GetFilePath("leaderboards", "leaderboard" + leaderboardCount + ".png");
 					b.Save(path);
 				}
+			SourceSettings lbSourceSettings = Obs.GetSourceSettings("Leaderboard");
+			JObject lbSettings = lbSourceSettings.sourceSettings;
+			lbSettings["files"][0]["value"] = GetFolderPath("leaderboards");
+			Obs.SetSourceSettings("Leaderboard", lbSettings);
 		}
 
 		private string GetLevenshteinReport(AnswerResult result)
@@ -744,9 +713,8 @@ namespace ZoomQuiz
 		{
 			// All other unmarked answers from the contestant must now be marked wrong,
 			// in case they're guessing numeric answers.
-			try
+			AnswerListMutex.With(() =>
 			{
-				AnswerListMutex.WaitOne();
 				List<Answer> answers = Answers[contestant];
 				if (answers != null)
 				{
@@ -762,18 +730,13 @@ namespace ZoomQuiz
 							a.AnswerResult = AnswerResult.NotAnAnswer;
 					}
 				}
-			}
-			finally
-			{
-				AnswerListMutex.ReleaseMutex();
-			}
+			});
 		}
 
 		private void ClearAnswerForMarking()
 		{
-			try
+			AnswerForMarkingMutex.With(() =>
 			{
-				AnswerForMarkingMutex.WaitOne();
 				if (m_answerForMarking != null)
 				{
 					m_answerForMarking = null;
@@ -786,11 +749,7 @@ namespace ZoomQuiz
 						notAnAnswerButton.IsEnabled = false;
 					AnswerMarkedEvent.Set();
 				}
-			}
-			finally
-			{
-				AnswerForMarkingMutex.ReleaseMutex();
-			}
+			});
 		}
 
 		private double GetBestLevenshtein(AnswerResult result, string normAnswer)
@@ -810,9 +769,8 @@ namespace ZoomQuiz
 
 		private void MarkAnswerViaUI(AnswerResult result)
 		{
-			try
+			AnswerForMarkingMutex.With(() =>
 			{
-				AnswerForMarkingMutex.WaitOne();
 				if (m_answerForMarking != null)
 				{
 					restartMarking.IsEnabled = true;
@@ -820,11 +778,7 @@ namespace ZoomQuiz
 					ClearAnswerForMarking();
 					AnswerMarkedEvent.Set();
 				}
-			}
-			finally
-			{
-				AnswerForMarkingMutex.ReleaseMutex();
-			}
+			});
 		}
 
 		private void CorrectAnswerButton_Click(object sender, RoutedEventArgs e)
@@ -854,18 +808,13 @@ namespace ZoomQuiz
 
 		private void RestartMarking_Click(object sender, RoutedEventArgs e)
 		{
-			try
+			AnswerListMutex.With(() =>
 			{
-				AnswerListMutex.WaitOne();
 				foreach (KeyValuePair<Contestant, List<Answer>> kvp in Answers)
 					foreach (Answer a in kvp.Value)
 						a.AnswerResult = AnswerResult.Unmarked;
 				ResetAnswerBins(m_currentQuestion);
-			}
-			finally
-			{
-				AnswerListMutex.ReleaseMutex();
-			}
+			});
 			restartMarking.IsEnabled = false;
 			ClearAnswerForMarking();
 		}
@@ -901,9 +850,8 @@ namespace ZoomQuiz
 
 		private void SetVolumes(bool questionShowing, Question currentQuestion)
 		{
-			try
+			VolumeMutex.With(() =>
 			{
-				VolumeMutex.WaitOne();
 				bool hasAudioOrVideo = currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio, MediaType.Video);
 				if (questionShowing && hasAudioOrVideo)
 				{
@@ -921,11 +869,7 @@ namespace ZoomQuiz
 					BgmVolume = BGM_VOLUME;
 					QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 				}
-			}
-			finally
-			{
-				VolumeMutex.ReleaseMutex();
-			}
+			});
 		}
 
 		private void ShowQuestionButton_Click(object sender, RoutedEventArgs e)
@@ -940,9 +884,9 @@ namespace ZoomQuiz
 			bool hasPicOrVid = m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image);
 			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
 			bool hasVideo = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Video);
-			bool hasAnswerPic= m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
+			bool hasAnswerPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
 			Obs.SetCurrentScene(hasPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
-			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png", hasAnswerPic? AnswerTextSize : NoPicAnswerTextSize);
+			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png", hasAnswerPic ? AnswerTextSize : NoPicAnswerTextSize);
 			Obs.SetImageSource(Quiz, "AnswerPic", m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
 			// Set question audio to silence, wait for play button
@@ -974,16 +918,11 @@ namespace ZoomQuiz
 		private void ShowAnswer()
 		{
 			HideLeaderboard();
-			try
+			VolumeMutex.With(() =>
 			{
-				VolumeMutex.WaitOne();
 				BgmVolume = BGM_VOLUME;
 				QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
-			}
-			finally
-			{
-				VolumeMutex.ReleaseMutex();
-			}
+			});
 			bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
 			showPictureButton.IsEnabled = hasPic;
 			Obs.SetCurrentScene(hasPic ? (m_fullScreenPictureShowing ? "FullScreenPictureAnswerScene" : "AnswerScene") : "NoPicAnswerScene");
@@ -1057,7 +996,7 @@ namespace ZoomQuiz
 				UpdateLeaderboard();
 				string leaderboardsFolder = GetFolderPath("leaderboards");
 				string[] files = Directory.GetFiles(leaderboardsFolder, "leaderboard*.png", SearchOption.AllDirectories);
-				foreach(string file in files)
+				foreach (string file in files)
 					File.Delete(file);
 			}
 		}
@@ -1065,7 +1004,7 @@ namespace ZoomQuiz
 		private void GenerateTextImage(string text, string sourceName, string filename, System.Drawing.Size textSize)
 		{
 			string path = GetFilePath("presentation", filename);
-			using (TextImageBitmap tiBitmap=new TextImageBitmap(text, QuestionAndAnswerFont, textSize))
+			using (TextImageBitmap tiBitmap = new TextImageBitmap(text, QuestionAndAnswerFont, textSize))
 			{
 				tiBitmap.Save(path);
 			}
@@ -1076,15 +1015,9 @@ namespace ZoomQuiz
 		{
 			if (setScene)
 				if (m_answerShowing)
-				{
-					bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
-					Obs.SetCurrentScene(hasPic ? "AnswerScene" : "NoPicAnswerScene");
-				}
+					Obs.SetCurrentScene(m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image) ? "AnswerScene" : "NoPicAnswerScene");
 				else if (m_questionShowing)
-				{
-					bool hasPicOrVid = m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image);
-					Obs.SetCurrentScene(hasPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
-				}
+					Obs.SetCurrentScene(m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image) ? "QuestionScene" : "NoPicQuestionScene");
 			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showPictureText.Text = "Fullscreen Picture";
 			m_fullScreenPictureShowing = false;
@@ -1093,10 +1026,7 @@ namespace ZoomQuiz
 		private void ShowFullScreenPicture()
 		{
 			if (m_answerShowing)
-			{
-				bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
-				Obs.SetCurrentScene(hasPic ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
-			}
+				Obs.SetCurrentScene(m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image) ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
 			else if (m_questionShowing)
 				Obs.SetCurrentScene("FullScreenPictureQuestionScene");
 			showPictureButton.Background = System.Windows.Media.Brushes.Pink;
@@ -1180,8 +1110,7 @@ namespace ZoomQuiz
 
 		private void DummyAnswersButton_Click(object sender, RoutedEventArgs e)
 		{
-			BackgroundWorker testAnswersWorker = new TestAnswersBackgroundWorker(this);
-			testAnswersWorker.RunWorkerAsync();
+			new TestAnswersBackgroundWorker(this).RunWorkerAsync();
 		}
 
 		private void ShowTimeWarnings_Checked(object sender, RoutedEventArgs e)

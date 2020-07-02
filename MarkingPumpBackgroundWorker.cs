@@ -5,9 +5,9 @@ using System.ComponentModel;
 
 namespace ZoomQuiz
 {
-	class MarkingPumpBackgroundWorker:QuizBackgroundWorker
+	class MarkingPumpBackgroundWorker : QuizBackgroundWorker
 	{
-		internal MarkingPumpBackgroundWorker(IQuizContext context):base(context,true)
+		internal MarkingPumpBackgroundWorker(IQuizContext context) : base(context, true)
 		{
 		}
 		protected override void DoQuizWork(object sender, DoWorkEventArgs e)
@@ -41,9 +41,8 @@ namespace ZoomQuiz
 						break;
 					events = new WaitHandle[] { Context.AnswerMarkedEvent, Context.AnswerReceivedEvent, Context.QuitAppEvent };
 				}
-				try
+				Context.AnswerListMutex.With(() =>
 				{
-					Context.AnswerListMutex.WaitOne();
 					foreach (KeyValuePair<Contestant, List<Answer>> kvp in Context.Answers)
 					{
 						Answer unmarkedAnswer = kvp.Value.FirstOrDefault(a => a.AnswerResult == AnswerResult.Unmarked);
@@ -65,15 +64,11 @@ namespace ZoomQuiz
 							UpdateMarkingProgress();
 					}
 					if (waitingForMarking)
-						continue;
-					if (Context.CountdownCompleteEvent.WaitOne(0))
+						result = 1;
+					else if (Context.CountdownCompleteEvent.WaitOne(0))
 						// Nothing left to mark, and no more answers incoming? We're done.
-						break;
-				}
-				finally
-				{
-					Context.AnswerListMutex.ReleaseMutex();
-				}
+						result = 2;
+				});
 				if (result == 2)
 					break;
 			}
@@ -115,11 +110,10 @@ namespace ZoomQuiz
 
 		protected override void QuizProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
-			try
+			Context.AnswerForMarkingMutex.With(() =>
 			{
-				Context.AnswerForMarkingMutex.WaitOne();
 				object o = e.UserState;
-				if (o==null)
+				if (o == null)
 					Context.StartCountdown();
 				else if (o is FunnyAnswerArgs)
 					Context.SendPublicChat(o.ToString());
@@ -127,11 +121,7 @@ namespace ZoomQuiz
 					Context.UpdateMarkingProgressUI(progress);
 				else if (o is AnswerForMarking marking)
 					Context.SetAnswerForMarking(marking);
-			}
-			finally
-			{
-				Context.AnswerForMarkingMutex.ReleaseMutex();
-			}
+			});
 		}
 
 		protected override void QuizWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)

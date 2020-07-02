@@ -27,22 +27,17 @@ namespace ZoomQuiz
 			}
 			while (!Context.QuitAppEvent.WaitOne(100))
 			{
-				try
+				Context.VolumeMutex.With(() =>
 				{
-					Context.VolumeMutex.WaitOne();
 					VolumeInfo bgmVolInf = Context.Obs.GetVolume("BGM");
 					VolumeInfo qbgmVolInf = Context.Obs.GetVolume("QuestionBGM");
 					VolumeInfo qaVolInf = Context.Obs.GetVolume("QuestionAudio");
 					VolumeInfo qvVolInf = Context.Obs.GetVolume("QuestionVid");
-					FixVolume("BGM", bgmVolInf.Volume, Context.BgmVolume, bgmVolSpeed,true);
-					FixVolume("QuestionBGM", qbgmVolInf.Volume, Context.QuestionBGMVolume, qbgmVolSpeed,true);
+					FixVolume("BGM", bgmVolInf.Volume, Context.BgmVolume, bgmVolSpeed, true);
+					FixVolume("QuestionBGM", qbgmVolInf.Volume, Context.QuestionBGMVolume, qbgmVolSpeed, true);
 					FixVolume("QuestionAudio", qaVolInf.Volume, Context.QuestionAudioVolume, qaudVolSpeed);
 					FixVolume("QuestionVid", qvVolInf.Volume, Context.QuestionVideoVolume, qvidVolSpeed);
-				}
-				finally
-				{
-					Context.VolumeMutex.ReleaseMutex();
-				}
+				});
 			}
 		}
 	}
