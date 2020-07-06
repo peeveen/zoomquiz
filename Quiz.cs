@@ -79,11 +79,11 @@ namespace ZoomQuiz
 			return m_questions.Values.GetEnumerator();
 		}
 
-		public bool HasQuestions
+		public bool HasNoQuestions
 		{
 			get
 			{
-				return m_questions.Count > 0;
+				return m_questions.Count == 0;
 			}
 		}
 

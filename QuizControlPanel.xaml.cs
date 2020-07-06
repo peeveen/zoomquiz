@@ -225,14 +225,11 @@ namespace ZoomQuiz
 		private void LoadQuiz(string quizFilePath)
 		{
 			Quiz = new Quiz(quizFilePath);
-			if (Quiz.HasQuestions)
-			{
-				UpdateQuizList();
-				if (Quiz.HasInvalidQuestions)
-					MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
-			}
-			else
+			UpdateQuizList();
+			if (Quiz.HasNoQuestions)
 				MessageBox.Show("Error: no questions found.", ZoomQuizTitle);
+			else if (Quiz.HasInvalidQuestions)
+					MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
 			m_nextQuestion = 0;
 			NextQuestion(m_nextQuestion);
 			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
@@ -243,8 +240,11 @@ namespace ZoomQuiz
 			quizList.ItemsSource = Quiz;
 			ICollectionView view = CollectionViewSource.GetDefaultView(quizList.ItemsSource);
 			view.Refresh();
-			quizList.SelectedIndex = 0;
-			quizList.ScrollIntoView(Quiz[1]);
+			if (!Quiz.HasNoQuestions)
+			{
+				quizList.SelectedIndex = 0;
+				quizList.ScrollIntoView(Quiz[1]);
+			}
 		}
 
 		private void Window_Closing(object sender, CancelEventArgs e)
