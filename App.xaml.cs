@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System;
+using System.Windows;
 using ZOOM_SDK_DOTNET_WRAP;
 
 namespace ZoomQuiz
@@ -82,8 +83,16 @@ namespace ZoomQuiz
 			// Console message?
 		}
 
+		static void UnhandledExceptionHandler(object sender, UnhandledExceptionEventArgs args)
+		{
+			Logger.Log($"Unhandled Exception: {args.ExceptionObject}");
+		}
+
 		private void Application_Startup(object sender, StartupEventArgs e)
 		{
+			AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionHandler);
+			Logger.StartLogging();
+
 			bool presentationOnly = e.Args.Length < 5;
 			quizControlPanelWindow = new QuizControlPanel(presentationOnly);
 			if (!presentationOnly)
@@ -124,6 +133,11 @@ namespace ZoomQuiz
 				MessageBox.Show("Running in presentation only mode. To run this program with Zoom, use the command line to supply arguments.\nquizhost.exe zoomDomain sdkKey sdkSecret loginName loginPassword", "ZoomQuiz");
 				quizControlPanelWindow.StartQuiz();
 			}
+		}
+
+		private void Application_Exit(object sender, ExitEventArgs e)
+		{
+			Logger.StopLogging();
 		}
 	}
 }

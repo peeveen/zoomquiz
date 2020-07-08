@@ -27,6 +27,7 @@ namespace ZoomQuiz
 			}
 			while (!Context.QuitAppEvent.WaitOne(100))
 			{
+				// Don't log these, they happen ten times a second.
 				Context.VolumeMutex.With(() =>
 				{
 					VolumeInfo bgmVolInf = Context.Obs.GetVolume("BGM");
@@ -37,7 +38,7 @@ namespace ZoomQuiz
 					FixVolume("QuestionBGM", qbgmVolInf.Volume, Context.QuestionBGMVolume, qbgmVolSpeed, true);
 					FixVolume("QuestionAudio", qaVolInf.Volume, Context.QuestionAudioVolume, qaudVolSpeed);
 					FixVolume("QuestionVid", qvVolInf.Volume, Context.QuestionVideoVolume, qvidVolSpeed);
-				});
+				}, false);
 			}
 		}
 	}

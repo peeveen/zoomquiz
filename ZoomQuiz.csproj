@@ -94,12 +94,14 @@
     <Compile Include="FaderBackgroundWorker.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="FileUtils.cs" />
     <Compile Include="FunnyAnswerArgs.cs" />
     <Compile Include="INIReader.cs" />
     <Compile Include="IQuizContext.cs" />
     <Compile Include="Keyboard.cs" />
     <Compile Include="LeaderboardBitmap.cs" />
     <Compile Include="Levenshtein.cs" />
+    <Compile Include="Logger.cs" />
     <Compile Include="MarkingProgress.cs" />
     <Compile Include="MarkingPumpArgs.cs" />
     <Compile Include="MarkingPumpBackgroundWorker.cs">
@@ -116,6 +118,7 @@
     <Compile Include="QuizControlPanel.xaml.cs">
       <DependentUpon>QuizControlPanel.xaml</DependentUpon>
     </Compile>
+    <Compile Include="QuizMutex.cs" />
     <Compile Include="ScoreReportBitmap.cs" />
     <Compile Include="ScoreReportEntry.cs" />
     <Compile Include="Scores.cs" />

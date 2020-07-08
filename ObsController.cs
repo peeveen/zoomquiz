@@ -5,8 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Threading;
 
 namespace ZoomQuiz
@@ -14,7 +12,7 @@ namespace ZoomQuiz
 	public class ObsController
 	{
 		public OBSWebsocket m_obs = new OBSWebsocket();
-		public Mutex m_obsMutex = new Mutex();
+		public QuizMutex m_obsMutex = new QuizMutex("OBS");
 
 		public void Connect(string url,string password="")
 		{
@@ -65,7 +63,8 @@ namespace ZoomQuiz
 		}
 		public VolumeInfo GetVolume(string source)
 		{
-			return m_obsMutex.With(() => m_obs.GetVolume(source));
+			// Don't log these, they happen ten times a second.
+			return m_obsMutex.With(() => m_obs.GetVolume(source), false);
 		}
 
 		public void HideSource(string sourceName, string sceneName)

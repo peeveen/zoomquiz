@@ -44,10 +44,10 @@ namespace ZoomQuiz
 		private const float VIDEO_VOLUME = 1.0f;
 		private const float BGM_VOLUME = 0.05f;
 
-		public Mutex VolumeMutex { get; } = new Mutex();
-		public Mutex AnswerListMutex { get; } = new Mutex();
-		public Mutex AnswerForMarkingMutex { get; } = new Mutex();
-		private readonly Mutex m_scoreReportMutex = new Mutex();
+		public QuizMutex VolumeMutex { get; } = new QuizMutex("Volume");
+		public QuizMutex AnswerListMutex { get; } = new QuizMutex("AnswerList");
+		public QuizMutex AnswerForMarkingMutex { get; } = new QuizMutex("AnswerForMarking");
+		private readonly QuizMutex m_scoreReportMutex = new QuizMutex("ScoreReport");
 
 		private readonly BackgroundWorker countdownWorker;
 		private readonly BackgroundWorker answerCounter;
@@ -155,7 +155,7 @@ namespace ZoomQuiz
 
 		private void ReadConfigFile()
 		{
-			string configPath = GetFilePath("config", "config.ini");
+			string configPath = FileUtils.GetFilePath("config", "config.ini");
 			if (File.Exists(configPath))
 			{
 				IniFile configIni = new IniFile();
@@ -178,19 +178,9 @@ namespace ZoomQuiz
 			QuitAppEvent.Dispose();
 		}
 
-		private string GetFolderPath(string folder)
-		{
-			return Path.Combine(Directory.GetCurrentDirectory(), folder);
-		}
-
-		private string GetFilePath(string folder, string filename)
-		{
-			return Path.Combine(GetFolderPath(folder), filename);
-		}
-
 		private void ClearLeaderboards()
 		{
-			string[] files = Directory.GetFiles(GetFolderPath("leaderboards"));
+			string[] files = Directory.GetFiles(FileUtils.GetFolderPath("leaderboards"));
 			foreach (string file in files)
 				if (File.Exists(file))
 					File.Delete(file);
@@ -198,17 +188,17 @@ namespace ZoomQuiz
 
 		private void SetScoreReportMedia()
 		{
-			Obs.SetFileSourceFromPath("ScoreReport", "file", GetFilePath("presentation", SCORE_REPORT_FILENAME));
+			Obs.SetFileSourceFromPath("ScoreReport", "file", FileUtils.GetFilePath("presentation", SCORE_REPORT_FILENAME));
 		}
 
 		private void SetCountdownMedia()
 		{
-			Obs.SetFileSourceFromPath("Countdown", "local_file", GetFilePath("presentation", "Countdown.mp4"));
+			Obs.SetFileSourceFromPath("Countdown", "local_file", FileUtils.GetFilePath("presentation", "Countdown.mp4"));
 			List<FilterSettings> filters = Obs.GetSourceFilters("Countdown");
 			foreach (FilterSettings st in filters.Where(f => f.Name.Contains("Image Mask")))
 			{
 				JObject maskSettings = st.Settings;
-				maskSettings["image_path"] = GetFilePath("presentation", "circle.png");
+				maskSettings["image_path"] = FileUtils.GetFilePath("presentation", "circle.png");
 				Obs.SetSourceFilterSettings("Countdown", st.Name, maskSettings);
 			}
 		}
@@ -218,7 +208,7 @@ namespace ZoomQuiz
 			SourceSettings bgmSettings = Obs.GetSourceSettings("BGM");
 			JObject bgmSourceSettings = bgmSettings.sourceSettings;
 			bgmSourceSettings["loop"] = bgmSourceSettings["shuffle"] = true;
-			bgmSourceSettings["playlist"][0]["value"] = GetFolderPath("bgm");
+			bgmSourceSettings["playlist"][0]["value"] = FileUtils.GetFolderPath("bgm");
 			Obs.SetSourceSettings("BGM", bgmSourceSettings);
 		}
 
@@ -293,7 +283,7 @@ namespace ZoomQuiz
 			var values = Enum.GetValues(typeof(AnswerResult));
 			AnswerBins.Clear();
 			foreach (AnswerResult result in values)
-				AnswerBins[result] = new AnswerBin();
+				AnswerBins[result] = new AnswerBin(result);
 			AnswerBin correctAnswers = AnswerBins[AnswerResult.Correct];
 			AnswerBin almostCorrectAnswers = AnswerBins[AnswerResult.AlmostCorrect];
 			AnswerBin wrongAnswers = AnswerBins[AnswerResult.Wrong];
@@ -466,7 +456,7 @@ namespace ZoomQuiz
 			{
 				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(ScoreReportFont, m_scoreReport, times, times ? ScoreReportWithTimesSize : ScoreReportSize))
 				{
-					string bitmapPath = GetFilePath("presentation", times ? SCORE_REPORT_WITH_TIMES_FILENAME : SCORE_REPORT_FILENAME);
+					string bitmapPath = FileUtils.GetFilePath("presentation", times ? SCORE_REPORT_WITH_TIMES_FILENAME : SCORE_REPORT_FILENAME);
 					bitmap.Save(bitmapPath);
 					Obs.SetFileSourceFromPath(times ? "ScoreReportWithTimes" : "ScoreReport", "file", bitmapPath);
 					if (times)
@@ -520,7 +510,7 @@ namespace ZoomQuiz
 
 		private void ReadScoresFromFile()
 		{
-			string scoresFilePath = GetFilePath("data", SCORES_FILENAME);
+			string scoresFilePath = FileUtils.GetFilePath("data", SCORES_FILENAME);
 			if (File.Exists(scoresFilePath))
 			{
 				using (StreamReader sr = File.OpenText(scoresFilePath))
@@ -542,7 +532,7 @@ namespace ZoomQuiz
 
 		private void WriteScoresToFile()
 		{
-			string scoresFilePath = GetFilePath("data", SCORES_FILENAME);
+			string scoresFilePath = FileUtils.GetFilePath("data", SCORES_FILENAME);
 			if (File.Exists(scoresFilePath))
 				File.Delete(scoresFilePath);
 			using (StreamWriter sw = new StreamWriter(File.OpenWrite(scoresFilePath)))
@@ -601,12 +591,12 @@ namespace ZoomQuiz
 			for (int n = 0, leaderboardCount = 1; n < scores.Count; ++leaderboardCount)
 				using (LeaderboardBitmap b = new LeaderboardBitmap(LeaderboardFont, scores, leaderboardCount, ref n))
 				{
-					string path = GetFilePath("leaderboards", "leaderboard" + leaderboardCount + ".png");
+					string path = FileUtils.GetFilePath("leaderboards", "leaderboard" + leaderboardCount + ".png");
 					b.Save(path);
 				}
 			SourceSettings lbSourceSettings = Obs.GetSourceSettings("Leaderboard");
 			JObject lbSettings = lbSourceSettings.sourceSettings;
-			lbSettings["files"][0]["value"] = GetFolderPath("leaderboards");
+			lbSettings["files"][0]["value"] = FileUtils.GetFolderPath("leaderboards");
 			Obs.SetSourceSettings("Leaderboard", lbSettings);
 		}
 
@@ -619,7 +609,7 @@ namespace ZoomQuiz
 
 		private void ApplyScores()
 		{
-			string answersFilePath = GetFilePath("data", ANSWERS_FILENAME);
+			string answersFilePath = FileUtils.GetFilePath("data", ANSWERS_FILENAME);
 			using (StreamWriter sw = File.AppendText(answersFilePath))
 			{
 				List<AnswerBackupString> answerBackupStrings = new List<AnswerBackupString>();
@@ -994,7 +984,7 @@ namespace ZoomQuiz
 				m_scores.Clear();
 				WriteScoresToFile();
 				UpdateLeaderboard();
-				string leaderboardsFolder = GetFolderPath("leaderboards");
+				string leaderboardsFolder = FileUtils.GetFolderPath("leaderboards");
 				string[] files = Directory.GetFiles(leaderboardsFolder, "leaderboard*.png", SearchOption.AllDirectories);
 				foreach (string file in files)
 					File.Delete(file);
@@ -1003,7 +993,7 @@ namespace ZoomQuiz
 
 		private void GenerateTextImage(string text, string sourceName, string filename, System.Drawing.Size textSize)
 		{
-			string path = GetFilePath("presentation", filename);
+			string path = FileUtils.GetFilePath("presentation", filename);
 			using (TextImageBitmap tiBitmap = new TextImageBitmap(text, QuestionAndAnswerFont, textSize))
 			{
 				tiBitmap.Save(path);
@@ -1084,7 +1074,7 @@ namespace ZoomQuiz
 
 		private void ViewAnswerHistory_Click(object sender, RoutedEventArgs e)
 		{
-			string answersFilePath = GetFilePath("data", ANSWERS_FILENAME);
+			string answersFilePath = FileUtils.GetFilePath("data", ANSWERS_FILENAME);
 			if (File.Exists(answersFilePath))
 				System.Diagnostics.Process.Start(answersFilePath);
 		}

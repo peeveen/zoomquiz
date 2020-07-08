@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 
 namespace ZoomQuiz
 {
 	public class AnswerBin
 	{
-		private readonly Mutex m_answersMutex = new Mutex();
+		private readonly QuizMutex m_answersMutex;
 		private readonly Dictionary<string, double> m_ratedAnswers = new Dictionary<string, double>();
-		public AnswerBin()
+		public AnswerBin(AnswerResult result)
 		{
+			m_answersMutex = new QuizMutex(result.ToString()+"AnswerBin");
 		}
 		~AnswerBin()
 		{
