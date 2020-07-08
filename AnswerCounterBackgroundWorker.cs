@@ -18,6 +18,7 @@ namespace ZoomQuiz
 				if (result > 0)
 					break;
 				int answerCount = 0, markedAnswerCount = 0;
+				Logger.Log($"AnswerCounter worker received event {result}");
 				Context.AnswerListMutex.With(() =>
 				{
 					answerCount = Context.Answers.Sum(kvp2 => kvp2.Value.Count);

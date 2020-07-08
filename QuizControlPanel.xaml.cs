@@ -125,7 +125,6 @@ namespace ZoomQuiz
 					ScoreReportSize = Obs.GetSourceBoundsSize("ScoreReportOverlay", "ScoreReport");
 					SetCountdownMedia();
 					UpdateScoreReports();
-					SetScoreReportMedia();
 					SetBGMShuffle();
 					HideCountdownOverlay();
 					faderWorker.RunWorkerAsync();
@@ -158,6 +157,7 @@ namespace ZoomQuiz
 			string configPath = FileUtils.GetFilePath("config", "config.ini");
 			if (File.Exists(configPath))
 			{
+				Logger.Log("Reading config file.");
 				IniFile configIni = new IniFile();
 				QuestionAndAnswerFont = configIni.Read("QuestionAndAnswerFont", null, QuestionAndAnswerFont);
 				LeaderboardFont = configIni.Read("LeaderboardFont", null, LeaderboardFont);
@@ -180,19 +180,16 @@ namespace ZoomQuiz
 
 		private void ClearLeaderboards()
 		{
+			Logger.Log("Deleting any existing leaderboards graphics.");
 			string[] files = Directory.GetFiles(FileUtils.GetFolderPath("leaderboards"));
 			foreach (string file in files)
 				if (File.Exists(file))
 					File.Delete(file);
 		}
 
-		private void SetScoreReportMedia()
-		{
-			Obs.SetFileSourceFromPath("ScoreReport", "file", FileUtils.GetFilePath("presentation", SCORE_REPORT_FILENAME));
-		}
-
 		private void SetCountdownMedia()
 		{
+			Logger.Log("Setting countdown media files.");
 			Obs.SetFileSourceFromPath("Countdown", "local_file", FileUtils.GetFilePath("presentation", "Countdown.mp4"));
 			List<FilterSettings> filters = Obs.GetSourceFilters("Countdown");
 			foreach (FilterSettings st in filters.Where(f => f.Name.Contains("Image Mask")))
@@ -205,6 +202,7 @@ namespace ZoomQuiz
 
 		private void SetBGMShuffle()
 		{
+			Logger.Log("Setting BGM media files.");
 			SourceSettings bgmSettings = Obs.GetSourceSettings("BGM");
 			JObject bgmSourceSettings = bgmSettings.sourceSettings;
 			bgmSourceSettings["loop"] = bgmSourceSettings["shuffle"] = true;
@@ -214,6 +212,7 @@ namespace ZoomQuiz
 
 		private void LoadQuiz(string quizFilePath)
 		{
+			Logger.Log($"Loading a quiz from \"{quizFilePath}\"");
 			Quiz = new Quiz(quizFilePath);
 			UpdateQuizList();
 			if (Quiz.HasNoQuestions)
@@ -227,6 +226,7 @@ namespace ZoomQuiz
 
 		private void UpdateQuizList()
 		{
+			Logger.Log("Updating quiz list UI");
 			quizList.ItemsSource = Quiz;
 			ICollectionView view = CollectionViewSource.GetDefaultView(quizList.ItemsSource);
 			view.Refresh();
@@ -239,6 +239,7 @@ namespace ZoomQuiz
 
 		private void Window_Closing(object sender, CancelEventArgs e)
 		{
+			Logger.Log("Window closing event has fired.");
 			if (!PresentationOnly && !m_quizEnded)
 				e.Cancel = true;
 			else
@@ -247,6 +248,7 @@ namespace ZoomQuiz
 
 		public void EndQuiz()
 		{
+			Logger.Log("Ending the quiz.");
 			m_quizEnded = true;
 			Close();
 			if (Obs.IsConnected)
@@ -280,6 +282,7 @@ namespace ZoomQuiz
 
 		private void ResetAnswerBins(Question currentQuestion)
 		{
+			Logger.Log("Resetting the answer bins.");
 			var values = Enum.GetValues(typeof(AnswerResult));
 			AnswerBins.Clear();
 			foreach (AnswerResult result in values)
@@ -296,6 +299,7 @@ namespace ZoomQuiz
 		{
 			if (!PresentationOnly)
 			{
+				Logger.Log($"Setting chat mode to {mode}");
 				IntPtr hChatWnd = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "ZPConfChatWndClass", "Zoom Group Chat");
 				if (hChatWnd != IntPtr.Zero)
 				{
@@ -326,6 +330,7 @@ namespace ZoomQuiz
 
 		public void AddAnswer(Contestant contestant, Answer answer)
 		{
+			Logger.Log($"Adding answer \"{answer}\" from {contestant} to answer list.");
 			AnswerListMutex.With(() =>
 			{
 				if (!Answers.TryGetValue(contestant, out List<Answer> answerList))
@@ -333,7 +338,9 @@ namespace ZoomQuiz
 				answerList.Add(answer);
 				Answers[contestant] = answerList;
 			});
+			Logger.Log("Setting the AnswerReceived event.");
 			AnswerReceivedEvent.Set();
+			Logger.Log("Setting the AnswerCounterAnswerReceived event.");
 			AnswerCounterAnswerReceivedEvent.Set();
 		}
 
@@ -344,6 +351,7 @@ namespace ZoomQuiz
 			{
 				string sender = chatMsg.GetSenderDisplayName();
 				string answer = chatMsg.GetContent();
+				Logger.Log($"Received answer \"{answer}\" from {sender} ({senderID})");
 				AddAnswer(new Contestant(senderID, sender), new Answer(answer));
 			}
 		}
@@ -352,6 +360,7 @@ namespace ZoomQuiz
 		{
 			if (!PresentationOnly)
 			{
+				Logger.Log("Starting presenting.");
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(true, m_myID);
 				if (muteDuringQuestions.IsChecked == true)
 					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, false);
@@ -365,6 +374,7 @@ namespace ZoomQuiz
 		{
 			if (!PresentationOnly)
 			{
+				Logger.Log("Stopping presenting.");
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingVideoController().SpotlightVideo(false, m_myID);
 				if (muteDuringQuestions.IsChecked == true)
 					CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingAudioController().MuteAudio(0, true);
@@ -377,6 +387,7 @@ namespace ZoomQuiz
 
 		private void StartQuestionButtonClick(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("StartQuestion has been clicked.");
 			m_scoreReportMutex.With(() => m_scoreReport.Clear());
 			UpdateScoreReports();
 			m_lastAnswerResults.Clear();
@@ -416,12 +427,15 @@ namespace ZoomQuiz
 
 		public void SendPublicChat(string chatMessage)
 		{
+			Logger.Log("Sending message \"{chatMessage}\" publicly..");
 			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, chatMessage);
 		}
 
 		private int NextQuestion(int currentQuestion)
 		{
+			Logger.Log("Moving to next question.");
 			m_nextQuestion = Quiz.GetNextQuestionNumber(currentQuestion);
+			Logger.Log($"Next question number is {m_nextQuestion}.");
 			if (m_nextQuestion > 0)
 			{
 				startQuestionButtonText.Text = "Start Question " + m_nextQuestion;
@@ -438,6 +452,7 @@ namespace ZoomQuiz
 
 		public void OnCountdownComplete()
 		{
+			Logger.Log("Countdown is complete.");
 			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
 			NextQuestion(m_nextQuestion);
 			SetChatMode(ChatMode.EveryonePublicly);
@@ -452,6 +467,7 @@ namespace ZoomQuiz
 
 		private void UpdateScoreReport(bool times)
 		{
+			Logger.Log($"Updating score report with{(times ? "":"out")} times.");
 			m_scoreReportMutex.With(() =>
 			{
 				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(ScoreReportFont, m_scoreReport, times, times ? ScoreReportWithTimesSize : ScoreReportSize))
@@ -471,13 +487,16 @@ namespace ZoomQuiz
 			{
 				ScoreReportEntry firstReport = m_scoreReport.LastOrDefault();
 				TimeSpan offset = firstReport == null ? new TimeSpan(0) : answerTime - firstReport.AnswerTime;
-				m_scoreReport.Insert(0, new ScoreReportEntry(answerTime, contestant, result, offset));
+				ScoreReportEntry newScoreReport = new ScoreReportEntry(answerTime, contestant, result, offset);
+				Logger.Log($"Adding {newScoreReport.GetScoreReportString(true)} to score report.");
+				m_scoreReport.Insert(0, newScoreReport);
 				UpdateScoreReports();
 			});
 		}
 
 		public void MarkAnswer(AnswerForMarking answer, AnswerResult result, double levValue, bool autoCountdown)
 		{
+			Logger.Log($"Manually marking answer {answer} as {result}.");
 			answer.Answer.AnswerResult = result;
 			AnswerBin bin = AnswerBins[result];
 			if (bin != null)
@@ -486,7 +505,10 @@ namespace ZoomQuiz
 			{
 				AddToScoreReport(answer.Answer.AnswerTime, answer.Contestant, result);
 				if (autoCountdown)
+				{
+					Logger.Log("Correct answer is starting countdown automatically.");
 					markingPump.ReportProgress(0, null);
+				}
 			}
 			else if (result == AnswerResult.AlmostCorrect)
 				AddToScoreReport(answer.Answer.AnswerTime, answer.Contestant, result);
@@ -499,6 +521,7 @@ namespace ZoomQuiz
 
 		public void SetAnswerForMarking(AnswerForMarking answerForMarking)
 		{
+			Logger.Log($"Setting {answerForMarking} as the next answer for marking.");
 			m_answerForMarking = answerForMarking;
 			if (m_answerForMarking != null)
 			{
@@ -513,6 +536,7 @@ namespace ZoomQuiz
 			string scoresFilePath = FileUtils.GetFilePath("data", SCORES_FILENAME);
 			if (File.Exists(scoresFilePath))
 			{
+				Logger.Log("Reading existing scores file.");
 				using (StreamReader sr = File.OpenText(scoresFilePath))
 				{
 					string strLine;
@@ -532,6 +556,7 @@ namespace ZoomQuiz
 
 		private void WriteScoresToFile()
 		{
+			Logger.Log("Writing scores file.");
 			string scoresFilePath = FileUtils.GetFilePath("data", SCORES_FILENAME);
 			if (File.Exists(scoresFilePath))
 				File.Delete(scoresFilePath);
@@ -544,6 +569,8 @@ namespace ZoomQuiz
 
 		private void UpdateLeaderboard(bool drawLeaderboard = false, Contestant contestantToShow = null)
 		{
+			Logger.Log("Updating leaderboards.");
+			Logger.Log("Constructing scores data.");
 			SortedList<int, List<Contestant>> scores = new SortedList<int, List<Contestant>>();
 			foreach (KeyValuePair<Contestant, int> kvp in m_scores)
 			{
@@ -554,6 +581,7 @@ namespace ZoomQuiz
 				}
 				cs.Add(kvp.Key);
 			}
+			Logger.Log("Constructing reversed scores data.");
 			IEnumerable<KeyValuePair<int, List<Contestant>>> rscores = scores.Reverse();
 			List<ContestantScore> cscores = new List<ContestantScore>();
 			int pos = 1;
@@ -569,6 +597,7 @@ namespace ZoomQuiz
 				}
 				pos += kvp.Value.Count;
 			}
+			Logger.Log("Setting score data in UI.");
 			leaderboardList.ItemsSource = cscores;
 			if (scrollIntoView != null)
 			{
@@ -609,6 +638,7 @@ namespace ZoomQuiz
 
 		private void ApplyScores()
 		{
+			Logger.Log($"Applying scores for the last question.");
 			string answersFilePath = FileUtils.GetFilePath("data", ANSWERS_FILENAME);
 			using (StreamWriter sw = File.AppendText(answersFilePath))
 			{
@@ -631,6 +661,7 @@ namespace ZoomQuiz
 							continue;
 						m_scores.TryGetValue(kvp.Key, out int oldScore);
 						int newScore = oldScore;
+						Logger.Log($"Adding {scoreForAnswer} to existing score for {kvp.Key}.");
 						newScore += scoreForAnswer;
 						m_scores[kvp.Key] = newScore;
 						m_lastAnswerResults[kvp.Key] = answer.AnswerResult;
@@ -661,6 +692,7 @@ namespace ZoomQuiz
 
 		private void HideCountdownOverlay()
 		{
+			Logger.Log("Hiding the countdown overlay.");
 			Obs.HideSource("CountdownOverlay", "CamScene");
 			Obs.HideSource("CountdownOverlay", "FullScreenPictureQuestionScene");
 			Obs.HideSource("CountdownOverlay", "FullScreenPictureAnswerScene");
@@ -671,6 +703,7 @@ namespace ZoomQuiz
 
 		private void ShowCountdownOverlay()
 		{
+			Logger.Log("Showing the countdown overlay.");
 			Obs.ShowSource("CountdownOverlay", "CamScene");
 			Obs.ShowSource("CountdownOverlay", "FullScreenPictureQuestionScene");
 			Obs.ShowSource("CountdownOverlay", "FullScreenPictureAnswerScene");
@@ -680,6 +713,7 @@ namespace ZoomQuiz
 		{
 			if (startCountdownButton.IsEnabled)
 			{
+				Logger.Log("Starting the countdown.");
 				startCountdownButton.IsEnabled = false;
 				countdownWorker.RunWorkerAsync();
 				ShowCountdownOverlay();
@@ -688,6 +722,7 @@ namespace ZoomQuiz
 
 		private void StartCountdownButtonClick(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("Starting the countdown manually.");
 			StartCountdown();
 		}
 
@@ -701,6 +736,7 @@ namespace ZoomQuiz
 
 		private void MarkOtherUserAnswers(Contestant contestant)
 		{
+			Logger.Log($"Marking all other answers from {contestant} as inconsequential.");
 			// All other unmarked answers from the contestant must now be marked wrong,
 			// in case they're guessing numeric answers.
 			AnswerListMutex.With(() =>
@@ -711,7 +747,7 @@ namespace ZoomQuiz
 					IEnumerable<Answer> unmarkedAnswers = answers.Where(a => a.AnswerResult == AnswerResult.Unmarked);
 					foreach (Answer a in unmarkedAnswers)
 					{
-						if (a.AnswerText.StartsWith("."))
+						if (a.IsDeliberatelyFunny)
 						{
 							markingPump.ReportProgress(0, new FunnyAnswerArgs(a, contestant));
 							a.AnswerResult = AnswerResult.Funny;
@@ -727,6 +763,7 @@ namespace ZoomQuiz
 		{
 			AnswerForMarkingMutex.With(() =>
 			{
+				Logger.Log("Clearing the answer for marking.");
 				if (m_answerForMarking != null)
 				{
 					m_answerForMarking = null;
@@ -798,6 +835,7 @@ namespace ZoomQuiz
 
 		private void RestartMarking_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("Restarting marking.");
 			AnswerListMutex.With(() =>
 			{
 				foreach (KeyValuePair<Contestant, List<Answer>> kvp in Answers)
@@ -864,6 +902,7 @@ namespace ZoomQuiz
 
 		private void ShowQuestionButton_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("ShowQuestion button has been clicked.");
 			if (!PresentationOnly)
 			{
 				CountdownCompleteEvent.Reset();
@@ -907,6 +946,8 @@ namespace ZoomQuiz
 
 		private void ShowAnswer()
 		{
+			Logger.Log("Showing the answer.");
+
 			HideLeaderboard();
 			VolumeMutex.With(() =>
 			{
@@ -928,6 +969,7 @@ namespace ZoomQuiz
 
 		private void HideAnswer()
 		{
+			Logger.Log("Hiding the answer.");
 			Obs.SetCurrentScene("CamScene");
 			HideFullScreenPicture(false);
 			showAnswerButton.Background = System.Windows.Media.Brushes.LightGreen;
@@ -938,6 +980,7 @@ namespace ZoomQuiz
 
 		private void ShowAnswerButton_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("ShowAnswer button has been clicked.");
 			if (m_answerShowing)
 				HideAnswer();
 			else
@@ -946,6 +989,7 @@ namespace ZoomQuiz
 
 		private void ShowLeaderboard()
 		{
+			Logger.Log("Showing the leaderboard.");
 			HideAnswer();
 			if (m_scoresDirty)
 			{
@@ -961,6 +1005,7 @@ namespace ZoomQuiz
 
 		private void HideLeaderboard()
 		{
+			Logger.Log("Hiding the leaderboard.");
 			Obs.SetCurrentScene("CamScene");
 			showLeaderboardButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showLeaderboardText.Text = "Show Leaderboard";
@@ -970,6 +1015,7 @@ namespace ZoomQuiz
 
 		private void ShowLeaderboardButton_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("ShowLeaderboard button has been clicked.");
 			if (m_leaderboardShowing)
 				HideLeaderboard();
 			else
@@ -978,6 +1024,7 @@ namespace ZoomQuiz
 
 		private void Button_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("ResetScores button has been clicked.");
 			if (MessageBox.Show(this, "Reset Scores?", "Confirm", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
 			{
 				m_scoresDirty = true;
@@ -993,6 +1040,7 @@ namespace ZoomQuiz
 
 		private void GenerateTextImage(string text, string sourceName, string filename, System.Drawing.Size textSize)
 		{
+			Logger.Log($"Generating image for text \"{text}\", and saving to \"{filename}\" for OBS source \"{sourceName}\".");
 			string path = FileUtils.GetFilePath("presentation", filename);
 			using (TextImageBitmap tiBitmap = new TextImageBitmap(text, QuestionAndAnswerFont, textSize))
 			{
@@ -1003,6 +1051,7 @@ namespace ZoomQuiz
 
 		private void HideFullScreenPicture(bool setScene = true)
 		{
+			Logger.Log("Reverting back to small media.");
 			if (setScene)
 				if (m_answerShowing)
 					Obs.SetCurrentScene(m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image) ? "AnswerScene" : "NoPicAnswerScene");
@@ -1015,6 +1064,7 @@ namespace ZoomQuiz
 
 		private void ShowFullScreenPicture()
 		{
+			Logger.Log("Showing the fullscreen media.");
 			if (m_answerShowing)
 				Obs.SetCurrentScene(m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image) ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
 			else if (m_questionShowing)
@@ -1026,6 +1076,7 @@ namespace ZoomQuiz
 
 		private void ShowPictureButton_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("ShowFullscreen has been clicked.");
 			if (m_fullScreenPictureShowing)
 				HideFullScreenPicture();
 			else
@@ -1035,6 +1086,7 @@ namespace ZoomQuiz
 		private void AlterSelectedContestantScore(int diff)
 		{
 			ContestantScore score = (ContestantScore)leaderboardList.SelectedItem;
+			Logger.Log($"Adjusting score for {score.Contestant} by {diff}");
 			m_scores[score.Contestant] = m_scores[score.Contestant] + diff;
 			WriteScoresToFile();
 			m_scoresDirty = true;
@@ -1043,11 +1095,13 @@ namespace ZoomQuiz
 
 		private void IncreaseScoreButton_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("Increase score button has been clicked.");
 			AlterSelectedContestantScore(1);
 		}
 
 		private void DecreaseScoreButton_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("Decrease score button has been clicked.");
 			AlterSelectedContestantScore(-1);
 		}
 
@@ -1058,6 +1112,7 @@ namespace ZoomQuiz
 
 		private void MuteBGM(bool mute)
 		{
+			Logger.Log($"{(mute ? "Muting" : "Unmuting")} the BGM.");
 			Obs.SetMute("BGM", mute);
 			Obs.SetMute("QuestionBGM", mute);
 		}
@@ -1081,6 +1136,7 @@ namespace ZoomQuiz
 
 		private void SkipQuestion_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("SkipQuestion button has been clicked.");
 			NextQuestion(m_nextQuestion);
 		}
 
@@ -1092,6 +1148,7 @@ namespace ZoomQuiz
 
 		private void ReplayAudioButton_Click(object sender, RoutedEventArgs e)
 		{
+			Logger.Log("ReplayAudio button has been clicked.");
 			if (m_currentQuestion.QuestionMediaType == MediaType.Audio)
 				SetQuestionAudio(m_currentQuestion.QuestionAudioFilename);
 			else if (m_currentQuestion.QuestionMediaType == MediaType.Video)
@@ -1135,6 +1192,7 @@ namespace ZoomQuiz
 
 		public void OnMarkingComplete()
 		{
+			Logger.Log("OnMarkingComplete called.");
 			contestantName.Text = "<contestant name>";
 			questionText.Text = "<no answers to mark yet>";
 			Obs.SetCurrentScene("CamScene");

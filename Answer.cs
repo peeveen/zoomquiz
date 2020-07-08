@@ -35,6 +35,7 @@ namespace ZoomQuiz
 		}
 		public static string NormalizeAnswer(string answer)
 		{
+			Logger.Log($"Normalizing answer \"{answer}\" ...");
 			// first of all, replace hyphens with spaces.
 			string norm = RepeatReplace(answer, "--", "-");
 			norm = norm.Replace('-', ' ');
@@ -55,7 +56,19 @@ namespace ZoomQuiz
 				norm = norm.Substring(4);
 			// Now change "and"s to ampersands
 			norm = norm.Replace(" and ", " & ");
+			Logger.Log($"Normalized answer \"{answer}\" to \"{norm}\"");
 			return norm;
+		}
+		override public string ToString()
+		{
+			return AnswerText;
+		}
+		public bool IsDeliberatelyFunny
+		{
+			get
+			{
+				return AnswerText.StartsWith(".");
+			}
 		}
 	}
 }

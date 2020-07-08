@@ -9,5 +9,9 @@
 			Answer = answer;
 			Contestant = contestant;
 		}
+		public override string ToString()
+		{
+			return $"\"{Answer.AnswerText} from {Contestant}";
+		}
 	}
 }
