@@ -94,75 +94,62 @@ namespace ZoomQuiz
 		private readonly System.Drawing.Size NoPicAnswerTextSize;
 		private readonly System.Drawing.Size ScoreReportWithTimesSize;
 		private readonly System.Drawing.Size ScoreReportSize;
-		private string QuestionAndAnswerFont { get; set; } = "Impact";
-		private string LeaderboardFont { get; set; } = "Bahnschrift Condensed";
-		private string ScoreReportFont { get; set; } = "Bahnschrift Condensed";
 
 		public QuizControlPanel(bool presentationOnly)
 		{
 			PresentationOnly = presentationOnly;
 			StartedOK = false;
-			InitializeComponent();
-			ReadScoresFromFile();
-			ReadConfigFile();
-			markingPump = new MarkingPumpBackgroundWorker(this);
-			countdownWorker = new CountdownBackgroundWorker(this);
-			answerCounter = new AnswerCounterBackgroundWorker(this);
-			faderWorker = new FaderBackgroundWorker(this);
-			ClearLeaderboards();
-			try
+			if (Configuration.ScenesAndSourcesPopulated)
 			{
-				Obs.Connect("ws://127.0.0.1:4444");
-				if (Obs.IsConnected)
+				InitializeComponent();
+				ReadScoresFromFile();
+				markingPump = new MarkingPumpBackgroundWorker(this);
+				countdownWorker = new CountdownBackgroundWorker(this);
+				answerCounter = new AnswerCounterBackgroundWorker(this);
+				faderWorker = new FaderBackgroundWorker(this);
+				ClearLeaderboards();
+				try
 				{
-					Obs.SetCurrentScene("CamScene");
-					UpdateLeaderboard(true);
-					QuestionTextSize = Obs.GetSourceBoundsSize("QuestionScene", "QuestionText");
-					NoPicQuestionTextSize = Obs.GetSourceBoundsSize("NoPicQuestionScene", "QuestionText");
-					AnswerTextSize = Obs.GetSourceBoundsSize("AnswerScene", "AnswerText");
-					NoPicAnswerTextSize = Obs.GetSourceBoundsSize("NoPicAnswerScene", "AnswerText");
-					ScoreReportWithTimesSize = Obs.GetSourceBoundsSize("ScoreReportOverlay", "ScoreReportWithTimes");
-					ScoreReportSize = Obs.GetSourceBoundsSize("ScoreReportOverlay", "ScoreReport");
-					SetCountdownMedia();
-					UpdateScoreReports();
-					SetBGMShuffle();
-					HideCountdownOverlay();
-					faderWorker.RunWorkerAsync();
-					StartedOK = true;
+					Obs.Connect("ws://127.0.0.1:4444");
+					if (Obs.IsConnected)
+					{
+						Obs.SetCurrentScene(Scene.Camera);
+						UpdateLeaderboard(true);
+						QuestionTextSize = Obs.GetSourceBoundsSize(Scene.Question, Source.QuestionText);
+						NoPicQuestionTextSize = Obs.GetSourceBoundsSize(Scene.NoPictureQuestion, Source.QuestionText);
+						AnswerTextSize = Obs.GetSourceBoundsSize(Scene.Answer, Source.AnswerText);
+						NoPicAnswerTextSize = Obs.GetSourceBoundsSize(Scene.NoPictureAnswer, Source.AnswerText);
+						ScoreReportWithTimesSize = Obs.GetSourceBoundsSize(Scene.ScoreReportOverlay, Source.ScoreReportWithTimes);
+						ScoreReportSize = Obs.GetSourceBoundsSize(Scene.ScoreReportOverlay, Source.ScoreReport);
+						SetCountdownMedia();
+						UpdateScoreReports();
+						SetBGMShuffle();
+						HideCountdownOverlay();
+						faderWorker.RunWorkerAsync();
+						StartedOK = true;
+					}
+					else
+						MessageBox.Show("Could not connect to OBS (is it running?).", ZoomQuizTitle);
 				}
-				else
-					MessageBox.Show("Could not connect to OBS (is it running?).", ZoomQuizTitle);
+				catch (AuthFailureException)
+				{
+					MessageBox.Show("Failed to connect to OBS (authentication failed).", ZoomQuizTitle);
+				}
+				catch (ErrorResponseException ex)
+				{
+					MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
+				}
+				catch (Exception ex)
+				{
+					MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
+				}
+				if (PresentationOnly)
+					presentingButton.IsEnabled = false;
 			}
-			catch (AuthFailureException)
-			{
-				MessageBox.Show("Failed to connect to OBS (authentication failed).", ZoomQuizTitle);
+			else
+				MessageBox.Show("Some scene and/or source names were not configured.", ZoomQuizTitle);
+			if(!StartedOK)
 				EndQuiz();
-			}
-			catch (ErrorResponseException ex)
-			{
-				MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
-				EndQuiz();
-			}
-			catch (Exception ex)
-			{
-				MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
-				EndQuiz();
-			}
-			if (PresentationOnly)
-				presentingButton.IsEnabled = false;
-		}
-
-		private void ReadConfigFile()
-		{
-			string configPath = FileUtils.GetFilePath("config", "config.ini");
-			if (File.Exists(configPath))
-			{
-				Logger.Log("Reading config file.");
-				IniFile configIni = new IniFile();
-				QuestionAndAnswerFont = configIni.Read("QuestionAndAnswerFont", null, QuestionAndAnswerFont);
-				LeaderboardFont = configIni.Read("LeaderboardFont", null, LeaderboardFont);
-				ScoreReportFont = configIni.Read("ScoreReportFont", null, ScoreReportFont);
-			}
 		}
 
 		~QuizControlPanel()
@@ -190,24 +177,24 @@ namespace ZoomQuiz
 		private void SetCountdownMedia()
 		{
 			Logger.Log("Setting countdown media files.");
-			Obs.SetFileSourceFromPath("Countdown", "local_file", FileUtils.GetFilePath("presentation", "Countdown.mp4"));
-			List<FilterSettings> filters = Obs.GetSourceFilters("Countdown");
+			Obs.SetFileSourceFromPath(Source.Countdown, "local_file", FileUtils.GetFilePath("presentation", "Countdown.mp4"));
+			List<FilterSettings> filters = Obs.GetSourceFilters(Source.Countdown);
 			foreach (FilterSettings st in filters.Where(f => f.Name.Contains("Image Mask")))
 			{
 				JObject maskSettings = st.Settings;
 				maskSettings["image_path"] = FileUtils.GetFilePath("presentation", "circle.png");
-				Obs.SetSourceFilterSettings("Countdown", st.Name, maskSettings);
+				Obs.SetSourceFilterSettings(Source.Countdown, st.Name, maskSettings);
 			}
 		}
 
 		private void SetBGMShuffle()
 		{
 			Logger.Log("Setting BGM media files.");
-			SourceSettings bgmSettings = Obs.GetSourceSettings("BGM");
+			SourceSettings bgmSettings = Obs.GetSourceSettings(Source.BGM);
 			JObject bgmSourceSettings = bgmSettings.sourceSettings;
 			bgmSourceSettings["loop"] = bgmSourceSettings["shuffle"] = true;
 			bgmSourceSettings["playlist"][0]["value"] = FileUtils.GetFolderPath("bgm");
-			Obs.SetSourceSettings("BGM", bgmSourceSettings);
+			Obs.SetSourceSettings(Source.BGM, bgmSourceSettings);
 		}
 
 		private void LoadQuiz(string quizFilePath)
@@ -399,11 +386,11 @@ namespace ZoomQuiz
 			infoTextBox.Text = m_currentQuestion.Info;
 			ResetAnswerBins(m_currentQuestion);
 			bool hasPicOrVid = m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image);
-			GenerateTextImage(m_currentQuestion.QuestionText, "QuestionText", "question.png", hasPicOrVid ? QuestionTextSize : NoPicQuestionTextSize);
-			Obs.SetImageSource(Quiz, "QuestionPic", m_currentQuestion.QuestionImageFilename);
+			GenerateTextImage(m_currentQuestion.QuestionText, Source.QuestionText, "question.png", hasPicOrVid ? QuestionTextSize : NoPicQuestionTextSize);
+			Obs.SetImageSource(Quiz, Source.QuestionImage, m_currentQuestion.QuestionImageFilename);
 			// Show no video until it's ready.
-			Obs.SetVideoSource(Quiz, "QuestionVid", null);
-			Obs.SetAudioSource(Quiz, "QuestionBGM", m_currentQuestion.QuestionBGMFilename);
+			Obs.SetVideoSource(Quiz, Source.QuestionVideo, null);
+			Obs.SetAudioSource(Quiz, Source.QuestionBGM, m_currentQuestion.QuestionBGMFilename);
 			SetVolumes(false, m_currentQuestion);
 			HideCountdownOverlay();
 			SetChatMode(ChatMode.HostOnly);
@@ -470,13 +457,13 @@ namespace ZoomQuiz
 			Logger.Log($"Updating score report with{(times ? "":"out")} times.");
 			m_scoreReportMutex.With(() =>
 			{
-				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(ScoreReportFont, m_scoreReport, times, times ? ScoreReportWithTimesSize : ScoreReportSize))
+				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(Configuration.ScoreReportFont, m_scoreReport, times, times ? ScoreReportWithTimesSize : ScoreReportSize))
 				{
 					string bitmapPath = FileUtils.GetFilePath("presentation", times ? SCORE_REPORT_WITH_TIMES_FILENAME : SCORE_REPORT_FILENAME);
 					bitmap.Save(bitmapPath);
-					Obs.SetFileSourceFromPath(times ? "ScoreReportWithTimes" : "ScoreReport", "file", bitmapPath);
+					Obs.SetFileSourceFromPath(times ? Source.ScoreReportWithTimes : Source.ScoreReport, "file", bitmapPath);
 					if (times)
-						Obs.SetFileSourceFromPath("ScrollingScoreReportWithTimes", "file", bitmapPath);
+						Obs.SetFileSourceFromPath(Source.ScrollingScoreReportWithTimes, "file", bitmapPath);
 				}
 			});
 		}
@@ -618,15 +605,15 @@ namespace ZoomQuiz
 		private void DrawLeaderboard(List<ContestantScore> scores)
 		{
 			for (int n = 0, leaderboardCount = 1; n < scores.Count; ++leaderboardCount)
-				using (LeaderboardBitmap b = new LeaderboardBitmap(LeaderboardFont, scores, leaderboardCount, ref n))
+				using (LeaderboardBitmap b = new LeaderboardBitmap(Configuration.LeaderboardFont, scores, leaderboardCount, ref n))
 				{
 					string path = FileUtils.GetFilePath("leaderboards", "leaderboard" + leaderboardCount + ".png");
 					b.Save(path);
 				}
-			SourceSettings lbSourceSettings = Obs.GetSourceSettings("Leaderboard");
+			SourceSettings lbSourceSettings = Obs.GetSourceSettings(Source.Leaderboard);
 			JObject lbSettings = lbSourceSettings.sourceSettings;
 			lbSettings["files"][0]["value"] = FileUtils.GetFolderPath("leaderboards");
-			Obs.SetSourceSettings("Leaderboard", lbSettings);
+			Obs.SetSourceSettings(Source.Leaderboard, lbSettings);
 		}
 
 		private string GetLevenshteinReport(AnswerResult result)
@@ -693,20 +680,20 @@ namespace ZoomQuiz
 		private void HideCountdownOverlay()
 		{
 			Logger.Log("Hiding the countdown overlay.");
-			Obs.HideSource("CountdownOverlay", "CamScene");
-			Obs.HideSource("CountdownOverlay", "FullScreenPictureQuestionScene");
-			Obs.HideSource("CountdownOverlay", "FullScreenPictureAnswerScene");
-			Obs.HideSource("ScoreReportWithTimes", "ScoreReportOverlay");
-			Obs.HideSource("ScrollingScoreReportWithTimes", "ScoreReportOverlay");
-			Obs.ShowSource("ScoreReport", "ScoreReportOverlay");
+			Obs.HideSource(Source.CountdownOverlay, Scene.Camera);
+			Obs.HideSource(Source.CountdownOverlay, Scene.FullScreenQuestionPicture);
+			Obs.HideSource(Source.CountdownOverlay, Scene.FullScreenAnswerPicture);
+			Obs.HideSource(Source.ScoreReportWithTimes, Scene.ScoreReportOverlay);
+			Obs.HideSource(Source.ScrollingScoreReportWithTimes, Scene.ScoreReportOverlay);
+			Obs.ShowSource(Source.ScoreReport, Scene.ScoreReportOverlay);
 		}
 
 		private void ShowCountdownOverlay()
 		{
 			Logger.Log("Showing the countdown overlay.");
-			Obs.ShowSource("CountdownOverlay", "CamScene");
-			Obs.ShowSource("CountdownOverlay", "FullScreenPictureQuestionScene");
-			Obs.ShowSource("CountdownOverlay", "FullScreenPictureAnswerScene");
+			Obs.ShowSource(Source.CountdownOverlay, Scene.Camera);
+			Obs.ShowSource(Source.CountdownOverlay, Scene.FullScreenQuestionPicture);
+			Obs.ShowSource(Source.CountdownOverlay, Scene.FullScreenAnswerPicture);
 		}
 
 		public void StartCountdown()
@@ -914,9 +901,9 @@ namespace ZoomQuiz
 			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
 			bool hasVideo = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Video);
 			bool hasAnswerPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
-			Obs.SetCurrentScene(hasPicOrVid ? "QuestionScene" : "NoPicQuestionScene");
-			GenerateTextImage(m_currentQuestion.AnswerText, "AnswerText", "answer.png", hasAnswerPic ? AnswerTextSize : NoPicAnswerTextSize);
-			Obs.SetImageSource(Quiz, "AnswerPic", m_currentQuestion.AnswerImageFilename);
+			Obs.SetCurrentScene(hasPicOrVid ? Scene.Question : Scene.NoPictureQuestion);
+			GenerateTextImage(m_currentQuestion.AnswerText, Source.AnswerText, "answer.png", hasAnswerPic ? AnswerTextSize : NoPicAnswerTextSize);
+			Obs.SetImageSource(Quiz, Source.AnswerImage, m_currentQuestion.AnswerImageFilename);
 			m_questionShowing = true;
 			// Set question audio to silence, wait for play button
 			SetQuestionAudio(null);
@@ -940,8 +927,8 @@ namespace ZoomQuiz
 		{
 			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
 			if (hasAudio)
-				Obs.SetVolume("QuestionAudio", AUDIO_VOLUME);
-			Obs.SetAudioSource(Quiz, "QuestionAudio", questionAudioFilename);
+				Obs.SetVolume(Source.QuestionAudio, AUDIO_VOLUME);
+			Obs.SetAudioSource(Quiz, Source.QuestionAudio, questionAudioFilename);
 		}
 
 		private void ShowAnswer()
@@ -956,21 +943,21 @@ namespace ZoomQuiz
 			});
 			bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
 			showPictureButton.IsEnabled = hasPic;
-			Obs.SetCurrentScene(hasPic ? (m_fullScreenPictureShowing ? "FullScreenPictureAnswerScene" : "AnswerScene") : "NoPicAnswerScene");
+			Obs.SetCurrentScene(hasPic ? (m_fullScreenPictureShowing ? Scene.FullScreenAnswerPicture : Scene.Answer) : Scene.NoPictureAnswer);
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
 			// The score report can show a maximum of 17 names. More than that requires a scrolling report.
 			bool scrollingRequired = m_scoreReport.Count > 17;
-			Obs.HideSource("ScoreReport", "ScoreReportOverlay");
-			Obs.SetSourceRender("ScoreReportWithTimes", "ScoreReportOverlay", !scrollingRequired);
-			Obs.SetSourceRender("ScrollingScoreReportWithTimes", "ScoreReportOverlay", scrollingRequired);
+			Obs.HideSource(Source.ScoreReport, Scene.ScoreReportOverlay);
+			Obs.SetSourceRender(Source.ScoreReportWithTimes, Scene.ScoreReportOverlay, !scrollingRequired);
+			Obs.SetSourceRender(Source.ScrollingScoreReportWithTimes, Scene.ScoreReportOverlay, scrollingRequired);
 			m_answerShowing = true;
 		}
 
 		private void HideAnswer()
 		{
 			Logger.Log("Hiding the answer.");
-			Obs.SetCurrentScene("CamScene");
+			Obs.SetCurrentScene(Scene.Camera);
 			HideFullScreenPicture(false);
 			showAnswerButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showAnswerText.Text = "Show Answer";
@@ -996,7 +983,7 @@ namespace ZoomQuiz
 				UpdateLeaderboard(true);
 				m_scoresDirty = false;
 			}
-			Obs.SetCurrentScene("LeaderboardScene");
+			Obs.SetCurrentScene(Scene.Leaderboard);
 			showLeaderboardButton.Background = System.Windows.Media.Brushes.Pink;
 			showLeaderboardText.Text = "Hide Leaderboard";
 			showPictureButton.IsEnabled = false;
@@ -1006,7 +993,7 @@ namespace ZoomQuiz
 		private void HideLeaderboard()
 		{
 			Logger.Log("Hiding the leaderboard.");
-			Obs.SetCurrentScene("CamScene");
+			Obs.SetCurrentScene(Scene.Camera);
 			showLeaderboardButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showLeaderboardText.Text = "Show Leaderboard";
 			showPictureButton.IsEnabled = m_questionShowing && m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Image);
@@ -1038,15 +1025,15 @@ namespace ZoomQuiz
 			}
 		}
 
-		private void GenerateTextImage(string text, string sourceName, string filename, System.Drawing.Size textSize)
+		private void GenerateTextImage(string text, Source source, string filename, System.Drawing.Size textSize)
 		{
-			Logger.Log($"Generating image for text \"{text}\", and saving to \"{filename}\" for OBS source \"{sourceName}\".");
+			Logger.Log($"Generating image for text \"{text}\", and saving to \"{filename}\" for OBS {source} source.");
 			string path = FileUtils.GetFilePath("presentation", filename);
-			using (TextImageBitmap tiBitmap = new TextImageBitmap(text, QuestionAndAnswerFont, textSize))
+			using (TextImageBitmap tiBitmap = new TextImageBitmap(text, Configuration.QuestionAndAnswerFont, textSize))
 			{
 				tiBitmap.Save(path);
 			}
-			Obs.SetFileSourceFromPath(sourceName, "file", path);
+			Obs.SetFileSourceFromPath(source, "file", path);
 		}
 
 		private void HideFullScreenPicture(bool setScene = true)
@@ -1054,9 +1041,9 @@ namespace ZoomQuiz
 			Logger.Log("Reverting back to small media.");
 			if (setScene)
 				if (m_answerShowing)
-					Obs.SetCurrentScene(m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image) ? "AnswerScene" : "NoPicAnswerScene");
+					Obs.SetCurrentScene(m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image) ? Scene.Answer : Scene.NoPictureAnswer);
 				else if (m_questionShowing)
-					Obs.SetCurrentScene(m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image) ? "QuestionScene" : "NoPicQuestionScene");
+					Obs.SetCurrentScene(m_currentQuestion.HasAnyQuestionMedia(Quiz, MediaType.Video, MediaType.Image) ? Scene.Question : Scene.NoPictureQuestion);
 			showPictureButton.Background = System.Windows.Media.Brushes.LightGreen;
 			showPictureText.Text = "Fullscreen Picture";
 			m_fullScreenPictureShowing = false;
@@ -1066,9 +1053,9 @@ namespace ZoomQuiz
 		{
 			Logger.Log("Showing the fullscreen media.");
 			if (m_answerShowing)
-				Obs.SetCurrentScene(m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image) ? "FullScreenPictureAnswerScene" : "NoPicAnswerScene");
+				Obs.SetCurrentScene(m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image) ? Scene.FullScreenAnswerPicture : Scene.NoPictureAnswer);
 			else if (m_questionShowing)
-				Obs.SetCurrentScene("FullScreenPictureQuestionScene");
+				Obs.SetCurrentScene(Scene.FullScreenQuestionPicture);
 			showPictureButton.Background = System.Windows.Media.Brushes.Pink;
 			showPictureText.Text = "Embedded Picture";
 			m_fullScreenPictureShowing = true;
@@ -1113,8 +1100,8 @@ namespace ZoomQuiz
 		private void MuteBGM(bool mute)
 		{
 			Logger.Log($"{(mute ? "Muting" : "Unmuting")} the BGM.");
-			Obs.SetMute("BGM", mute);
-			Obs.SetMute("QuestionBGM", mute);
+			Obs.SetMute(Source.BGM, mute);
+			Obs.SetMute(Source.QuestionBGM, mute);
 		}
 
 		private void MuteBGM_Checked(object sender, RoutedEventArgs e)
@@ -1142,8 +1129,8 @@ namespace ZoomQuiz
 
 		private void SetQuestionVideo(string filename)
 		{
-			Obs.SetVideoSource(Quiz, "QuestionVid", filename);
-			Obs.SetVolume("QuestionVid", VIDEO_VOLUME);
+			Obs.SetVideoSource(Quiz, Source.QuestionVideo, filename);
+			Obs.SetVolume(Source.QuestionVideo, VIDEO_VOLUME);
 		}
 
 		private void ReplayAudioButton_Click(object sender, RoutedEventArgs e)
@@ -1195,7 +1182,7 @@ namespace ZoomQuiz
 			Logger.Log("OnMarkingComplete called.");
 			contestantName.Text = "<contestant name>";
 			questionText.Text = "<no answers to mark yet>";
-			Obs.SetCurrentScene("CamScene");
+			Obs.SetCurrentScene(Scene.Camera);
 			m_questionShowing = false;
 			HideFullScreenPicture(false);
 

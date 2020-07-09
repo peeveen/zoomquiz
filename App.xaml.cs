@@ -130,8 +130,11 @@ namespace ZoomQuiz
 			}
 			else
 			{
-				MessageBox.Show("Running in presentation only mode. To run this program with Zoom, use the command line to supply arguments.\nquizhost.exe zoomDomain sdkKey sdkSecret loginName loginPassword", "ZoomQuiz");
-				quizControlPanelWindow.StartQuiz();
+				if (quizControlPanelWindow.StartedOK)
+				{
+					MessageBox.Show("Running in presentation only mode. To run this program with Zoom, use the command line to supply arguments.\nquizhost.exe zoomDomain sdkKey sdkSecret loginName loginPassword", "ZoomQuiz");
+					quizControlPanelWindow.StartQuiz();
+				}
 			}
 		}
 

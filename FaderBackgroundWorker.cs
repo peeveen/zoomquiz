@@ -15,7 +15,7 @@ namespace ZoomQuiz
 		}
 		protected override void DoQuizWork(object sender, DoWorkEventArgs e)
 		{
-			void FixVolume(string source,float obsVol,float desiredVol,float volChangeSpeed,bool isBgm=false)
+			void FixVolume(Source source,float obsVol,float desiredVol,float volChangeSpeed,bool isBgm=false)
 			{
 				float diff = obsVol - desiredVol;
 				if (diff < -volChangeSpeed)
@@ -30,14 +30,14 @@ namespace ZoomQuiz
 				// Don't log these, they happen ten times a second.
 				Context.VolumeMutex.With(() =>
 				{
-					VolumeInfo bgmVolInf = Context.Obs.GetVolume("BGM");
-					VolumeInfo qbgmVolInf = Context.Obs.GetVolume("QuestionBGM");
-					VolumeInfo qaVolInf = Context.Obs.GetVolume("QuestionAudio");
-					VolumeInfo qvVolInf = Context.Obs.GetVolume("QuestionVid");
-					FixVolume("BGM", bgmVolInf.Volume, Context.BgmVolume, bgmVolSpeed, true);
-					FixVolume("QuestionBGM", qbgmVolInf.Volume, Context.QuestionBGMVolume, qbgmVolSpeed, true);
-					FixVolume("QuestionAudio", qaVolInf.Volume, Context.QuestionAudioVolume, qaudVolSpeed);
-					FixVolume("QuestionVid", qvVolInf.Volume, Context.QuestionVideoVolume, qvidVolSpeed);
+					VolumeInfo bgmVolInf = Context.Obs.GetVolume(Source.BGM);
+					VolumeInfo qbgmVolInf = Context.Obs.GetVolume(Source.QuestionBGM);
+					VolumeInfo qaVolInf = Context.Obs.GetVolume(Source.QuestionAudio);
+					VolumeInfo qvVolInf = Context.Obs.GetVolume(Source.QuestionVideo);
+					FixVolume(Source.BGM, bgmVolInf.Volume, Context.BgmVolume, bgmVolSpeed, true);
+					FixVolume(Source.QuestionBGM, qbgmVolInf.Volume, Context.QuestionBGMVolume, qbgmVolSpeed, true);
+					FixVolume(Source.QuestionAudio, qaVolInf.Volume, Context.QuestionAudioVolume, qaudVolSpeed);
+					FixVolume(Source.QuestionVideo, qvVolInf.Volume, Context.QuestionVideoVolume, qvidVolSpeed);
 				}, false);
 			}
 		}
