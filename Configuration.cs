@@ -9,8 +9,8 @@ namespace ZoomQuiz
 	static class Configuration
 	{
 		public static string QuestionAndAnswerFont { get; private set; } = "Impact";
-		public static string LeaderboardFont { get; private set; } = "Bahnschrift Condensed";
-		public static string ScoreReportFont { get; private set; } = "Bahnschrift Condensed";
+		public static string LeaderboardFont { get; private set; } = "Arial";
+		public static string ScoreReportFont { get; private set; } = "Arial";
 		public static Dictionary<Source, string> SourceNames = new Dictionary<Source, string>();
 		public static Dictionary<Scene, string> SceneNames = new Dictionary<Scene, string>();
 
