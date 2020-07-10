@@ -29,11 +29,13 @@ namespace ZoomQuiz
 			}
 		}
 
-		static public bool ScenesAndSourcesPopulated
+		static public IEnumerable<string> UnconfiguredScenesOrSources
 		{
 			get
 			{
-				return !SourceNames.Values.All(string.IsNullOrEmpty) && !SceneNames.Values.Any(string.IsNullOrEmpty);
+				IEnumerable<string> unconfiguredSources = SourceNames.Where(kvp => string.IsNullOrEmpty(kvp.Value)).Select(kvp => kvp.Key.ToString());
+				IEnumerable<string> unconfiguredScenes = SceneNames.Where(kvp => string.IsNullOrEmpty(kvp.Value)).Select(kvp => kvp.Key.ToString());
+				return unconfiguredSources.Concat(unconfiguredScenes);
 			}
 		}
 
@@ -45,7 +47,6 @@ namespace ZoomQuiz
 				Logger.Log($"Reading config file \"{configPath}\".");
 				IniFile configIni = new IniFile(configPath);
 				QuestionAndAnswerFont = configIni.Read("QuestionAndAnswerFont", QUIZ_CONFIG_SECTION, QuestionAndAnswerFont);
-				MessageBox.Show(QuestionAndAnswerFont);
 				LeaderboardFont = configIni.Read("LeaderboardFont", QUIZ_CONFIG_SECTION, LeaderboardFont);
 				ScoreReportFont = configIni.Read("ScoreReportFont", QUIZ_CONFIG_SECTION, ScoreReportFont);
 				PopulateDictionary(configIni, SourceNames, "SourceName");

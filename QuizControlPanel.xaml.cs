@@ -99,19 +99,19 @@ namespace ZoomQuiz
 		{
 			PresentationOnly = presentationOnly;
 			StartedOK = false;
-			if (Configuration.ScenesAndSourcesPopulated)
+			InitializeComponent();
+			ReadScoresFromFile();
+			markingPump = new MarkingPumpBackgroundWorker(this);
+			countdownWorker = new CountdownBackgroundWorker(this);
+			answerCounter = new AnswerCounterBackgroundWorker(this);
+			faderWorker = new FaderBackgroundWorker(this);
+			ClearLeaderboards();
+			try
 			{
-				InitializeComponent();
-				ReadScoresFromFile();
-				markingPump = new MarkingPumpBackgroundWorker(this);
-				countdownWorker = new CountdownBackgroundWorker(this);
-				answerCounter = new AnswerCounterBackgroundWorker(this);
-				faderWorker = new FaderBackgroundWorker(this);
-				ClearLeaderboards();
-				try
+				Obs.Connect("ws://127.0.0.1:4444");
+				if (Obs.IsConnected)
 				{
-					Obs.Connect("ws://127.0.0.1:4444");
-					if (Obs.IsConnected)
+					if (ValidateScenesAndSources())
 					{
 						Obs.SetCurrentScene(Scene.Camera);
 						UpdateLeaderboard(true);
@@ -128,28 +128,26 @@ namespace ZoomQuiz
 						faderWorker.RunWorkerAsync();
 						StartedOK = true;
 					}
-					else
-						MessageBox.Show("Could not connect to OBS (is it running?).", ZoomQuizTitle);
 				}
-				catch (AuthFailureException)
-				{
-					MessageBox.Show("Failed to connect to OBS (authentication failed).", ZoomQuizTitle);
-				}
-				catch (ErrorResponseException ex)
-				{
-					MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
-				}
-				catch (Exception ex)
-				{
-					MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
-				}
-				if (PresentationOnly)
-					presentingButton.IsEnabled = false;
+				else
+					MessageBox.Show("Could not connect to OBS (is it running?).", ZoomQuizTitle);
 			}
-			else
-				MessageBox.Show("Some scene and/or source names were not configured.", ZoomQuizTitle);
-			if(!StartedOK)
+			catch (AuthFailureException)
+			{
+				MessageBox.Show("Failed to connect to OBS (authentication failed).", ZoomQuizTitle);
+			}
+			catch (ErrorResponseException ex)
+			{
+				MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
+			}
+			catch (Exception ex)
+			{
+				MessageBox.Show("Failed to connect to OBS (" + ex.Message + ").", ZoomQuizTitle);
+			}
+			if (!StartedOK)
 				EndQuiz();
+			else if (PresentationOnly)
+				presentingButton.IsEnabled = false;
 		}
 
 		~QuizControlPanel()
@@ -163,6 +161,30 @@ namespace ZoomQuiz
 			AnswerMarkedEvent.Dispose();
 			CountdownCompleteEvent.Dispose();
 			QuitAppEvent.Dispose();
+		}
+
+		private bool ValidateScenesAndSources()
+		{
+			IEnumerable<string> unconfiguredScenesOrSources = Configuration.UnconfiguredScenesOrSources;
+			if (unconfiguredScenesOrSources.Any())
+				MessageBox.Show($"Some scene and/or source names were not configured: {string.Join(",", unconfiguredScenesOrSources)}", ZoomQuizTitle);
+			else
+			{
+				IEnumerable<string> obsScenes = Obs.SceneNames;
+				IEnumerable<string> obsSources = Obs.SourceNames;
+				List<string> missingScenes = new List<string>(Configuration.SceneNames.Values);
+				missingScenes.RemoveAll(obsScenes.Contains);
+				List<string> missingSources = new List<string>(Configuration.SourceNames.Values);
+				missingSources.RemoveAll(obsSources.Contains);
+				missingSources.RemoveAll(obsScenes.Contains);
+				if (missingScenes.Any())
+					MessageBox.Show($"Some scene names could not be found in OBS: {string.Join(",", missingScenes)}", ZoomQuizTitle);
+				else if (missingSources.Any())
+					MessageBox.Show($"Some source names could not be found in OBS: {string.Join(",", missingSources)}", ZoomQuizTitle);
+				else
+					return true;
+			}
+			return false;
 		}
 
 		private void ClearLeaderboards()

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 
 namespace ZoomQuiz
 {
@@ -18,18 +19,29 @@ namespace ZoomQuiz
 			Logger.Log($"Connecting to OBS.");
 			m_obsMutex.With(()=>m_obs.Connect(url, password));
 		}
-
 		public bool IsConnected
 		{
 			get { return m_obsMutex.With(()=>m_obs.IsConnected); }
 		}
-
 		public void Disconnect()
 		{
 			Logger.Log($"Disconnecting from OBS.");
 			m_obsMutex.With(()=>m_obs.Disconnect());
 		}
-
+		public IEnumerable<string> SceneNames
+		{
+			get
+			{
+				return m_obsMutex.With(() => m_obs.GetSceneList().Scenes.Select(s => s.Name));
+			}
+		}
+		public IEnumerable<string> SourceNames
+		{
+			get
+			{
+				return m_obsMutex.With(() => m_obs.GetSourcesList().Select(s => s.Name));
+			}
+		}
 		public SourceSettings GetSourceSettings(Source source)
 		{
 			string sourceName = Configuration.SourceNames[source];
