@@ -46,7 +46,7 @@ namespace ZoomQuiz
 			if (!string.IsNullOrEmpty(filename))
 			{
 				string ext = Path.GetExtension(filename).ToLower().Trim('.');
-				if (ext == "jpg" || ext == "png" || ext == "bmp" || ext == "tif" || ext == "tiff" || ext == "jpeg" || ext == "gif")
+				if (ext == "jpg" || ext == "png" || ext == "bmp" || ext == "tif" || ext == "tiff" || ext == "jpeg" || ext == "gif" || ext == "webp")
 					return MediaType.Image;
 				if (ext == "mp3" || ext == "wav" || ext == "ogg" || ext == "m4a" || ext == "wma")
 					return MediaType.Audio;
