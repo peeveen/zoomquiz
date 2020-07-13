@@ -12,6 +12,7 @@
 		ScoreReport,
 		ScoreReportWithTimes,
 		ScrollingScoreReportWithTimes,
+		ScrollingScoreReportOverlay,
 		Countdown,
 		CountdownOverlay,
 		BGM,

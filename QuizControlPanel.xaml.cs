@@ -706,7 +706,7 @@ namespace ZoomQuiz
 			Obs.HideSource(Source.CountdownOverlay, Scene.FullScreenQuestionPicture);
 			Obs.HideSource(Source.CountdownOverlay, Scene.FullScreenAnswerPicture);
 			Obs.HideSource(Source.ScoreReportWithTimes, Scene.ScoreReportOverlay);
-			Obs.HideSource(Source.ScrollingScoreReportWithTimes, Scene.ScoreReportOverlay);
+			Obs.HideSource(Source.ScrollingScoreReportOverlay, Scene.ScoreReportOverlay);
 			Obs.ShowSource(Source.ScoreReport, Scene.ScoreReportOverlay);
 		}
 
@@ -972,7 +972,7 @@ namespace ZoomQuiz
 			bool scrollingRequired = m_scoreReport.Count > 17;
 			Obs.HideSource(Source.ScoreReport, Scene.ScoreReportOverlay);
 			Obs.SetSourceRender(Source.ScoreReportWithTimes, Scene.ScoreReportOverlay, !scrollingRequired);
-			Obs.SetSourceRender(Source.ScrollingScoreReportWithTimes, Scene.ScoreReportOverlay, scrollingRequired);
+			Obs.SetSourceRender(Source.ScrollingScoreReportOverlay, Scene.ScoreReportOverlay, scrollingRequired);
 			m_answerShowing = true;
 		}
 
