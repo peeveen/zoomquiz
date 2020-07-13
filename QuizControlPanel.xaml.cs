@@ -227,7 +227,7 @@ namespace ZoomQuiz
 			if (Quiz.HasNoQuestions)
 				MessageBox.Show("Error: no questions found.", ZoomQuizTitle);
 			else if (Quiz.HasInvalidQuestions)
-					MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
+				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
 			m_nextQuestion = 0;
 			NextQuestion(m_nextQuestion);
 			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
@@ -476,7 +476,7 @@ namespace ZoomQuiz
 
 		private void UpdateScoreReport(bool times)
 		{
-			Logger.Log($"Updating score report with{(times ? "":"out")} times.");
+			Logger.Log($"Updating score report with{(times ? "" : "out")} times.");
 			m_scoreReportMutex.With(() =>
 			{
 				using (ScoreReportBitmap bitmap = new ScoreReportBitmap(Configuration.ScoreReportFont, m_scoreReport, times, times ? ScoreReportWithTimesSize : ScoreReportSize))
