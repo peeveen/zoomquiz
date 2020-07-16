@@ -4,6 +4,10 @@ namespace ZoomQuiz
 {
 	static class Extensions
 	{
+		public static bool IsProperResult(this AnswerResult result)
+		{
+			return result == AnswerResult.Correct || result == AnswerResult.AlmostCorrect || result == AnswerResult.Wrong;
+		}
 		public static void With(this QuizMutex m,Action a, bool log = true)
 		{
 			try

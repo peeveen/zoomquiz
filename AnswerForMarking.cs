@@ -11,7 +11,7 @@
 		}
 		public override string ToString()
 		{
-			return $"\"{Answer.AnswerText} from {Contestant}";
+			return $"\"{Answer.AnswerText}\" from {Contestant}";
 		}
 	}
 }

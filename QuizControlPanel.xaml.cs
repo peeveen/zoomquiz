@@ -359,6 +359,10 @@ namespace ZoomQuiz
 			if (senderID != m_myID)
 			{
 				string sender = chatMsg.GetSenderDisplayName();
+				// I've seen this return a blank string if the user has dropped connection.
+				// So just in case, try and get it through the participants list.
+				if(string.IsNullOrEmpty(sender))
+					sender = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController().GetUserByUserID(senderID).GetUserNameW();
 				string answer = chatMsg.GetContent();
 				Logger.Log($"Received answer \"{answer}\" from {sender} ({senderID})");
 				AddAnswer(new Contestant(senderID, sender), new Answer(answer));

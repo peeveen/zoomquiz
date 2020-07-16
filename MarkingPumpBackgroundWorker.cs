@@ -104,7 +104,7 @@ namespace ZoomQuiz
 				}
 				// Otherwise, if the user has submitted an answer that has already been marked, use that marking.
 				double levValue = 0.0;
-				foreach (KeyValuePair<AnswerResult, AnswerBin> kvp in Context.AnswerBins)
+				foreach (KeyValuePair<AnswerResult, AnswerBin> kvp in Context.AnswerBins.Where(bin=>bin.Key.IsProperResult()))
 					if (kvp.Value.Contains(answer.Answer) || (useLev && kvp.Value.LevContains(answer.Answer, out levValue)))
 					{
 						Logger.Log($"Marking answer {answer} as {kvp.Key} ... it matches an accepted answer.");
