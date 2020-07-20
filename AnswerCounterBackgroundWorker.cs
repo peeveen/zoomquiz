@@ -17,18 +17,13 @@ namespace ZoomQuiz
 				int result = WaitHandle.WaitAny(waitEvents);
 				if (result > 0)
 					break;
-				int answerCount = 0;
-				int markedAnswerCount = 0;
-				try
+				int answerCount = 0, markedAnswerCount = 0;
+				Logger.Log($"AnswerCounter worker received event {result}");
+				Context.AnswerListMutex.With(() =>
 				{
-					Context.AnswerListMutex.WaitOne();
 					answerCount = Context.Answers.Sum(kvp2 => kvp2.Value.Count);
 					markedAnswerCount = Context.Answers.Sum(kvp2 => kvp2.Value.Count(a => a.AnswerResult != AnswerResult.Unmarked));
-				}
-				finally
-				{
-					Context.AnswerListMutex.ReleaseMutex();
-				}
+				});
 
 				ReportProgress(100, new MarkingProgress(answerCount, markedAnswerCount));
 			}

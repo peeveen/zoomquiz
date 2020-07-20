@@ -1,6 +1,0 @@
-﻿namespace ZoomQuiz
-{
-	class CountdownStartArgs
-	{
-	}
-}

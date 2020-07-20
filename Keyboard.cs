@@ -8,9 +8,11 @@ namespace ZoomQuiz
 		public void Send(VirtualKeyShort a)
 		{
 			INPUT[] Inputs = new INPUT[1];
-			INPUT Input = new INPUT();
-			Input.type = 1; // 1 = Keyboard Input
-											//Input.U.ki.wScan = a;
+			INPUT Input = new INPUT
+			{
+				type = 1 // 1 = Keyboard Input
+			};
+			//Input.U.ki.wScan = a;
 			Input.U.ki.wVk = a;
 			Input.U.ki.dwFlags = 0;//keydown
 			Inputs[0] = Input;

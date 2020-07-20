@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 
 namespace ZoomQuiz
 {
 	public class AnswerBin
 	{
-		private readonly Mutex m_answersMutex = new Mutex();
+		private readonly QuizMutex m_answersMutex;
 		private readonly Dictionary<string, double> m_ratedAnswers = new Dictionary<string, double>();
-		public AnswerBin()
+		public AnswerBin(AnswerResult result)
 		{
+			m_answersMutex = new QuizMutex(result.ToString()+"AnswerBin");
 		}
 		~AnswerBin()
 		{
@@ -17,27 +17,11 @@ namespace ZoomQuiz
 		}
 		public void Add(Answer answer, double levValue)
 		{
-			try
-			{
-				m_answersMutex.WaitOne();
-				m_ratedAnswers[answer.NormalizedAnswer] = levValue;
-			}
-			finally
-			{
-				m_answersMutex.ReleaseMutex();
-			}
+			m_answersMutex.With(() => m_ratedAnswers[answer.NormalizedAnswer] = levValue);
 		}
 		public bool Contains(Answer answer)
 		{
-			try
-			{
-				m_answersMutex.WaitOne();
-				return m_ratedAnswers.Keys.Contains(answer.NormalizedAnswer);
-			}
-			finally
-			{
-				m_answersMutex.ReleaseMutex();
-			}
+			return m_answersMutex.With(() => m_ratedAnswers.Keys.Contains(answer.NormalizedAnswer));
 		}
 		public void GetLevenshteinRange(out double min, out double max)
 		{
@@ -47,21 +31,22 @@ namespace ZoomQuiz
 		public bool LevContains(Answer answer, out double levValue)
 		{
 			levValue = 0.0;
+			double lambdaLevValue = 0.0;
 			try
 			{
-				m_answersMutex.WaitOne();
-				string norm = answer.NormalizedAnswer;
-				foreach (string acceptableAnswer in m_ratedAnswers.Keys)
+				return m_answersMutex.With(() =>
 				{
-					if (Levenshtein.LevMatch(norm, acceptableAnswer, out levValue))
-						return true;
-				}
+					string norm = answer.NormalizedAnswer;
+					foreach (string acceptableAnswer in m_ratedAnswers.Keys)
+						if (Levenshtein.LevMatch(norm, acceptableAnswer, out lambdaLevValue))
+							return true;
+					return false;
+				});
 			}
 			finally
 			{
-				m_answersMutex.ReleaseMutex();
+				levValue = lambdaLevValue;
 			}
-			return false;
 		}
 	}
 }

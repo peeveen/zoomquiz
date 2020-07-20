@@ -15,7 +15,7 @@ namespace ZoomQuiz
 		}
 		protected override void DoQuizWork(object sender, DoWorkEventArgs e)
 		{
-			void FixVolume(string source,float obsVol,float desiredVol,float volChangeSpeed,bool isBgm=false)
+			void FixVolume(Source source,float obsVol,float desiredVol,float volChangeSpeed,bool isBgm=false)
 			{
 				float diff = obsVol - desiredVol;
 				if (diff < -volChangeSpeed)
@@ -27,26 +27,18 @@ namespace ZoomQuiz
 			}
 			while (!Context.QuitAppEvent.WaitOne(100))
 			{
-				try
+				// Don't log these, they happen ten times a second.
+				Context.VolumeMutex.With(() =>
 				{
-					Context.VolumeMutex.WaitOne();
-					VolumeInfo bgmVolInf = Context.Obs.GetVolume("BGM");
-					VolumeInfo qbgmVolInf = Context.Obs.GetVolume("QuestionBGM");
-					VolumeInfo qaVolInf = Context.Obs.GetVolume("QuestionAudio");
-					VolumeInfo qvVolInf = Context.Obs.GetVolume("QuestionVid");
-					float nBGMVol = bgmVolInf.Volume;
-					float nQBGMVol = qbgmVolInf.Volume;
-					float nQAVol = qaVolInf.Volume;
-					float nQVVol = qvVolInf.Volume;
-					FixVolume("BGM", nBGMVol, Context.BgmVolume, bgmVolSpeed,true);
-					FixVolume("QuestionBGM", nQBGMVol, Context.QuestionBGMVolume, qbgmVolSpeed,true);
-					FixVolume("QuestionAudio", nQAVol, Context.QuestionAudioVolume, qaudVolSpeed);
-					FixVolume("QuestionVid", nQVVol, Context.QuestionVideoVolume, qvidVolSpeed);
-				}
-				finally
-				{
-					Context.VolumeMutex.ReleaseMutex();
-				}
+					VolumeInfo bgmVolInf = Context.Obs.GetVolume(Source.BGM);
+					VolumeInfo qbgmVolInf = Context.Obs.GetVolume(Source.QuestionBGM);
+					VolumeInfo qaVolInf = Context.Obs.GetVolume(Source.QuestionAudio);
+					VolumeInfo qvVolInf = Context.Obs.GetVolume(Source.QuestionVideo);
+					FixVolume(Source.BGM, bgmVolInf.Volume, Context.BgmVolume, bgmVolSpeed, true);
+					FixVolume(Source.QuestionBGM, qbgmVolInf.Volume, Context.QuestionBGMVolume, qbgmVolSpeed, true);
+					FixVolume(Source.QuestionAudio, qaVolInf.Volume, Context.QuestionAudioVolume, qaudVolSpeed);
+					FixVolume(Source.QuestionVideo, qvVolInf.Volume, Context.QuestionVideoVolume, qvidVolSpeed);
+				}, false);
 			}
 		}
 	}

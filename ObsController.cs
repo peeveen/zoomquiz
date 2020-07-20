@@ -3,157 +3,184 @@ using OBSWebsocketDotNet;
 using OBSWebsocketDotNet.Types;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading;
 
 namespace ZoomQuiz
 {
 	public class ObsController
 	{
 		public OBSWebsocket m_obs = new OBSWebsocket();
-		public Mutex m_obsMutex = new Mutex();
-
-		private void ObsDoAction(Action action)
-		{
-			try
-			{
-				m_obsMutex.WaitOne();
-				action();
-			}
-			finally
-			{
-				m_obsMutex.ReleaseMutex();
-			}
-		}
-
-		private T ObsDoFunc<T>(Func<T> f)
-		{
-			try
-			{
-				m_obsMutex.WaitOne();
-				return f();
-			}
-			finally
-			{
-				m_obsMutex.ReleaseMutex();
-			}
-		}
+		public QuizMutex m_obsMutex = new QuizMutex("OBS");
 
 		public void Connect(string url,string password="")
 		{
-			ObsDoAction(()=>m_obs.Connect(url, password));
+			Logger.Log($"Connecting to OBS.");
+			m_obsMutex.With(()=>m_obs.Connect(url, password));
 		}
-
 		public bool IsConnected
 		{
-			get { return ObsDoFunc(()=>m_obs.IsConnected); }
+			get { return m_obsMutex.With(()=>m_obs.IsConnected); }
 		}
-
 		public void Disconnect()
 		{
-			ObsDoAction(()=>m_obs.Disconnect());
+			Logger.Log($"Disconnecting from OBS.");
+			m_obsMutex.With(()=>m_obs.Disconnect());
+		}
+		public IEnumerable<string> SceneNames
+		{
+			get
+			{
+				return m_obsMutex.With(() => m_obs.GetSceneList().Scenes.Select(s => s.Name));
+			}
+		}
+		public IEnumerable<string> SourceNames
+		{
+			get
+			{
+				return m_obsMutex.With(() => m_obs.GetSourcesList().Select(s => s.Name));
+			}
+		}
+		public SourceSettings GetSourceSettings(Source source)
+		{
+			string sourceName = Configuration.SourceNames[source];
+			Logger.Log($"Getting settings from OBS source \"{sourceName}\"");
+			return m_obsMutex.With(() => m_obs.GetSourceSettings(sourceName));
+		}
+		public void SetSourceSettings(Source source,JObject settings)
+		{
+			string sourceName = Configuration.SourceNames[source];
+			Logger.Log($"Setting OBS source \"{sourceName}\" settings to {settings}");
+			m_obsMutex.With(() => m_obs.SetSourceSettings(sourceName, settings));
+		}
+		public List<FilterSettings> GetSourceFilters(Source source)
+		{
+			string sourceName = Configuration.SourceNames[source];
+			Logger.Log($"Getting OBS source \"{sourceName}\" filters");
+			return m_obsMutex.With(() => m_obs.GetSourceFilters(sourceName));
+		}
+		public void SetSourceFilterSettings(Source source,string filter,JObject settings)
+		{
+			string sourceName = Configuration.SourceNames[source];
+			Logger.Log($"Setting OBS source \"{source}\" filter \"{filter}\" settings to {settings}");
+			m_obsMutex.With(() => m_obs.SetSourceFilterSettings(sourceName, filter, settings));
+		}
+		public void SetVolume(Source source,float volume)
+		{
+			string sourceName = Configuration.SourceNames[source];
+			Logger.Log($"Setting OBS source \"{sourceName}\" volume to {volume}");
+			m_obsMutex.With(() => m_obs.SetVolume(sourceName, volume));
+		}
+		public void SetCurrentScene(Scene scene)
+		{
+			string sceneName = Configuration.SceneNames[scene];
+			Logger.Log($"Setting OBS current scene to \"{scene}\"");
+			m_obsMutex.With(() => m_obs.SetCurrentScene(sceneName));
+		}
+		public void SetSourceRender(Source source, Scene scene, bool visible)
+		{
+			string sceneName = Configuration.SceneNames[scene];
+			string sourceName = Configuration.SourceNames[source];
+			Logger.Log($"Setting visibility of OBS source \"{sourceName}\" in scene \"{sceneName}\" to {visible}");
+			m_obsMutex.With(() => m_obs.SetSourceRender(sourceName, visible, sceneName));
+		}
+		public void SetMute(Source source, bool mute)
+		{
+			string sourceName = Configuration.SourceNames[source];
+			if (mute)
+				Logger.Log($"Muting OBS source \"{sourceName}\"");
+			else
+				Logger.Log($"Unmuting OBS source \"{sourceName}\"");
+			m_obsMutex.With(() => m_obs.SetMute(sourceName, mute));
+		}
+		public VolumeInfo GetVolume(Source source)
+		{
+			string sourceName = Configuration.SourceNames[source];
+			// Don't log these, they happen ten times a second.
+			return m_obsMutex.With(() => m_obs.GetVolume(sourceName), false);
 		}
 
-		public SourceSettings GetSourceSettings(string source)
+		public void HideSource(Source source, Scene scene)
 		{
-			return ObsDoFunc(() => m_obs.GetSourceSettings(source));
-		}
-		public void SetSourceSettings(string source,JObject settings)
-		{
-			ObsDoAction(() => m_obs.SetSourceSettings(source,settings));
-		}
-		public List<FilterSettings> GetSourceFilters(string source)
-		{
-			return ObsDoFunc(() => m_obs.GetSourceFilters(source));
-		}
-		public void SetSourceFilterSettings(string source,string filter,JObject settings)
-		{
-			ObsDoAction(() => m_obs.SetSourceFilterSettings(source, filter, settings));
-		}
-		public void SetVolume(string source,float volume)
-		{
-			ObsDoAction(() => m_obs.SetVolume(source, volume));
-		}
-		public void SetCurrentScene(string scene)
-		{
-			ObsDoAction(() => m_obs.SetCurrentScene(scene));
-		}
-		public void SetSourceRender(string source,string scene, bool visible)
-		{
-			ObsDoAction(() => m_obs.SetSourceRender(source, visible, scene));
-		}
-		public void SetMute(string source, bool mute)
-		{
-			ObsDoAction(() => m_obs.SetMute(source, mute));
-		}
-		public VolumeInfo GetVolume(string source)
-		{
-			return ObsDoFunc(() => m_obs.GetVolume(source));
+			SetSourceRender(source, scene, false);
 		}
 
-		public void HideSource(string sourceName, string sceneName)
+		public void ShowSource(Source source, Scene scene)
 		{
-			SetSourceRender(sourceName, sceneName,false);
+			SetSourceRender(source, scene, true);
 		}
 
-		public void ShowSource(string sourceName, string sceneName)
+		public void SetImageSource(Quiz quiz,Source source, string mediaName)
 		{
-			SetSourceRender(sourceName, sceneName, true);
-		}
-
-		public void SetImageSource(Quiz quiz,string sourceName, string mediaName)
-		{
+			Logger.Log($"Setting image in OBS {source} to \"{mediaName}\"");
 			string path = quiz.GetMediaPath(mediaName);
-			if ((string.IsNullOrEmpty(path)) || (!File.Exists(path)))
+			if (string.IsNullOrEmpty(path) || (!File.Exists(path)))
 			{
 				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
 				path = Path.Combine(presFolder, "transparent.png");
+				Logger.Log($"No such image file found. Using transparent image.");
 			}
-			SetFileSourceFromPath(sourceName, "file", path);
+			SetFileSourceFromPath(source, "file", path);
 		}
 
-		public void SetVideoSource(Quiz quiz, string sourceName, string mediaName)
+		public void SetVideoSource(Quiz quiz, Source source, string mediaName)
 		{
-			string[] scenes = new string[] { "QuestionScene", "FullScreenPictureQuestionScene" };
+			string sourceName = Configuration.SourceNames[source];
+			Logger.Log($"Setting video in OBS {source} source to \"{mediaName}\"");
+			Scene[] scenes = new Scene[] { Scene.Question, Scene.FullScreenQuestionPicture };
 			string path = quiz.GetMediaPath(mediaName);
-			if ((string.IsNullOrEmpty(path)) || (!File.Exists(path)))
+			if (string.IsNullOrEmpty(path) || (!File.Exists(path)))
 			{
-				foreach (string sceneName in scenes)
-					HideSource(sourceName, sceneName);
+				Logger.Log("No such video file found. Hiding source in all applicable scenes.");
+				foreach (Scene scene in scenes)
+					HideSource(source, scene);
 			}
 			else
 			{
-				SetFileSourceFromPath(sourceName, "local_file", path);
-				foreach (string sceneName in scenes)
-					ShowSource(sourceName, sceneName);
+				SetFileSourceFromPath(source, "local_file", path);
+				foreach (Scene scene in scenes)
+					ShowSource(source, scene);
 			}
 		}
 
-		public void SetFileSourceFromPath(string sourceName, string setting, string path)
+		public void SetFileSourceFromPath(Source source, string setting, string path)
 		{
 			JObject settings = new JObject()
 			{
 				{setting,path }
 			};
-			SetSourceSettings(sourceName, settings);
+			SetSourceSettings(source, settings);
 		}
 
-		public void SetAudioSource(Quiz quiz,string sourceName, string mediaName)
+		public Size GetSourceBoundsSize(Scene scene,Source source)
 		{
+			string sceneName = Configuration.SceneNames[scene];
+			string sourceName = Configuration.SourceNames[source];
+			Logger.Log($"Getting bounds size of OBS source \"{sourceName}\" in scene \"{sceneName}\"");
+			SceneItemProperties itemProperties =m_obs.GetSceneItemProperties(sourceName, sceneName);
+			SceneItemBoundsInfo boundsInfo = itemProperties.Bounds;
+			Size size=new Size((int)Math.Ceiling(boundsInfo.Width), (int)Math.Ceiling(boundsInfo.Height));
+			Logger.Log($"Bounds size is {size}");
+			return size;
+		}
+
+		public void SetAudioSource(Quiz quiz,Source source, string mediaName)
+		{
+			Logger.Log($"Setting audio in OBS {source} source to \"{mediaName}\"");
 			string path = quiz.GetMediaPath(mediaName);
 			if ((string.IsNullOrEmpty(path)) || (!File.Exists(path)))
 			{
 				string presFolder = Path.Combine(Directory.GetCurrentDirectory(), "presentation");
 				path = Path.Combine(presFolder, "silence.wav");
+				Logger.Log($"No such audio file found. Using silence.");
 			}
-			SetFileSourceFromPath(sourceName, "local_file", path);
+			SetFileSourceFromPath(source, "local_file", path);
 			JObject settings = new JObject()
 			{
 				{"NonExistent",""+new Random().Next() }
 			};
-			SetSourceSettings(sourceName, settings);
+			SetSourceSettings(source, settings);
 		}
 	}
 }

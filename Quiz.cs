@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -44,10 +43,10 @@ namespace ZoomQuiz
 
 		private static MediaType GetMediaTypeFromFilename(string filename)
 		{
-			if (!String.IsNullOrEmpty(filename))
+			if (!string.IsNullOrEmpty(filename))
 			{
 				string ext = Path.GetExtension(filename).ToLower().Trim('.');
-				if (ext == "jpg" || ext == "png" || ext == "bmp" || ext == "tif" || ext == "tiff" || ext == "jpeg" || ext == "gif")
+				if (ext == "jpg" || ext == "png" || ext == "bmp" || ext == "tif" || ext == "tiff" || ext == "jpeg" || ext == "gif" || ext == "webp")
 					return MediaType.Image;
 				if (ext == "mp3" || ext == "wav" || ext == "ogg" || ext == "m4a" || ext == "wma")
 					return MediaType.Audio;
@@ -80,17 +79,25 @@ namespace ZoomQuiz
 			return m_questions.Values.GetEnumerator();
 		}
 
+		public bool HasNoQuestions
+		{
+			get
+			{
+				return m_questions.Count == 0;
+			}
+		}
+
 		internal Quiz(string iniPath)
 		{
 			string mediaPath = new FileInfo(iniPath).DirectoryName;
 			if (Directory.Exists(mediaPath))
 			{
-				string[] files = Directory.GetFiles(mediaPath, "*.*", SearchOption.AllDirectories);
+				string[] files = Directory.GetFiles(mediaPath, "*.*",SearchOption.TopDirectoryOnly);
 				foreach (string file in files)
 					if (!Directory.Exists(file))
-						m_mediaPaths[Path.GetFileName(file).ToLower()] = file;
+						if(GetMediaTypeFromFilename(file)!=MediaType.Unknown)
+							m_mediaPaths[Path.GetFileName(file).ToLower()] = file;
 			}
-
 			m_questions.Clear();
 			IniFile quizIni = new IniFile(iniPath);
 			for (int qNum = 1; ; ++qNum)
@@ -140,8 +147,6 @@ namespace ZoomQuiz
 					QuestionValidity validity = QuestionValidity.Valid;
 					if ((!string.IsNullOrEmpty(qmed)) && (!m_mediaPaths.ContainsKey(qmed)))
 						validity = QuestionValidity.MissingQuestionOrAnswer;
-					else if ((!string.IsNullOrEmpty(qmed)) && qmedType == MediaType.Unknown)
-						validity = QuestionValidity.MissingQuestionOrAnswer;
 					else if ((!string.IsNullOrEmpty(qmed)) && qmedType == qsupType)
 						validity = QuestionValidity.MissingQuestionOrAnswer;
 					else if ((string.IsNullOrEmpty(q)) || (allAnswers.Count == 0))
@@ -150,8 +155,6 @@ namespace ZoomQuiz
 						validity = QuestionValidity.MissingSupplementary;
 					// Can't have supplementary video
 					else if (qsupType == MediaType.Video)
-						validity = QuestionValidity.MissingSupplementary;
-					else if ((!string.IsNullOrEmpty(qsup)) && qsupType == MediaType.Unknown)
 						validity = QuestionValidity.MissingSupplementary;
 					else if ((!string.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
 						validity = QuestionValidity.MissingSupplementary;

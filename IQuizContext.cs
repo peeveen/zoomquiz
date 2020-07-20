@@ -13,9 +13,9 @@ namespace ZoomQuiz
 		AutoResetEvent AnswerCounterAnswerReceivedEvent { get; }
 		ManualResetEvent QuitAppEvent { get; }
 		ManualResetEvent CountdownCompleteEvent { get; }
-		Mutex AnswerListMutex { get; }
-		Mutex VolumeMutex { get; }
-		Mutex AnswerForMarkingMutex { get; }
+		QuizMutex AnswerListMutex { get; }
+		QuizMutex VolumeMutex { get; }
+		QuizMutex AnswerForMarkingMutex { get; }
 		void MarkAnswer(AnswerForMarking answer, AnswerResult result, double levValue, bool autoCountdown);
 		void StartCountdown();
 		void SendPublicChat(string message);
