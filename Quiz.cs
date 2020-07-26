@@ -35,6 +35,8 @@ namespace ZoomQuiz
 
 		private static string FixUnicode(string strIn)
 		{
+			strIn = strIn.Replace("Ã«", "ë");
+			strIn = strIn.Replace("Ã¼", "ü");
 			strIn = strIn.Replace("Â£", "£");
 			strIn = strIn.Replace("Ã©", "é");
 			strIn = strIn.Replace("\\n", "\n");
