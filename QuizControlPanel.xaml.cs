@@ -100,6 +100,17 @@ namespace ZoomQuiz
 			PresentationOnly = presentationOnly;
 			StartedOK = false;
 			InitializeComponent();
+			hideAnswersCheckbox.IsChecked = PresentationOnly;
+			if (PresentationOnly)
+			{
+				OnlineMarkingControls.Visibility = Visibility.Collapsed;
+				ZoomChatControls.Visibility = Visibility.Collapsed;
+				OnlineMainControls.Visibility = Visibility.Collapsed;
+				presentingButton.Visibility = Visibility.Collapsed;
+				ContestantNameColumn.Width += LastScoreColumn.Width;
+				LastScoreColumn.Width = 0;
+				OnHideAnswers();
+			}
 			ReadScoresFromFile();
 			markingPump = new MarkingPumpBackgroundWorker(this);
 			countdownWorker = new CountdownBackgroundWorker(this);
@@ -224,13 +235,14 @@ namespace ZoomQuiz
 			Logger.Log($"Loading a quiz from \"{quizFilePath}\"");
 			Quiz = new Quiz(quizFilePath);
 			UpdateQuizList();
-			if (Quiz.HasNoQuestions)
+			if (Quiz.QuestionCount==0)
 				MessageBox.Show("Error: no questions found.", ZoomQuizTitle);
 			else if (Quiz.HasInvalidQuestions)
 				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
 			m_nextQuestion = 0;
 			NextQuestion(m_nextQuestion);
 			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			prevQuestionButton.IsEnabled = m_nextQuestion != 1;
 		}
 
 		private void UpdateQuizList()
@@ -239,7 +251,7 @@ namespace ZoomQuiz
 			quizList.ItemsSource = Quiz;
 			ICollectionView view = CollectionViewSource.GetDefaultView(quizList.ItemsSource);
 			view.Refresh();
-			if (!Quiz.HasNoQuestions)
+			if (Quiz.QuestionCount>0)
 			{
 				quizList.SelectedIndex = 0;
 				quizList.ScrollIntoView(Quiz[1]);
@@ -415,6 +427,10 @@ namespace ZoomQuiz
 			GenerateTextImage(m_currentQuestion.QuestionText, Source.QuestionText, "question.png", hasPicOrVid ? QuestionTextSize : NoPicQuestionTextSize);
 			Obs.SetImageSource(Quiz, Source.QuestionImage, m_currentQuestion.QuestionImageFilename);
 			// Show no video until it's ready.
+			foreach (string source in m_currentQuestion.OBSSourcesOn)
+				Obs.SetSourceRender(source, Scene.Camera, true);
+			foreach (string source in m_currentQuestion.OBSSourcesOff)
+				Obs.SetSourceRender(source, Scene.Camera, false);
 			Obs.SetVideoSource(Quiz, Source.QuestionVideo, null);
 			Obs.SetAudioSource(Quiz, Source.QuestionBGM, m_currentQuestion.QuestionBGMFilename);
 			SetVolumes(false, m_currentQuestion);
@@ -425,6 +441,7 @@ namespace ZoomQuiz
 			showPictureButton.IsEnabled =
 				replayAudioButton.IsEnabled =
 				skipQuestionButton.IsEnabled =
+				prevQuestionButton.IsEnabled=
 				showAnswerButton.IsEnabled =
 				presentingButton.IsEnabled =
 				loadQuizButton.IsEnabled =
@@ -444,22 +461,50 @@ namespace ZoomQuiz
 			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().SendChatTo(0, chatMessage);
 		}
 
-		private int NextQuestion(int currentQuestion)
+		private void UpdateQuestionNumberUI()
 		{
-			Logger.Log("Moving to next question.");
-			m_nextQuestion = Quiz.GetNextQuestionNumber(currentQuestion);
-			Logger.Log($"Next question number is {m_nextQuestion}.");
 			if (m_nextQuestion > 0)
 			{
 				startQuestionButtonText.Text = "Start Question " + m_nextQuestion;
 				quizList.SelectedIndex = m_nextQuestion - 1;
 				quizList.ScrollIntoView(quizList.Items.GetItemAt(m_nextQuestion - 1));
+				prevQuestionButton.IsEnabled = m_nextQuestion != 1;
+				skipQuestionButton.IsEnabled = m_nextQuestion != Quiz.QuestionCount;
 			}
 			else
 			{
-				skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = false;
+				prevQuestionButton.IsEnabled=skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = false;
 				loadQuizButton.IsEnabled = true;
 			}
+		}
+
+		private int NextQuestion(int currentQuestion)
+		{
+			Logger.Log("Moving to next question.");
+			int nextQuestion = Quiz.GetNextQuestionNumber(currentQuestion);
+			Logger.Log($"Next question number is {nextQuestion}.");
+			if (nextQuestion != -1)
+			{
+				m_nextQuestion = nextQuestion;
+				UpdateQuestionNumberUI();
+			}
+			else
+				skipQuestionButton.IsEnabled = false;
+			return m_nextQuestion;
+		}
+
+		private int PrevQuestion(int currentQuestion)
+		{
+			Logger.Log("Moving to prev question.");
+			int nextQuestion = Quiz.GetPrevQuestionNumber(currentQuestion);
+			Logger.Log($"Prev question number is {nextQuestion}.");
+			if (nextQuestion != -1)
+			{
+				m_nextQuestion = nextQuestion;
+				UpdateQuestionNumberUI();
+			}
+			else
+				prevQuestionButton.IsEnabled = false;
 			return m_nextQuestion;
 		}
 
@@ -944,7 +989,7 @@ namespace ZoomQuiz
 			}
 			else
 			{
-				loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = showAnswerButton.IsEnabled = true;
+				prevQuestionButton.IsEnabled=loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = showAnswerButton.IsEnabled = true;
 				NextQuestion(m_nextQuestion);
 			}
 		}
@@ -969,6 +1014,7 @@ namespace ZoomQuiz
 			});
 			bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
 			showPictureButton.IsEnabled = hasPic;
+			replayAudioButton.IsEnabled = false;
 			Obs.SetCurrentScene(hasPic ? (m_fullScreenPictureShowing ? Scene.FullScreenAnswerPicture : Scene.Answer) : Scene.NoPictureAnswer);
 			showAnswerButton.Background = System.Windows.Media.Brushes.Pink;
 			showAnswerText.Text = "Hide Answer";
@@ -1120,7 +1166,7 @@ namespace ZoomQuiz
 
 		private void LeaderboardList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
 		{
-			decreaseScoreButton.IsEnabled = increaseScoreButton.IsEnabled = (leaderboardList.SelectedItems.Count == 1);
+			deletePlayerButton.IsEnabled=decreaseScoreButton.IsEnabled = increaseScoreButton.IsEnabled = (leaderboardList.SelectedItems.Count == 1);
 		}
 
 		private void MuteBGM(bool mute)
@@ -1220,9 +1266,55 @@ namespace ZoomQuiz
 				restartMarking.IsEnabled = false;
 			skipQuestionButton.IsEnabled =
 				newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			prevQuestionButton.IsEnabled = m_nextQuestion != 1;
 			markingProgressBar.Value = markingProgressBar.Maximum;
 			ApplyScores();
 			UpdateMarkingProgressUI(null);
+		}
+
+		private void PrevQuestionButton_Click(object sender, RoutedEventArgs e)
+		{
+			Logger.Log("PrevQuestion button has been clicked.");
+			PrevQuestion(m_nextQuestion);
+		}
+
+		private void HideAnswersCheckbox_Checked(object sender, RoutedEventArgs e)
+		{
+			OnHideAnswers();
+		}
+
+		private void OnHideAnswers()
+		{
+			bool hide = hideAnswersCheckbox.IsChecked == true;
+			Visibility vis = hide ? Visibility.Collapsed : Visibility.Visible;
+			AnswerTextBoxPanel.Visibility = vis;
+			AnswerColumn.Width = hide ? 0 : 145;
+			QuestionColumn.Width = hide ? 575 : 430;
+		}
+
+		private void AddPlayerButton_Click(object sender, RoutedEventArgs e)
+		{
+			string newName = playerNameTextbox.Text;
+			if (!string.IsNullOrEmpty(newName))
+			{
+				playerNameTextbox.Text = "";
+				Logger.Log($"Adding contestant \"{newName}\"");
+				Contestant newContestant = new Contestant((uint)m_scores.Count + 1, newName);
+				m_scores[newContestant] = 0;
+				WriteScoresToFile();
+				m_scoresDirty = true;
+				UpdateLeaderboard(false, newContestant);
+			}
+		}
+
+		private void DeletePlayerButton_Click(object sender, RoutedEventArgs e)
+		{
+			ContestantScore score = (ContestantScore)leaderboardList.SelectedItem;
+			Logger.Log($"Removing contestant {score.Contestant}");
+			m_scores.Remove(score.Contestant);
+			WriteScoresToFile();
+			m_scoresDirty = true;
+			UpdateLeaderboard(false, score.Contestant);
 		}
 	}
 }

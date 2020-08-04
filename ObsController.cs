@@ -78,12 +78,16 @@ namespace ZoomQuiz
 			Logger.Log($"Setting OBS current scene to \"{scene}\"");
 			m_obsMutex.With(() => m_obs.SetCurrentScene(sceneName));
 		}
-		public void SetSourceRender(Source source, Scene scene, bool visible)
+		public void SetSourceRender(string sourceName, Scene scene, bool visible)
 		{
 			string sceneName = Configuration.SceneNames[scene];
-			string sourceName = Configuration.SourceNames[source];
 			Logger.Log($"Setting visibility of OBS source \"{sourceName}\" in scene \"{sceneName}\" to {visible}");
 			m_obsMutex.With(() => m_obs.SetSourceRender(sourceName, visible, sceneName));
+		}
+		public void SetSourceRender(Source source, Scene scene, bool visible)
+		{
+			string sourceName = Configuration.SourceNames[source];
+			SetSourceRender(sourceName, scene, visible);
 		}
 		public void SetMute(Source source, bool mute)
 		{

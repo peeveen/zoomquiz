@@ -22,15 +22,25 @@ namespace ZoomQuiz
 			return new string[0];
 		}
 
-		internal int GetNextQuestionNumber(int currentQuestion)
+		private int GetNextOrPreviousQuestion(int currentQuestion,bool getNext)
 		{
 			int next = currentQuestion;
-			while (m_questions.ContainsKey(++next))
+			while (m_questions.ContainsKey(next+=getNext?1:-1))
 				if (m_questions[next].Validity != QuestionValidity.MissingQuestionOrAnswer)
 					break;
 			if (!m_questions.ContainsKey(next))
 				next = -1;
 			return next;
+		}
+
+		internal int GetNextQuestionNumber(int currentQuestion)
+		{
+			return GetNextOrPreviousQuestion(currentQuestion, true);
+		}
+
+		internal int GetPrevQuestionNumber(int currentQuestion)
+		{
+			return GetNextOrPreviousQuestion(currentQuestion, false);
 		}
 
 		private static string FixUnicode(string strIn)
@@ -81,11 +91,11 @@ namespace ZoomQuiz
 			return m_questions.Values.GetEnumerator();
 		}
 
-		public bool HasNoQuestions
+		public int QuestionCount
 		{
 			get
 			{
-				return m_questions.Count == 0;
+				return m_questions.Count;
 			}
 		}
 
@@ -161,7 +171,11 @@ namespace ZoomQuiz
 					else if ((!string.IsNullOrEmpty(apic)) && (!m_mediaPaths.ContainsKey(apic)))
 						validity = QuestionValidity.MissingSupplementary;
 					MediaType amedType = GetMediaTypeFromFilename(apic);
-					m_questions[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType, qsup, qsupType, apic, amedType, info, useLev, validity);
+					string obsSources = quizIni.Read("OBSSources", numSection);
+					List<string> obsSourcesOn = new List<string>();
+					List<string> obsSourcesOff = new List<string>();
+					ParseOBSSources(obsSources,obsSourcesOn,obsSourcesOff);
+					m_questions[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType, qsup, qsupType, apic, amedType, info, useLev, validity,obsSourcesOn,obsSourcesOff);
 				}
 				else
 					break;
@@ -169,6 +183,21 @@ namespace ZoomQuiz
 		}
 		internal bool HasInvalidQuestions {
 			get { return m_questions.Values.Any(q => q.Validity != QuestionValidity.Valid); }
+		}
+		private static void ParseOBSSources(string obsSources,List<string> sourcesOn,List<string> sourcesOff)
+		{
+			if (!string.IsNullOrEmpty(obsSources))
+			{
+				obsSources = obsSources.Trim();
+				string[] sourceBits = obsSources.Split(',');
+				foreach (string sourceBit in sourceBits)
+				{
+					string sourceBitTrimmed = sourceBit.Trim();
+					bool off = sourceBitTrimmed.StartsWith("-");
+					sourceBitTrimmed = sourceBitTrimmed.Trim('-', '+').Trim();
+					(off ? sourcesOff : sourcesOn).Add(sourceBitTrimmed);
+				}
+			}
 		}
 	}
 }

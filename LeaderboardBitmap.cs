@@ -71,9 +71,9 @@ namespace ZoomQuiz
 					g.DrawString("Leaderboard (page " + leaderboardIndex + ")", leaderboardHeaderFont, Brushes.Navy, headerRect, sf);
 				}
 				// Leaves 900 pixels.
-				for (int x = 0; x < 3; ++x)
+				for (int x = 0; x < 2; ++x)
 					for (int y = 0; y < 9; ++y)
-						DrawScore(fontName,g, new Rectangle(x * 620, 100 + (y * 100), 620, 100), scoreIndex < scores.Count ? scores[scoreIndex++] : null, y % 2 == 1);
+						DrawScore(fontName,g, new Rectangle(x * 930, 100 + (y * 100), 930, 100), scoreIndex < scores.Count ? scores[scoreIndex++] : null, y % 2 == 1);
 				g.DrawRectangle(Pens.Black, 0, 0, LEADERBOARD_SIZE.Width - 1, LEADERBOARD_SIZE.Height - 1);
 			}
 		}

@@ -6,161 +6,213 @@
         xmlns:local="clr-namespace:zoom_sdk_demo"
         mc:Ignorable="d"
 				ResizeMode="NoResize"
-        Title="Quiz Control Panel" Height="957.081" Width="767.426" Closing="Window_Closing" Icon="quiz.ico" KeyDown="Window_KeyDown">
-	<Grid>
-		<Button x:Name="correctAnswerButton" HorizontalAlignment="Left" Background="LightGreen" Height="72" Margin="10,133,0,0" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="CorrectAnswerButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="✔️✔️" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock TextWrapping="Wrap" Text="Correct" HorizontalAlignment="Center" FontSize="18"/>
+        Title="Quiz Control Panel" Closing="Window_Closing" Icon="quiz.ico" KeyDown="Window_KeyDown" SizeToContent="WidthAndHeight">
+	<StackPanel HorizontalAlignment="Left" Height="Auto" Margin="0,0,11,11" VerticalAlignment="Top" Width="729">
+		<StackPanel x:Name="OnlineMarkingControls" HorizontalAlignment="Center" VerticalAlignment="Top">
+			<Border BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Left" Height="118" Margin="11,10,0,0" VerticalAlignment="Top" Width="716">
+				<DockPanel LastChildFill="True" Margin="-1,1,1,-1">
+					<TextBlock x:Name="contestantName" DockPanel.Dock="Bottom"  TextWrapping="Wrap" Text="&lt;contestant name&gt;" VerticalAlignment="Top" HorizontalAlignment="Right" FontSize="10"/>
+					<TextBlock x:Name="questionText" TextWrapping="Wrap" Text="&lt;no answers to mark yet&gt;" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" FontSize="20"/>
+				</DockPanel>
+			</Border>
+			<StackPanel Orientation="Horizontal">
+				<Button x:Name="correctAnswerButton" HorizontalAlignment="Left" Background="LightGreen" Height="72" Margin="11,4,2,4" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="CorrectAnswerButton_Click">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="✔️✔️" HorizontalAlignment="Center" FontSize="18"/>
+						<TextBlock TextWrapping="Wrap" Text="Correct" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
+				<Button x:Name="almostCorrectAnswerButton" HorizontalAlignment="Left" Background="LightYellow" Height="72" Margin="2,4,2,4" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="AlmostCorrectAnswerButton_Click">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="Green" Text="✔️" HorizontalAlignment="Center" FontSize="18"/>
+						<TextBlock TextWrapping="Wrap" Text="Almost" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
+				<Button x:Name="wrongAnswerButton" HorizontalAlignment="Left" Background="Pink" Height="72" Margin="2,4,2,4" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="WrongAnswerButton_Click">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="Red" Text="❌" HorizontalAlignment="Center" FontSize="18"/>
+						<TextBlock TextWrapping="Wrap" Text="Wrong" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
+				<Button x:Name="funnyAnswerButton" HorizontalAlignment="Left" Background="Yellow" Height="72" Margin="2,4,2,4" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="FunnyAnswerButton_Click">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="Purple" Text="🤣" HorizontalAlignment="Center" FontSize="18"/>
+						<TextBlock TextWrapping="Wrap" Text="Funny" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
+				<Button x:Name="notAnAnswerButton" HorizontalAlignment="Left" Height="72" Margin="2,4,2,4" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="NotAnAnswerButton_Click">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="Black" Text="🗨️" HorizontalAlignment="Center" FontSize="18"/>
+						<TextBlock TextWrapping="Wrap" Text="Not an Answer" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
 			</StackPanel>
-		</Button>
-		<Button x:Name="almostCorrectAnswerButton" HorizontalAlignment="Left" Background="LightYellow" Height="72" Margin="155,133,0,0" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="AlmostCorrectAnswerButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="Green" Text="✔️" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock TextWrapping="Wrap" Text="Almost" HorizontalAlignment="Center" FontSize="18"/>
-			</StackPanel>
-		</Button>
-		<Button x:Name="wrongAnswerButton" HorizontalAlignment="Left" Background="Pink" Height="72" Margin="300,133,0,0" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="WrongAnswerButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="Red" Text="❌" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock TextWrapping="Wrap" Text="Wrong" HorizontalAlignment="Center" FontSize="18"/>
-			</StackPanel>
-		</Button>
-		<Button x:Name="funnyAnswerButton" HorizontalAlignment="Left" Background="Yellow" Height="72" Margin="445,133,0,0" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="FunnyAnswerButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="Purple" Text="🤣" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock TextWrapping="Wrap" Text="Funny" HorizontalAlignment="Center" FontSize="18"/>
-			</StackPanel>
-		</Button>
-		<Button x:Name="notAnAnswerButton" HorizontalAlignment="Left" Height="72" Margin="590,133,0,0" VerticalAlignment="Top" Width="140" IsEnabled="False" Click="NotAnAnswerButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="Black" Text="🗨️" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock TextWrapping="Wrap" Text="Not an Answer" HorizontalAlignment="Center" FontSize="18"/>
-			</StackPanel>
-		</Button>
-		<Button x:Name="newQuestionButton" HorizontalAlignment="Left" Background="LightGreen" Height="81" Margin="10,302,0,0" VerticalAlignment="Top" Width="169" Click="StartQuestionButtonClick" IsEnabled="False">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="❓" HorizontalAlignment="Center" FontSize="28"/>
-				<TextBlock x:Name="startQuestionButtonText" TextWrapping="Wrap" Text="Start Question 1" HorizontalAlignment="Center" FontSize="18"/>
-			</StackPanel>
-		</Button>
-		<Button x:Name="startCountdownButton" HorizontalAlignment="Left" Background="LightGreen" Height="111" Margin="365,302,0,0" VerticalAlignment="Top" Width="197" Click="StartCountdownButtonClick" IsEnabled="False">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="Black" Text="⏳" HorizontalAlignment="Center" FontSize="28"/>
-				<TextBlock TextWrapping="Wrap" Text="Start Countdown" HorizontalAlignment="Center" FontSize="18"/>
-			</StackPanel>
-		</Button>
-		<Button x:Name="presentingButton" HorizontalAlignment="Left" Background="LightGreen" Height="57" Margin="11,240,0,0" VerticalAlignment="Top" Width="168" Click="PresentingButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="🎙️" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock x:Name="presentingText" TextWrapping="Wrap" Text="Start Presenting" HorizontalAlignment="Center" FontSize="18"/>
-			</StackPanel>
-		</Button>
-		<Border BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Left" Height="118" Margin="11,10,0,0" VerticalAlignment="Top" Width="719">
-			<DockPanel LastChildFill="True">
-				<TextBlock x:Name="contestantName" DockPanel.Dock="Bottom"  TextWrapping="Wrap" Text="&lt;contestant name&gt;" VerticalAlignment="Top" HorizontalAlignment="Right" FontSize="10"/>
-				<TextBlock x:Name="questionText" TextWrapping="Wrap" Text="&lt;no answers to mark yet&gt;" VerticalAlignment="Center" HorizontalAlignment="Center" TextAlignment="Center" FontSize="20"/>
+			<Grid HorizontalAlignment="Left" Height="25" Margin="11,0,0,0" VerticalAlignment="Top" Width="716">
+				<ProgressBar x:Name="markingProgressBar"/>
+				<TextBlock x:Name="markingProgressText" HorizontalAlignment="Center" VerticalAlignment="Center" Text=""/>
+			</Grid>
+		</StackPanel>
+		<DockPanel x:Name="MainControls">
+			<DockPanel LastChildFill="True" DockPanel.Dock="Left">
+				<Button DockPanel.Dock="Top" x:Name="presentingButton" HorizontalAlignment="Left" Background="LightGreen" Height="57" Margin="11,4,2,0" VerticalAlignment="Top" Width="168" Click="PresentingButton_Click">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="🎙️" HorizontalAlignment="Center" FontSize="18"/>
+						<TextBlock x:Name="presentingText" TextWrapping="Wrap" Text="Start Presenting" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
+				<StackPanel Orientation="Horizontal" DockPanel.Dock="Bottom">
+					<Button x:Name="prevQuestionButton" Background="LightGreen" Content="⏮ Prev" HorizontalAlignment="Left" Height="25" Margin="11,2,2,2" VerticalAlignment="Top" Width="82" RenderTransformOrigin="0.5,0.5" IsEnabled="False" Click="PrevQuestionButton_Click"/>
+					<Button x:Name="skipQuestionButton" Background="LightGreen" Content="⏭️ Skip" HorizontalAlignment="Left" Height="25" Margin="2,2,2,2" VerticalAlignment="Top" Width="82" RenderTransformOrigin="0.58,0.52" Click="SkipQuestion_Click" IsEnabled="False"/>
+				</StackPanel>
+				<Button x:Name="newQuestionButton" HorizontalAlignment="Left" Background="LightGreen" Margin="11,4,0,2" Width="168" Click="StartQuestionButtonClick" IsEnabled="False">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="❓" HorizontalAlignment="Center" FontSize="28"/>
+						<TextBlock x:Name="startQuestionButtonText" TextWrapping="Wrap" Text="Start Question 1" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
 			</DockPanel>
-		</Border>
-		<Button x:Name="restartMarking" HorizontalAlignment="Left" Height="57" Margin="567,240,0,0" VerticalAlignment="Top" Width="163" Click="RestartMarking_Click" IsEnabled="False">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="⏪" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock x:Name="presentingText1" TextWrapping="Wrap" Text="Redo Marking" HorizontalAlignment="Center" FontSize="18"/>
+			<StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+				<StackPanel Orientation="Vertical" x:Name="OnlineMainControls">
+					<Button x:Name="restartMarking" HorizontalAlignment="Left" Height="57" Margin="2,4,2,0" VerticalAlignment="Top" Width="197" Click="RestartMarking_Click" IsEnabled="False">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+							<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="⏪" HorizontalAlignment="Center" FontSize="18"/>
+							<TextBlock x:Name="presentingText1" TextWrapping="Wrap" Text="Redo Marking" HorizontalAlignment="Center" FontSize="18"/>
+						</StackPanel>
+					</Button>
+					<Button x:Name="startCountdownButton" HorizontalAlignment="Left" Background="LightGreen" Height="110" Margin="2,4,2,2" VerticalAlignment="Top" Width="197" Click="StartCountdownButtonClick" IsEnabled="False">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+							<TextBlock TextWrapping="Wrap" Foreground="Black" Text="⏳" HorizontalAlignment="Center" FontSize="28"/>
+							<TextBlock TextWrapping="Wrap" Text="Start Countdown" HorizontalAlignment="Center" FontSize="18"/>
+						</StackPanel>
+					</Button>
+				</StackPanel>
+				<StackPanel Orientation="Vertical">
+					<Button x:Name="showLeaderboardButton" HorizontalAlignment="Left" Background="LightGreen" Height="57" Margin="2,4,2,0" VerticalAlignment="Top" Width="163" Click="ShowLeaderboardButton_Click">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+							<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="🏆" HorizontalAlignment="Center" FontSize="18"/>
+							<TextBlock x:Name="showLeaderboardText" TextWrapping="Wrap" Text="Show Leaderboard" HorizontalAlignment="Center" FontSize="18"/>
+						</StackPanel>
+					</Button>
+					<Button x:Name="showAnswerButton" HorizontalAlignment="Left" Background="LightGreen" Height="110" Margin="2,4,2,2" VerticalAlignment="Top" Width="163" IsEnabled="False" Click="ShowAnswerButton_Click">
+						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+							<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="💡" HorizontalAlignment="Center" FontSize="28"/>
+							<TextBlock x:Name="showAnswerText" TextWrapping="Wrap" Text="Show Answer" HorizontalAlignment="Center" FontSize="18"/>
+						</StackPanel>
+					</Button>
+				</StackPanel>
 			</StackPanel>
-		</Button>
-		<Label Content="Leaderboard" HorizontalAlignment="Left" Height="24" Margin="17,673,0,0" VerticalAlignment="Top" Width="237"/>
-		<ListView x:Name="leaderboardList" HorizontalAlignment="Left" Height="194" Margin="17,697,0,0" VerticalAlignment="Top" Width="406" SelectionChanged="LeaderboardList_SelectionChanged">
-			<ListView.Resources>
-				<Style TargetType="{x:Type ListViewItem}">
-					<Style.Triggers>
-						<DataTrigger Binding="{Binding LastResult}" Value="0">
-							<Setter Property="Background" Value="LightGreen" />
-						</DataTrigger>
-						<DataTrigger Binding="{Binding LastResult}" Value="1">
-							<Setter Property="Background" Value="Yellow" />
-						</DataTrigger>
-					</Style.Triggers>
-				</Style>
-			</ListView.Resources>
-			<ListView.View>
-				<GridView AllowsColumnReorder="False">
-					<GridViewColumn Header="#" DisplayMemberBinding="{Binding PositionString}" Width="60"/>
-					<GridViewColumn Header="Score" DisplayMemberBinding="{Binding Score}" Width="60"/>
-					<GridViewColumn Header="Last Score" DisplayMemberBinding="{Binding LastScoreString}" Width="60"/>
-					<GridViewColumn Header="Name" DisplayMemberBinding="{Binding Name}" Width="200"/>
-				</GridView>
-			</ListView.View>
-		</ListView>
-		<Grid HorizontalAlignment="Left" Height="25
-					" Margin="11,210,0,0" VerticalAlignment="Top" Width="719">
-			<ProgressBar x:Name="markingProgressBar"/>
-			<TextBlock x:Name="markingProgressText" HorizontalAlignment="Center" VerticalAlignment="Center" Text=""/>
-		</Grid>
-		<Button x:Name="showQuestionButton" HorizontalAlignment="Left" Background="LightGreen" Height="81" Margin="184,302,0,0" VerticalAlignment="Top" Width="176" IsEnabled="False" Click="ShowQuestionButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="📺" HorizontalAlignment="Center" FontSize="28"/>
-				<TextBlock TextWrapping="Wrap" Text="Show Question" HorizontalAlignment="Center" FontSize="18"/>
+			<StackPanel Orientation="Vertical" HorizontalAlignment="Stretch">
+				<Button x:Name="showPictureButton" HorizontalAlignment="Stretch" Background="LightGreen" Height="57" Margin="2,4,2,0" VerticalAlignment="Top" Click="ShowPictureButton_Click" IsEnabled="False">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="🖼️" HorizontalAlignment="Center" FontSize="18"/>
+						<TextBlock x:Name="showPictureText" TextWrapping="Wrap" Text="Fullscreen Picture" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
+				<Button x:Name="showQuestionButton" HorizontalAlignment="Stretch" Background="LightGreen" Height="81" Margin="2,4,2,2" VerticalAlignment="Top" IsEnabled="False" Click="ShowQuestionButton_Click">
+					<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+						<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="📺" HorizontalAlignment="Center" FontSize="28"/>
+						<TextBlock TextWrapping="Wrap" Text="Show Question" HorizontalAlignment="Center" FontSize="18"/>
+					</StackPanel>
+				</Button>
+				<Button x:Name="replayAudioButton" Background="LightGreen" Content="▶️ Play Media" HorizontalAlignment="Stretch" Height="25" Margin="2,2,2,2" VerticalAlignment="Top" RenderTransformOrigin="0.58,0.52" Click="ReplayAudioButton_Click" IsEnabled="False"/>
 			</StackPanel>
-		</Button>
-		<Button x:Name="showAnswerButton" HorizontalAlignment="Left" Background="LightGreen" Height="111" Margin="567,302,0,0" VerticalAlignment="Top" Width="163" IsEnabled="False" Click="ShowAnswerButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="💡" HorizontalAlignment="Center" FontSize="28"/>
-				<TextBlock x:Name="showAnswerText" TextWrapping="Wrap" Text="Show Answer" HorizontalAlignment="Center" FontSize="18"/>
+		</DockPanel>
+		<StackPanel x:Name="QuestionList" HorizontalAlignment="Center" VerticalAlignment="Top">
+			<StackPanel Orientation="Horizontal">
+				<Label Content="Question" HorizontalAlignment="Left" Height="27" Margin="8,2,2,2" VerticalAlignment="Top" Width="68" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
+				<TextBox x:Name="questionTextBox" HorizontalAlignment="Left" Height="37" Margin="2,2,2,2" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="647" IsReadOnly="True" VerticalContentAlignment="Center"/>
 			</StackPanel>
-		</Button>
-		<Button x:Name="showLeaderboardButton" HorizontalAlignment="Left" Background="LightGreen" Height="57" Margin="365,240,0,0" VerticalAlignment="Top" Width="197" Click="ShowLeaderboardButton_Click">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="🏆" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock x:Name="showLeaderboardText" TextWrapping="Wrap" Text="Show Leaderboard" HorizontalAlignment="Center" FontSize="18"/>
+			<StackPanel Orientation="Horizontal" x:Name="AnswerTextBoxPanel">
+				<Label x:Name="answerLabel" Content="Answer" HorizontalAlignment="Left" Height="27" Margin="8,2,2,2" VerticalAlignment="Top" Width="68" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
+				<TextBox x:Name="answerTextBox" HorizontalAlignment="Left" Height="27" Margin="2,2,2,2" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="647" IsReadOnly="True" VerticalContentAlignment="Center"/>
 			</StackPanel>
-		</Button>
-		<Button Content="Reset Scores" HorizontalAlignment="Left" Height="25" Margin="428,836,0,0" VerticalAlignment="Top" Width="119" Click="Button_Click"/>
-		<ListView x:Name="quizList" HorizontalAlignment="Left" Height="149" Margin="15,524,0,0" VerticalAlignment="Top" Width="715">
-			<ListView.Resources>
-				<Style TargetType="{x:Type ListViewItem}">
-					<Setter Property="IsEnabled" Value="False"/>
-					<Style.Triggers>
-						<DataTrigger Binding="{Binding Validity}" Value="2">
-							<Setter Property="Background" Value="Bisque" />
-						</DataTrigger>
-						<DataTrigger Binding="{Binding Validity}" Value="1">
-							<Setter Property="Background" Value="Pink" />
-						</DataTrigger>
-					</Style.Triggers>
-				</Style>
-			</ListView.Resources>
-			<ListView.View>
-				<GridView AllowsColumnReorder="False">
-					<GridViewColumn Header="#" DisplayMemberBinding="{Binding QuestionNumber}" Width="40"/>
-					<GridViewColumn Header="Question" DisplayMemberBinding="{Binding QuestionText}" Width="500"/>
-					<GridViewColumn Header="Answer" DisplayMemberBinding="{Binding AnswerText}" Width="145"/>
-				</GridView>
-			</ListView.View>
-		</ListView>
-		<TextBox x:Name="questionTextBox" HorizontalAlignment="Left" Height="37" Margin="83,418,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="647" IsReadOnly="True" VerticalContentAlignment="Center"/>
-		<TextBox x:Name="answerTextBox" HorizontalAlignment="Left" Height="27" Margin="83,460,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="647" IsReadOnly="True" VerticalContentAlignment="Center"/>
-		<Label Content="Question" HorizontalAlignment="Left" Height="27" Margin="10,418,0,0" VerticalAlignment="Top" Width="68" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
-		<Label Content="Answer" HorizontalAlignment="Left" Height="27" Margin="10,460,0,0" VerticalAlignment="Top" Width="68" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
-		<TextBox x:Name="infoTextBox" HorizontalAlignment="Left" Height="27" Margin="83,492,0,0" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="648" IsReadOnly="True" VerticalContentAlignment="Center"/>
-		<Label Content="Info" HorizontalAlignment="Left" Height="27" Margin="11,492,0,0" VerticalAlignment="Top" Width="67" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
-		<Button x:Name="showPictureButton" HorizontalAlignment="Left" Background="LightGreen" Height="57" Margin="184,240,0,0" VerticalAlignment="Top" Width="176" Click="ShowPictureButton_Click" IsEnabled="False">
-			<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-				<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="🖼️" HorizontalAlignment="Center" FontSize="18"/>
-				<TextBlock x:Name="showPictureText" TextWrapping="Wrap" Text="Fullscreen Picture" HorizontalAlignment="Center" FontSize="18"/>
+			<StackPanel Orientation="Horizontal">
+				<Label Content="Info" HorizontalAlignment="Left" Height="27" Margin="8,2,2,2" VerticalAlignment="Top" Width="67" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right"/>
+				<TextBox x:Name="infoTextBox" HorizontalAlignment="Left" Height="27" Margin="2,2,2,2" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="648" IsReadOnly="True" VerticalContentAlignment="Center"/>
 			</StackPanel>
-		</Button>
-		<CheckBox x:Name="muteDuringQuestions" Content="Mute During Questions
-							" HorizontalAlignment="Left" Height="19" Margin="572,697,0,0" VerticalAlignment="Top" Width="158"/>
-		<Button x:Name="decreaseScoreButton" Content="-" HorizontalAlignment="Left" Height="22" Margin="428,809,0,0" VerticalAlignment="Top" Width="51" RenderTransformOrigin="0.2,0.364" Click="DecreaseScoreButton_Click" IsEnabled="False"/>
-		<Button x:Name="increaseScoreButton" Content="+" HorizontalAlignment="Left" Height="22" Margin="493,809,0,0" VerticalAlignment="Top" Width="54" RenderTransformOrigin="0.2,0.364" Click="IncreaseScoreButton_Click" IsEnabled="False"/>
-		<CheckBox x:Name="muteBGM" Content="Mute BGM" HorizontalAlignment="Left" Height="19" Margin="572,716,0,0" VerticalAlignment="Top" Width="158" Checked="MuteBGM_Checked" Unchecked="MuteBGM_Unchecked"/>
-		<Button x:Name="viewAnswerHistory" Content="View Answer History" HorizontalAlignment="Left" Height="25" Margin="428,866,0,0" VerticalAlignment="Top" Width="119" Click="ViewAnswerHistory_Click"/>
-		<Button x:Name="dummyAnswersButton" Content="Dummy Answers" HorizontalAlignment="Left" Height="25" Margin="611,866,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="DummyAnswersButton_Click"/>
-		<Button x:Name="skipQuestionButton" Background="LightGreen" Content="⏭️ Skip Question" HorizontalAlignment="Left" Height="25" Margin="11,388,0,0" VerticalAlignment="Top" Width="168" RenderTransformOrigin="0.58,0.52" Click="SkipQuestion_Click" IsEnabled="False"/>
-		<Button x:Name="replayAudioButton" Background="LightGreen" Content="▶️ Play Media" HorizontalAlignment="Left" Height="25" Margin="184,388,0,0" VerticalAlignment="Top" Width="176" RenderTransformOrigin="0.58,0.52" Click="ReplayAudioButton_Click" IsEnabled="False"/>
-		<CheckBox x:Name="showTimeWarnings" Content="Show Time Warnings" HorizontalAlignment="Left" Height="19" Margin="572,735,0,0" VerticalAlignment="Top" Width="158" Checked="ShowTimeWarnings_Checked" Unchecked="ShowTimeWarnings_Unchecked"/>
-		<CheckBox x:Name="showChatWarnings" Content="Show Chat Warnings" HorizontalAlignment="Left" Height="19" Margin="572,754,0,0" VerticalAlignment="Top" Width="158" Checked="ShowChatWarnings_Checked" Unchecked="ShowChatWarnings_Unchecked"/>
-		<Button x:Name="loadQuizButton" Content="💾 Load Quiz" HorizontalAlignment="Left" Height="57" Margin="428,697,0,0" VerticalAlignment="Top" Width="119" Click="LoadQuiz_Clicked"/>
-		<CheckBox x:Name="autoCountdown" Content="Auto Countdown" HorizontalAlignment="Left" Height="19" Margin="572,773,0,0" VerticalAlignment="Top" Width="158" Checked="ShowChatWarnings_Checked" Unchecked="ShowChatWarnings_Unchecked" IsChecked="True"/>
-	</Grid>
+			<StackPanel Orientation="Horizontal">
+				<Button x:Name="loadQuizButton" HorizontalAlignment="Left" Height="149" Margin="12,2,2,2" VerticalAlignment="Top" Width="64" Click="LoadQuiz_Clicked" FontSize="24">
+					<TextBlock TextWrapping="Wrap" Text="💾
+						Load" TextAlignment="Center" FontSize="14"/>
+				</Button>
+				<ListView x:Name="quizList" HorizontalAlignment="Left" Height="149" Margin="2,2,2,2" VerticalAlignment="Top" Width="648">
+					<ListView.Resources>
+						<Style TargetType="{x:Type ListViewItem}">
+							<Setter Property="IsEnabled" Value="False"/>
+							<Style.Triggers>
+								<DataTrigger Binding="{Binding Validity}" Value="2">
+									<Setter Property="Background" Value="Bisque" />
+								</DataTrigger>
+								<DataTrigger Binding="{Binding Validity}" Value="1">
+									<Setter Property="Background" Value="Pink" />
+								</DataTrigger>
+							</Style.Triggers>
+						</Style>
+					</ListView.Resources>
+					<ListView.View>
+						<GridView AllowsColumnReorder="False">
+							<GridViewColumn Header="#" DisplayMemberBinding="{Binding QuestionNumber}" Width="40"/>
+							<GridViewColumn x:Name="QuestionColumn" Header="Question" DisplayMemberBinding="{Binding QuestionText}" Width="430"/>
+							<GridViewColumn x:Name="AnswerColumn" Header="Answer" DisplayMemberBinding="{Binding AnswerText}" Width="145"/>
+						</GridView>
+					</ListView.View>
+				</ListView>
+			</StackPanel>
+			<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top">
+				<StackPanel Orientation="Horizontal" x:Name="LeaderboardControls">
+					<StackPanel Orientation="Vertical">
+						<ListView x:Name="leaderboardList" HorizontalAlignment="Left" Height="194" Margin="4,4,0,2" VerticalAlignment="Top" Width="406" SelectionChanged="LeaderboardList_SelectionChanged">
+							<ListView.Resources>
+								<Style TargetType="{x:Type ListViewItem}">
+									<Style.Triggers>
+										<DataTrigger Binding="{Binding LastResult}" Value="0">
+											<Setter Property="Background" Value="LightGreen" />
+										</DataTrigger>
+										<DataTrigger Binding="{Binding LastResult}" Value="1">
+											<Setter Property="Background" Value="Yellow" />
+										</DataTrigger>
+									</Style.Triggers>
+								</Style>
+							</ListView.Resources>
+							<ListView.View>
+								<GridView AllowsColumnReorder="False">
+									<GridViewColumn Header="#" DisplayMemberBinding="{Binding PositionString}" Width="60"/>
+									<GridViewColumn Header="Score" DisplayMemberBinding="{Binding Score}" Width="60"/>
+									<GridViewColumn x:Name="LastScoreColumn" Header="Last Score" DisplayMemberBinding="{Binding LastScoreString}" Width="60"/>
+									<GridViewColumn x:Name="ContestantNameColumn" Header="Name" DisplayMemberBinding="{Binding Name}" Width="200"/>
+								</GridView>
+							</ListView.View>
+						</ListView>
+					</StackPanel>
+					<DockPanel LastChildFill="False" Margin="2,4,2,2">
+						<StackPanel DockPanel.Dock="Top">
+							<TextBox x:Name="playerNameTextbox" HorizontalAlignment="Left" Height="23" Margin="2,0,2,2" TextWrapping="Wrap" Text="" VerticalAlignment="Top" Width="134"/>
+							<StackPanel Orientation="Horizontal">
+								<Button x:Name="addPlayerButton" Content="Add" HorizontalAlignment="Left" Height="23" Margin="2,2,2,2" VerticalAlignment="Top" Width="65" Click="AddPlayerButton_Click"/>
+								<Button x:Name="deletePlayerButton" Content="Del" HorizontalAlignment="Left" Height="23" Margin="2,2,2,2" VerticalAlignment="Top" Width="65" IsEnabled="False" Click="DeletePlayerButton_Click"/>
+							</StackPanel>
+						</StackPanel>
+						<StackPanel DockPanel.Dock="Bottom">
+							<StackPanel Orientation="Horizontal">
+								<Button x:Name="decreaseScoreButton" Content="-" HorizontalAlignment="Left" Height="22" Margin="2,2,2,2" VerticalAlignment="Top" Width="65" RenderTransformOrigin="0.2,0.364" Click="DecreaseScoreButton_Click" IsEnabled="False"/>
+								<Button x:Name="increaseScoreButton" Content="+" HorizontalAlignment="Left" Height="22" Margin="2,2,2,2" VerticalAlignment="Top" Width="65" RenderTransformOrigin="0.2,0.364" Click="IncreaseScoreButton_Click" IsEnabled="False"/>
+							</StackPanel>
+							<Button Content="Reset Scores" HorizontalAlignment="Left" Height="25" Margin="2,2,2,0" VerticalAlignment="Top" Width="134" Click="Button_Click"/>
+						</StackPanel>
+					</DockPanel>
+					<StackPanel Orientation="Vertical" VerticalAlignment="Top" Margin="4,3,0,0">
+						<CheckBox x:Name="hideAnswersCheckbox" Content="Hide Answers UI" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Unchecked="HideAnswersCheckbox_Checked" IsChecked="False" Checked="HideAnswersCheckbox_Checked"/>
+						<CheckBox x:Name="muteBGM" Content="Mute BGM" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Checked="MuteBGM_Checked" Unchecked="MuteBGM_Unchecked"/>
+						<Button x:Name="dummyAnswersButton" Content="Dummy Answers" HorizontalAlignment="Left" Height="25" Margin="0,0,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="DummyAnswersButton_Click" Visibility="Hidden"/>
+						<StackPanel x:Name="ZoomChatControls" Orientation="Vertical" VerticalAlignment="Bottom">
+							<CheckBox x:Name="showTimeWarnings" Content="Show Time Warnings" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Checked="ShowTimeWarnings_Checked" Unchecked="ShowTimeWarnings_Unchecked"/>
+							<CheckBox x:Name="showChatWarnings" Content="Show Chat Warnings" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Checked="ShowChatWarnings_Checked" Unchecked="ShowChatWarnings_Unchecked"/>
+							<CheckBox x:Name="autoCountdown" Content="Auto Countdown" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Checked="ShowChatWarnings_Checked" Unchecked="ShowChatWarnings_Unchecked" IsChecked="True"/>
+							<CheckBox x:Name="muteDuringQuestions" Content="Mute During Questions" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158"/>
+						</StackPanel>
+					</StackPanel>
+				</StackPanel>
+			</StackPanel>
+		</StackPanel>
+	</StackPanel>
 </Window>

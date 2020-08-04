@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 
 namespace ZoomQuiz
 {
@@ -25,6 +26,9 @@ namespace ZoomQuiz
 		public bool UseLevenshtein { get; private set; }
 		public int QuestionNumber { get; private set; }
 		public QuestionValidity Validity { get; private set; }
+		public IReadOnlyCollection<string> OBSSourcesOn {get;}
+		public IReadOnlyCollection<string> OBSSourcesOff {get;}
+
 		private bool HasMedia(Quiz quiz, MediaType mediaType, string mediaFilename, params MediaType[] types)
 		{
 			return types.Contains(mediaType) && quiz.HasMediaFile(mediaFilename);
@@ -49,7 +53,7 @@ namespace ZoomQuiz
 		{
 			return quiz.HasMediaFile(QuestionBGMFilename);
 		}
-		public Question(int number, string questionText, string answerText, string[] answers, string[] almostAnswers, string[] wrongAnswers, string questionMediaFile, MediaType questionMediaType, string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerMediaFile, MediaType answerMediaType, string info, bool useLevenshtein, QuestionValidity validity)
+		public Question(int number, string questionText, string answerText, string[] answers, string[] almostAnswers, string[] wrongAnswers, string questionMediaFile, MediaType questionMediaType, string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerMediaFile, MediaType answerMediaType, string info, bool useLevenshtein, QuestionValidity validity,List<string> obsSourcesOn,List<string> obsSourcesOff)
 		{
 			QuestionNumber = number;
 			QuestionText = questionText.Trim();
@@ -66,6 +70,8 @@ namespace ZoomQuiz
 			Validity = validity;
 			Info = info.Trim();
 			UseLevenshtein = useLevenshtein;
+			OBSSourcesOn = obsSourcesOn;
+			OBSSourcesOff = obsSourcesOff;
 		}
 	}
 }
