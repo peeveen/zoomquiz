@@ -63,6 +63,7 @@ namespace ZoomQuiz
 		public float QuestionBGMVolume { get; private set; } = 0;
 		public float QuestionAudioVolume { get; private set; } = 0;
 		public float QuestionVideoVolume { get; private set; } = 0;
+		public bool Squelch { get; private set; } = false;
 
 		public Dictionary<Contestant, List<Answer>> Answers { get; } = new Dictionary<Contestant, List<Answer>>();
 		public Dictionary<AnswerResult, AnswerBin> AnswerBins { get; } = new Dictionary<AnswerResult, AnswerBin>();
@@ -415,6 +416,7 @@ namespace ZoomQuiz
 			Logger.Log("StartQuestion has been clicked.");
 			m_scoreReportMutex.With(() => m_scoreReport.Clear());
 			UpdateScoreReports();
+			HideLeaderboard();
 			m_lastAnswerResults.Clear();
 			Answers.Clear();
 			HideAnswer();
@@ -932,6 +934,8 @@ namespace ZoomQuiz
 				if (notAnAnswerButton.IsEnabled)
 					MarkAnswerViaUI(AnswerResult.NotAnAnswer);
 			}
+			else if (e.Key == System.Windows.Input.Key.Escape)
+				Squelch = true;
 		}
 
 		private void SetVolumes(bool questionShowing, Question currentQuestion)
@@ -998,13 +1002,14 @@ namespace ZoomQuiz
 		{
 			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
 			if (hasAudio)
-				Obs.SetVolume(Source.QuestionAudio, AUDIO_VOLUME);
+				QuestionAudioVolume=AUDIO_VOLUME;
 			Obs.SetAudioSource(Quiz, Source.QuestionAudio, questionAudioFilename);
 		}
 
 		private void ShowAnswer()
 		{
 			Logger.Log("Showing the answer.");
+			hideAnswersCheckbox.IsEnabled = false;
 
 			HideLeaderboard();
 			VolumeMutex.With(() =>
@@ -1028,22 +1033,33 @@ namespace ZoomQuiz
 
 		private void HideAnswer()
 		{
+			hideAnswersCheckbox.IsEnabled = true;
 			Logger.Log("Hiding the answer.");
 			Obs.SetCurrentScene(Scene.Camera);
 			HideFullScreenPicture(false);
 			showAnswerButton.Background = System.Windows.Media.Brushes.LightGreen;
-			showAnswerText.Text = "Show Answer";
+			showAnswerText.Text = hideAnswersCheckbox.IsChecked==true?"End Question":"Show Answer";
 			showPictureButton.IsEnabled = false;
 			m_answerShowing = false;
 		}
 
 		private void ShowAnswerButton_Click(object sender, RoutedEventArgs e)
 		{
-			Logger.Log("ShowAnswer button has been clicked.");
-			if (m_answerShowing)
-				HideAnswer();
+			if (hideAnswersCheckbox.IsChecked == true)
+			{
+				Logger.Log("EndQuestion button has been clicked.");
+				EndQuestion();
+				showAnswerButton.IsEnabled = false;
+			}
 			else
-				ShowAnswer();
+			{
+				EndQuestion(false);
+				Logger.Log("ShowAnswer button has been clicked.");
+				if (m_answerShowing)
+					HideAnswer();
+				else
+					ShowAnswer();
+			}
 		}
 
 		private void ShowLeaderboard()
@@ -1202,7 +1218,7 @@ namespace ZoomQuiz
 		private void SetQuestionVideo(string filename)
 		{
 			Obs.SetVideoSource(Quiz, Source.QuestionVideo, filename);
-			Obs.SetVolume(Source.QuestionVideo, VIDEO_VOLUME);
+			QuestionVideoVolume = VIDEO_VOLUME;
 		}
 
 		private void ReplayAudioButton_Click(object sender, RoutedEventArgs e)
@@ -1248,27 +1264,41 @@ namespace ZoomQuiz
 			if (openFileDialog.ShowDialog() == true)
 				LoadQuiz(openFileDialog.FileName);
 		}
+		
+		private void EndQuestion(bool setScene=true)
+		{
+			Logger.Log("EndQuestion called.");
+			if (setScene)
+			{
+				Obs.SetCurrentScene(Scene.Camera);
+				HideFullScreenPicture(false);
+			}
+			m_questionShowing = false;
+			VolumeMutex.With(() =>
+			{
+				BgmVolume = BGM_VOLUME;
+				QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
+			});
+			presentingButton.IsEnabled =
+				showLeaderboardButton.IsEnabled =
+				showAnswerButton.IsEnabled =
+				loadQuizButton.IsEnabled = true;
+			showPictureButton.IsEnabled =
+				replayAudioButton.IsEnabled=
+				restartMarking.IsEnabled = false;
+			skipQuestionButton.IsEnabled =
+				newQuestionButton.IsEnabled = m_nextQuestion != -1;
+			prevQuestionButton.IsEnabled = m_nextQuestion != 1;
+		}
 
 		public void OnMarkingComplete()
 		{
 			Logger.Log("OnMarkingComplete called.");
 			contestantName.Text = "<contestant name>";
 			questionText.Text = "<no answers to mark yet>";
-			Obs.SetCurrentScene(Scene.Camera);
-			m_questionShowing = false;
-			HideFullScreenPicture(false);
-
-			presentingButton.IsEnabled =
-				showLeaderboardButton.IsEnabled =
-				showAnswerButton.IsEnabled =
-				loadQuizButton.IsEnabled = true;
-			showPictureButton.IsEnabled =
-				restartMarking.IsEnabled = false;
-			skipQuestionButton.IsEnabled =
-				newQuestionButton.IsEnabled = m_nextQuestion != -1;
-			prevQuestionButton.IsEnabled = m_nextQuestion != 1;
-			markingProgressBar.Value = markingProgressBar.Maximum;
+			EndQuestion();
 			ApplyScores();
+			markingProgressBar.Value = markingProgressBar.Maximum;
 			UpdateMarkingProgressUI(null);
 		}
 
@@ -1286,6 +1316,7 @@ namespace ZoomQuiz
 		private void OnHideAnswers()
 		{
 			bool hide = hideAnswersCheckbox.IsChecked == true;
+			showAnswerText.Text = hide ? "End Question" : (m_answerShowing ? "Hide Answer" : "Show Answer");
 			Visibility vis = hide ? Visibility.Collapsed : Visibility.Visible;
 			AnswerTextBoxPanel.Visibility = vis;
 			AnswerColumn.Width = hide ? 0 : 145;
@@ -1315,6 +1346,15 @@ namespace ZoomQuiz
 			WriteScoresToFile();
 			m_scoresDirty = true;
 			UpdateLeaderboard(false, score.Contestant);
+		}
+
+		private void Window_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
+		{
+			if (e.Key == System.Windows.Input.Key.Escape)
+			{
+				Squelch = false;
+			}
+
 		}
 	}
 }

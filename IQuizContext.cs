@@ -1,5 +1,4 @@
-﻿using OBSWebsocketDotNet;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading;
 
 namespace ZoomQuiz
@@ -30,5 +29,6 @@ namespace ZoomQuiz
 		float QuestionAudioVolume { get; }
 		float QuestionVideoVolume { get; }
 		void AddAnswer(Contestant contestant, Answer answer);
+		bool Squelch { get; }
 	}
 }

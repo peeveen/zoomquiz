@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:zoom_sdk_demo"
         mc:Ignorable="d"
 				ResizeMode="NoResize"
-        Title="Quiz Control Panel" Closing="Window_Closing" Icon="quiz.ico" KeyDown="Window_KeyDown" SizeToContent="WidthAndHeight">
+        Title="Quiz Control Panel" Closing="Window_Closing" Icon="quiz.ico" KeyDown="Window_KeyDown" SizeToContent="WidthAndHeight" KeyUp="Window_KeyUp">
 	<StackPanel HorizontalAlignment="Left" Height="Auto" Margin="0,0,11,11" VerticalAlignment="Top" Width="729">
 		<StackPanel x:Name="OnlineMarkingControls" HorizontalAlignment="Center" VerticalAlignment="Top">
 			<Border BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Left" Height="118" Margin="11,10,0,0" VerticalAlignment="Top" Width="716">

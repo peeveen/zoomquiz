@@ -1,5 +1,6 @@
 ﻿using OBSWebsocketDotNet.Types;
 using System.ComponentModel;
+using System.Drawing;
 
 namespace ZoomQuiz
 {
@@ -9,6 +10,9 @@ namespace ZoomQuiz
 		const float qbgmVolSpeed = 0.01f;
 		const float qaudVolSpeed = 0.04f;
 		const float qvidVolSpeed = 0.04f;
+
+		const float SQUELCH_VOLUME_MULTIPLIER = 0.1f;
+		const float SQUELCH_SPEED_MULTIPLIER = 3.0f;
 
 		internal FaderBackgroundWorker(IQuizContext context):base(context)
 		{
@@ -20,7 +24,7 @@ namespace ZoomQuiz
 				float diff = obsVol - desiredVol;
 				if (diff < -volChangeSpeed)
 					Context.Obs.SetVolume(source, obsVol + volChangeSpeed);
-				else if (isBgm && diff > volChangeSpeed)
+				else if (/*isBgm && */diff > volChangeSpeed)
 					Context.Obs.SetVolume(source, obsVol - volChangeSpeed);
 				else if (obsVol != desiredVol)
 					Context.Obs.SetVolume(source, desiredVol);
@@ -34,10 +38,12 @@ namespace ZoomQuiz
 					VolumeInfo qbgmVolInf = Context.Obs.GetVolume(Source.QuestionBGM);
 					VolumeInfo qaVolInf = Context.Obs.GetVolume(Source.QuestionAudio);
 					VolumeInfo qvVolInf = Context.Obs.GetVolume(Source.QuestionVideo);
-					FixVolume(Source.BGM, bgmVolInf.Volume, Context.BgmVolume, bgmVolSpeed, true);
-					FixVolume(Source.QuestionBGM, qbgmVolInf.Volume, Context.QuestionBGMVolume, qbgmVolSpeed, true);
-					FixVolume(Source.QuestionAudio, qaVolInf.Volume, Context.QuestionAudioVolume, qaudVolSpeed);
-					FixVolume(Source.QuestionVideo, qvVolInf.Volume, Context.QuestionVideoVolume, qvidVolSpeed);
+					float squelchVolMult = Context.Squelch ? SQUELCH_VOLUME_MULTIPLIER : 1.0f;
+					float squelchSpeedMult = Context.Squelch ? SQUELCH_SPEED_MULTIPLIER : 1.0f;
+					FixVolume(Source.BGM, bgmVolInf.Volume, Context.BgmVolume * squelchVolMult, bgmVolSpeed * squelchSpeedMult, true);
+					FixVolume(Source.QuestionBGM, qbgmVolInf.Volume, Context.QuestionBGMVolume * squelchVolMult, qbgmVolSpeed * squelchSpeedMult, true);
+					FixVolume(Source.QuestionAudio, qaVolInf.Volume, Context.QuestionAudioVolume * squelchVolMult, qaudVolSpeed * squelchSpeedMult);
+					FixVolume(Source.QuestionVideo, qvVolInf.Volume, Context.QuestionVideoVolume * squelchVolMult, qvidVolSpeed * squelchSpeedMult);
 				}, false);
 			}
 		}
