@@ -11,7 +11,7 @@ namespace ZoomQuiz
 		static readonly QuizMutex m_logMutex = new QuizMutex("Log");
 		static readonly List<string> m_logMessages = new List<string>();
 		static readonly ManualResetEvent m_stopLoggingEvent = new ManualResetEvent(false);
-		static readonly string m_logFilePath = FileUtils.GetFilePath("log", LOG_FILENAME);
+		static readonly string m_logFilePath = FileUtils.GetAppDataFile(LOG_FILENAME);
 		public static void Log(string message)
 		{
 			m_logMutex.With(() =>

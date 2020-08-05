@@ -11,6 +11,7 @@ namespace ZoomQuiz
 		public static string QuestionAndAnswerFont { get; private set; } = "Impact";
 		public static string LeaderboardFont { get; private set; } = "Arial";
 		public static string ScoreReportFont { get; private set; } = "Arial";
+		public static string BGMPath { get; private set; } = null;
 		public static Dictionary<Source, string> SourceNames = new Dictionary<Source, string>();
 		public static Dictionary<Scene, string> SceneNames = new Dictionary<Scene, string>();
 
@@ -51,6 +52,7 @@ namespace ZoomQuiz
 				ScoreReportFont = configIni.Read("ScoreReportFont", QUIZ_CONFIG_SECTION, ScoreReportFont);
 				PopulateDictionary(configIni, SourceNames, "SourceName");
 				PopulateDictionary(configIni, SceneNames, "SceneName");
+				BGMPath = configIni.Read("BGMPath", QUIZ_CONFIG_SECTION, BGMPath);
 			}
 		}
 	}
