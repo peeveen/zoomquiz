@@ -7,7 +7,7 @@ namespace ZoomQuiz
 	{
 		private static readonly string appDataFolder = Path.Combine(
 				Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-				"FullHouseEntertainment", "QuizControlPanel");
+				"FullHouse Entertainment", "QuizControlPanel");
 
 		static FileUtils()
 		{
