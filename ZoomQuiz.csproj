@@ -68,7 +68,7 @@
     <Reference Include="PresentationFramework" />
     <Reference Include="zoom_sdk_dotnet_wrap, Version=1.0.6656.25217, Culture=neutral, processorArchitecture=x86">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>.\bin\zoom_sdk_dotnet_wrap.dll</HintPath>
+      <HintPath>.\zoom_sdk_dotnet_wrap.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
