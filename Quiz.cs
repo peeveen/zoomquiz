@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace ZoomQuiz
 {
@@ -41,16 +42,6 @@ namespace ZoomQuiz
 		internal int GetPrevQuestionNumber(int currentQuestion)
 		{
 			return GetNextOrPreviousQuestion(currentQuestion, false);
-		}
-
-		private static string FixUnicode(string strIn)
-		{
-			strIn = strIn.Replace("Ã«", "ë");
-			strIn = strIn.Replace("Ã¼", "ü");
-			strIn = strIn.Replace("Â£", "£");
-			strIn = strIn.Replace("Ã©", "é");
-			strIn = strIn.Replace("\\n", "\n");
-			return strIn;
 		}
 
 		private static MediaType GetMediaTypeFromFilename(string filename)
@@ -117,11 +108,11 @@ namespace ZoomQuiz
 				string numSection = "" + qNum;
 				if (quizIni.KeyExists("Q", numSection))
 				{
-					string q = FixUnicode(quizIni.Read("Q", numSection).Trim());
-					string a = FixUnicode(quizIni.Read("A", numSection).Trim());
-					string aa = FixUnicode(quizIni.Read("AA", numSection).Trim());
-					string w = FixUnicode(quizIni.Read("W", numSection).Trim());
-					string n = FixUnicode(quizIni.Read("Almost", numSection).Trim());
+					string q = quizIni.Read("Q", numSection).Trim().Replace("\\n", "\n");
+					string a = quizIni.Read("A", numSection).Trim().Replace("\\n", "\n");
+					string aa = quizIni.Read("AA", numSection).Trim().Replace("\\n", "\n");
+					string w = quizIni.Read("W", numSection).Trim().Replace("\\n", "\n");
+					string n = quizIni.Read("Almost", numSection).Trim().Replace("\\n", "\n");
 					string qmed = quizIni.Read("QMed", numSection).ToLower().Trim();
 					if (string.IsNullOrEmpty(qmed))
 					{
@@ -142,7 +133,7 @@ namespace ZoomQuiz
 					}
 					MediaType qsupType = GetMediaTypeFromFilename(qsup);
 					string apic = quizIni.Read("APic", numSection).ToLower().Trim();
-					string info = FixUnicode(quizIni.Read("Info", numSection).Trim());
+					string info = quizIni.Read("Info", numSection).Trim().Replace("\\n", "\n");
 					string[] wArray = ParseDelimitedString(w);
 					string[] aaArray = ParseDelimitedString(aa);
 					string[] nArray = ParseDelimitedString(n);
