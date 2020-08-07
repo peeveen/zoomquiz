@@ -58,7 +58,7 @@ namespace ZoomQuiz
 		public AutoResetEvent AnswerMarkedEvent { get; } = new AutoResetEvent(false);
 		public ManualResetEvent CountdownCompleteEvent { get; } = new ManualResetEvent(true);
 		public ManualResetEvent QuitAppEvent { get; } = new ManualResetEvent(false);
-		public float BGMVolume { get; private set; } = 0;
+		public float BGMVolume { get; private set; } = 0.05f;
 		public float QuestionBGMVolume { get; private set; } = 0;
 		public float QuestionAudioVolume { get; private set; } = 0;
 		public float QuestionVideoVolume { get; private set; } = 0;
