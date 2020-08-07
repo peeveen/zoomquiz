@@ -24,7 +24,7 @@ namespace ZoomQuiz
 		void OnCountdownComplete();
 		bool ShowTimeWarnings { get; }
 		ObsController Obs { get; }
-		float BgmVolume { get; }
+		float BGMVolume { get; }
 		float QuestionBGMVolume { get; }
 		float QuestionAudioVolume { get; }
 		float QuestionVideoVolume { get; }

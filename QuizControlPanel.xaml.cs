@@ -40,9 +40,6 @@ namespace ZoomQuiz
 		private const string SCORES_FILENAME = "scores.txt";
 		private const string ANSWERS_FILENAME = "answers.txt";
 		private const string ZoomQuizTitle = "ZoomQuiz";
-		private const float AUDIO_VOLUME = 0.8f;
-		private const float VIDEO_VOLUME = 1.0f;
-		private const float BGM_VOLUME = 0.05f;
 
 		private Configuration Configuration { get; set; }
 
@@ -61,7 +58,7 @@ namespace ZoomQuiz
 		public AutoResetEvent AnswerMarkedEvent { get; } = new AutoResetEvent(false);
 		public ManualResetEvent CountdownCompleteEvent { get; } = new ManualResetEvent(true);
 		public ManualResetEvent QuitAppEvent { get; } = new ManualResetEvent(false);
-		public float BgmVolume { get; private set; } = BGM_VOLUME;
+		public float BGMVolume { get; private set; } = 0;
 		public float QuestionBGMVolume { get; private set; } = 0;
 		public float QuestionAudioVolume { get; private set; } = 0;
 		public float QuestionVideoVolume { get; private set; } = 0;
@@ -941,18 +938,18 @@ namespace ZoomQuiz
 				bool hasAudioOrVideo = currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio, MediaType.Video);
 				if (questionShowing && hasAudioOrVideo)
 				{
-					QuestionAudioVolume = AUDIO_VOLUME;
-					QuestionVideoVolume = VIDEO_VOLUME;
-					BgmVolume = QuestionBGMVolume = 0;
+					QuestionAudioVolume = (float)QAudVol.Value;
+					QuestionVideoVolume = (float)QVidVol.Value;
+					BGMVolume = QuestionBGMVolume = 0;
 				}
 				else if (currentQuestion.HasQuestionBGM(Quiz))
 				{
-					QuestionBGMVolume = BGM_VOLUME;
-					BgmVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
+					QuestionBGMVolume = (float)BGMVol.Value;
+					BGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 				}
 				else
 				{
-					BgmVolume = BGM_VOLUME;
+					BGMVolume = (float)BGMVol.Value;
 					QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 				}
 			});
@@ -998,7 +995,7 @@ namespace ZoomQuiz
 		{
 			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
 			if (hasAudio)
-				QuestionAudioVolume=AUDIO_VOLUME;
+				QuestionAudioVolume= (float)QAudVol.Value;
 			Obs.SetAudioSource(Quiz, Source.QuestionAudio, questionAudioFilename);
 		}
 
@@ -1010,7 +1007,7 @@ namespace ZoomQuiz
 			HideLeaderboard();
 			VolumeMutex.With(() =>
 			{
-				BgmVolume = BGM_VOLUME;
+				BGMVolume = (float)BGMVol.Value;
 				QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 			});
 			bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
@@ -1214,7 +1211,7 @@ namespace ZoomQuiz
 		private void SetQuestionVideo(string filename)
 		{
 			Obs.SetVideoSource(Quiz, Source.QuestionVideo, filename);
-			QuestionVideoVolume = VIDEO_VOLUME;
+			QuestionVideoVolume = (float)QVidVol.Value;
 		}
 
 		private void ReplayAudioButton_Click(object sender, RoutedEventArgs e)
@@ -1272,7 +1269,7 @@ namespace ZoomQuiz
 			m_questionShowing = false;
 			VolumeMutex.With(() =>
 			{
-				BgmVolume = BGM_VOLUME;
+				BGMVolume = (float)BGMVol.Value;
 				QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 			});
 			presentingButton.IsEnabled =
@@ -1351,6 +1348,26 @@ namespace ZoomQuiz
 				Squelch = false;
 			}
 
+		}
+
+		private void BGMVol_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+		{
+			if (BGMVolume != 0.0)
+				BGMVolume = (float)e.NewValue;
+			if (QuestionBGMVolume != 0.0)
+				QuestionBGMVolume = (float)e.NewValue;
+		}
+
+		private void QVidVol_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+		{
+			if (QuestionVideoVolume != 0.0)
+				QuestionVideoVolume = (float)e.NewValue;
+		}
+
+		private void QAudVol_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+		{
+			if (QuestionAudioVolume != 0.0)
+				QuestionAudioVolume = (float)e.NewValue;
 		}
 	}
 }

@@ -40,7 +40,7 @@ namespace ZoomQuiz
 					VolumeInfo qvVolInf = Context.Obs.GetVolume(Source.QuestionVideo);
 					float squelchVolMult = Context.Squelch ? SQUELCH_VOLUME_MULTIPLIER : 1.0f;
 					float squelchSpeedMult = Context.Squelch ? SQUELCH_SPEED_MULTIPLIER : 1.0f;
-					FixVolume(Source.BGM, bgmVolInf.Volume, Context.BgmVolume * squelchVolMult, bgmVolSpeed * squelchSpeedMult, true);
+					FixVolume(Source.BGM, bgmVolInf.Volume, Context.BGMVolume * squelchVolMult, bgmVolSpeed * squelchSpeedMult, true);
 					FixVolume(Source.QuestionBGM, qbgmVolInf.Volume, Context.QuestionBGMVolume * squelchVolMult, qbgmVolSpeed * squelchSpeedMult, true);
 					FixVolume(Source.QuestionAudio, qaVolInf.Volume, Context.QuestionAudioVolume * squelchVolMult, qaudVolSpeed * squelchSpeedMult);
 					FixVolume(Source.QuestionVideo, qvVolInf.Volume, Context.QuestionVideoVolume * squelchVolMult, qvidVolSpeed * squelchSpeedMult);
