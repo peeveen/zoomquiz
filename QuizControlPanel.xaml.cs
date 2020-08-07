@@ -44,6 +44,8 @@ namespace ZoomQuiz
 		private const float VIDEO_VOLUME = 1.0f;
 		private const float BGM_VOLUME = 0.05f;
 
+		private Configuration Configuration { get; set; }
+
 		public QuizMutex VolumeMutex { get; } = new QuizMutex("Volume");
 		public QuizMutex AnswerListMutex { get; } = new QuizMutex("AnswerList");
 		public QuizMutex AnswerForMarkingMutex { get; } = new QuizMutex("AnswerForMarking");
@@ -72,7 +74,7 @@ namespace ZoomQuiz
 		private readonly List<ScoreReportEntry> m_scoreReport = new List<ScoreReportEntry>();
 		private readonly Dictionary<Contestant, AnswerResult> m_lastAnswerResults = new Dictionary<Contestant, AnswerResult>();
 
-		public ObsController Obs { get; } = new ObsController();
+		public ObsController Obs { get; }
 		public bool ShowTimeWarnings { get; private set; } = false;
 
 		private bool m_quizEnded = false;
@@ -96,9 +98,11 @@ namespace ZoomQuiz
 		private readonly System.Drawing.Size ScoreReportWithTimesSize;
 		private readonly System.Drawing.Size ScoreReportSize;
 
-		public QuizControlPanel(bool presentationOnly)
+		public QuizControlPanel(bool presentationOnly,Configuration config)
 		{
 			PresentationOnly = presentationOnly;
+			Configuration = config;
+			Obs = new ObsController(config);
 			StartedOK = false;
 			InitializeComponent();
 			hideAnswersCheckbox.IsChecked = PresentationOnly;
@@ -234,7 +238,7 @@ namespace ZoomQuiz
 		private void LoadQuiz(string quizFilePath)
 		{
 			Logger.Log($"Loading a quiz from \"{quizFilePath}\"");
-			Quiz = new Quiz(quizFilePath);
+			Quiz = new Quiz(quizFilePath, Obs.SourceNames.Concat(Obs.SceneNames));
 			UpdateQuizList();
 			if (Quiz.QuestionCount==0)
 				MessageBox.Show("Error: no questions found.", ZoomQuizTitle);
@@ -242,8 +246,6 @@ namespace ZoomQuiz
 				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
 			m_nextQuestion = 0;
 			NextQuestion(m_nextQuestion);
-			skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = m_nextQuestion != -1;
-			prevQuestionButton.IsEnabled = m_nextQuestion != 1;
 		}
 
 		private void UpdateQuizList()
@@ -472,6 +474,7 @@ namespace ZoomQuiz
 				quizList.ScrollIntoView(quizList.Items.GetItemAt(m_nextQuestion - 1));
 				prevQuestionButton.IsEnabled = m_nextQuestion != 1;
 				skipQuestionButton.IsEnabled = m_nextQuestion != Quiz.QuestionCount;
+				newQuestionButton.IsEnabled = true;
 			}
 			else
 			{
@@ -486,12 +489,8 @@ namespace ZoomQuiz
 			int nextQuestion = Quiz.GetNextQuestionNumber(currentQuestion);
 			Logger.Log($"Next question number is {nextQuestion}.");
 			if (nextQuestion != -1)
-			{
 				m_nextQuestion = nextQuestion;
-				UpdateQuestionNumberUI();
-			}
-			else
-				skipQuestionButton.IsEnabled = false;
+			UpdateQuestionNumberUI();
 			return m_nextQuestion;
 		}
 
@@ -501,12 +500,8 @@ namespace ZoomQuiz
 			int nextQuestion = Quiz.GetPrevQuestionNumber(currentQuestion);
 			Logger.Log($"Prev question number is {nextQuestion}.");
 			if (nextQuestion != -1)
-			{
 				m_nextQuestion = nextQuestion;
-				UpdateQuestionNumberUI();
-			}
-			else
-				prevQuestionButton.IsEnabled = false;
+			UpdateQuestionNumberUI();
 			return m_nextQuestion;
 		}
 
@@ -1288,8 +1283,8 @@ namespace ZoomQuiz
 				replayAudioButton.IsEnabled=
 				restartMarking.IsEnabled = false;
 			skipQuestionButton.IsEnabled =
-				newQuestionButton.IsEnabled = m_nextQuestion != -1;
-			prevQuestionButton.IsEnabled = m_nextQuestion != 1;
+				m_nextQuestion != Quiz.QuestionCount;
+			newQuestionButton.IsEnabled = prevQuestionButton.IsEnabled = m_nextQuestion != 1;
 		}
 
 		public void OnMarkingComplete()

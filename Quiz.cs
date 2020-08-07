@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Windows;
 
 namespace ZoomQuiz
 {
@@ -27,11 +28,11 @@ namespace ZoomQuiz
 		{
 			int next = currentQuestion;
 			while (m_questions.ContainsKey(next+=getNext?1:-1))
-				if (m_questions[next].Validity != QuestionValidity.MissingQuestionOrAnswer)
+				if (m_questions[next].IsValid)
 					break;
-			if (!m_questions.ContainsKey(next))
-				next = -1;
-			return next;
+			if (m_questions.ContainsKey(next) && m_questions[next].IsValid)
+				return next;
+			return -1;
 		}
 
 		internal int GetNextQuestionNumber(int currentQuestion)
@@ -90,7 +91,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		internal Quiz(string iniPath)
+		internal Quiz(string iniPath,IEnumerable<string> validSources)
 		{
 			string mediaPath = new FileInfo(iniPath).DirectoryName;
 			if (Directory.Exists(mediaPath))
@@ -166,6 +167,10 @@ namespace ZoomQuiz
 					List<string> obsSourcesOn = new List<string>();
 					List<string> obsSourcesOff = new List<string>();
 					ParseOBSSources(obsSources,obsSourcesOn,obsSourcesOff);
+					if (validSources.Intersect(obsSourcesOn).Count() != obsSourcesOn.Count)
+						validity = QuestionValidity.MissingSource;
+					if (validSources.Intersect(obsSourcesOff).Count() != obsSourcesOff.Count)
+						validity = QuestionValidity.MissingSource;
 					m_questions[qNum] = new Question(qNum, q, a, allAnswers.ToArray(), nArray, wArray, qmed, qmedType, qsup, qsupType, apic, amedType, info, useLev, validity,obsSourcesOn,obsSourcesOff);
 				}
 				else

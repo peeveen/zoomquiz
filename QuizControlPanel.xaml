@@ -146,6 +146,9 @@
 								<DataTrigger Binding="{Binding Validity}" Value="1">
 									<Setter Property="Background" Value="Pink" />
 								</DataTrigger>
+								<DataTrigger Binding="{Binding Validity}" Value="3">
+									<Setter Property="Background" Value="Pink" />
+								</DataTrigger>
 							</Style.Triggers>
 						</Style>
 					</ListView.Resources>

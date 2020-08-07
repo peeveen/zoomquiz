@@ -93,48 +93,59 @@ namespace ZoomQuiz
 			AppDomain.CurrentDomain.UnhandledException += new UnhandledExceptionEventHandler(UnhandledExceptionHandler);
 			Logger.StartLogging();
 
-			bool presentationOnly = e.Args.Length < 5;
-			quizControlPanelWindow = new QuizControlPanel(presentationOnly);
-			if (!presentationOnly)
+			if (e.Args.Length == 0)
 			{
-				string zoomDomain = e.Args[0];
-				string sdkKey = e.Args[1];
-				string sdkSecret = e.Args[2];
-				m_loginName = e.Args[3];
-				m_loginPassword = e.Args[4];
-				m_meetingID = e.Args[5];
-
-				if (quizControlPanelWindow.StartedOK)
+				MessageBox.Show("No config file specified.", "ZoomQuiz");
+				Shutdown();
+			}
+			try
+			{
+				Configuration config = new Configuration(e.Args[0]);
+				bool presentationOnly = e.Args.Length < 6;
+				quizControlPanelWindow = new QuizControlPanel(presentationOnly,config);
+				if (!presentationOnly)
 				{
-					InitParam initParam = new InitParam
+					string zoomDomain = e.Args[1];
+					string sdkKey = e.Args[2];
+					string sdkSecret = e.Args[3];
+					m_loginName = e.Args[4];
+					m_loginPassword = e.Args[5];
+					m_meetingID = e.Args[6];
+
+					if (quizControlPanelWindow.StartedOK)
 					{
-						web_domain = zoomDomain
-					};
-					SDKError err = CZoomSDKeDotNetWrap.Instance.Initialize(initParam);
-					if (SDKError.SDKERR_SUCCESS == err)
-					{
-						//register callback
-						CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onAuthenticationReturn(OnAuthenticationReturn);
-						AuthParam authParam = new AuthParam
+						InitParam initParam = new InitParam
 						{
-							appKey = sdkKey,
-							appSecret = sdkSecret
+							web_domain = zoomDomain
 						};
-						CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
+						SDKError err = CZoomSDKeDotNetWrap.Instance.Initialize(initParam);
+						if (SDKError.SDKERR_SUCCESS == err)
+						{
+							//register callback
+							CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onAuthenticationReturn(OnAuthenticationReturn);
+							AuthParam authParam = new AuthParam
+							{
+								appKey = sdkKey,
+								appSecret = sdkSecret
+							};
+							CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
+						}
+						else
+							MessageBox.Show("Failed to initialize Zoom SDK.", "ZoomQuiz");
 					}
 					else
-						MessageBox.Show("Failed to initialize Zoom SDK.", "ZoomQuiz");
+						Shutdown();
 				}
 				else
-					Shutdown();
-			}
-			else
-			{
-				if (quizControlPanelWindow.StartedOK)
 				{
-					MessageBox.Show("Running in presentation only mode. To run this program with Zoom, use the command line to supply arguments.\nquizhost.exe zoomDomain sdkKey sdkSecret loginName loginPassword", "ZoomQuiz");
-					quizControlPanelWindow.StartQuiz();
+					if (quizControlPanelWindow.StartedOK)
+						quizControlPanelWindow.StartQuiz();
 				}
+			}
+			catch(Exception ex)
+			{
+				MessageBox.Show(ex.Message, "ZoomQuiz");
+				Shutdown();
 			}
 		}
 

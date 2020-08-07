@@ -53,6 +53,13 @@ namespace ZoomQuiz
 		{
 			return quiz.HasMediaFile(QuestionBGMFilename);
 		}
+		public bool IsValid
+		{
+			get
+			{
+				return Validity != QuestionValidity.MissingQuestionOrAnswer && Validity != QuestionValidity.MissingSource;
+			}
+		}
 		public Question(int number, string questionText, string answerText, string[] answers, string[] almostAnswers, string[] wrongAnswers, string questionMediaFile, MediaType questionMediaType, string questionSupplementaryMediaFile, MediaType questionSupplementaryMediaType, string answerMediaFile, MediaType answerMediaType, string info, bool useLevenshtein, QuestionValidity validity,List<string> obsSourcesOn,List<string> obsSourcesOff)
 		{
 			QuestionNumber = number;

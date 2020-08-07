@@ -2,18 +2,17 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Windows;
 
 namespace ZoomQuiz
 {
-	static class Configuration
+	public class Configuration
 	{
-		public static string QuestionAndAnswerFont { get; private set; } = "Impact";
-		public static string LeaderboardFont { get; private set; } = "Arial";
-		public static string ScoreReportFont { get; private set; } = "Arial";
-		public static string BGMPath { get; private set; } = null;
-		public static Dictionary<Source, string> SourceNames = new Dictionary<Source, string>();
-		public static Dictionary<Scene, string> SceneNames = new Dictionary<Scene, string>();
+		public string QuestionAndAnswerFont { get; private set; } = "Impact";
+		public string LeaderboardFont { get; private set; } = "Arial";
+		public string ScoreReportFont { get; private set; } = "Arial";
+		public string BGMPath { get; private set; } = "";
+		public Dictionary<Source, string> SourceNames = new Dictionary<Source, string>();
+		public Dictionary<Scene, string> SceneNames = new Dictionary<Scene, string>();
 
 		private const string QUIZ_CONFIG_SECTION = "Quiz";
 
@@ -30,7 +29,7 @@ namespace ZoomQuiz
 			}
 		}
 
-		static public IEnumerable<string> UnconfiguredScenesOrSources
+		public IEnumerable<string> UnconfiguredScenesOrSources
 		{
 			get
 			{
@@ -40,9 +39,8 @@ namespace ZoomQuiz
 			}
 		}
 
-		static Configuration()
+		internal Configuration(string configPath)
 		{
-			string configPath = FileUtils.GetFilePath("config", "config.ini");
 			if (File.Exists(configPath))
 			{
 				Logger.Log($"Reading config file \"{configPath}\".");
@@ -52,8 +50,10 @@ namespace ZoomQuiz
 				ScoreReportFont = configIni.Read("ScoreReportFont", QUIZ_CONFIG_SECTION, ScoreReportFont);
 				PopulateDictionary(configIni, SourceNames, "SourceName");
 				PopulateDictionary(configIni, SceneNames, "SceneName");
-				BGMPath = configIni.Read("BGMPath", QUIZ_CONFIG_SECTION, BGMPath);
+				BGMPath = Environment.ExpandEnvironmentVariables(configIni.Read("BGMPath", QUIZ_CONFIG_SECTION, BGMPath));
 			}
+			else
+				throw new Exception("Config file not found.");
 		}
 	}
 }

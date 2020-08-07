@@ -13,7 +13,12 @@ namespace ZoomQuiz
 	{
 		public OBSWebsocket m_obs = new OBSWebsocket();
 		public QuizMutex m_obsMutex = new QuizMutex("OBS");
+		internal Configuration Configuration { get; private set; }
 
+		internal ObsController(Configuration config)
+		{
+			Configuration = config;
+		}
 		public void Connect(string url,string password="")
 		{
 			Logger.Log($"Connecting to OBS.");
