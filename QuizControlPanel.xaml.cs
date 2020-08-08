@@ -14,6 +14,7 @@ using OBSWebsocketDotNet.Types;
 using Newtonsoft.Json.Linq;
 using System.Drawing;
 using System.Windows.Data;
+using System.Runtime.Remoting.Messaging;
 
 namespace ZoomQuiz
 {
@@ -938,18 +939,18 @@ namespace ZoomQuiz
 				bool hasAudioOrVideo = currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio, MediaType.Video);
 				if (questionShowing && hasAudioOrVideo)
 				{
-					QuestionAudioVolume = (float)QAudVol.Value;
-					QuestionVideoVolume = (float)QVidVol.Value;
+					QuestionAudioVolume = ConvertVolume(QAudVol.Value);
+					QuestionVideoVolume = ConvertVolume(QVidVol.Value);
 					BGMVolume = QuestionBGMVolume = 0;
 				}
 				else if (currentQuestion.HasQuestionBGM(Quiz))
 				{
-					QuestionBGMVolume = (float)BGMVol.Value;
+					QuestionBGMVolume = ConvertVolume(BGMVol.Value);
 					BGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 				}
 				else
 				{
-					BGMVolume = (float)BGMVol.Value;
+					BGMVolume = ConvertVolume(BGMVol.Value);
 					QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 				}
 			});
@@ -995,7 +996,7 @@ namespace ZoomQuiz
 		{
 			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
 			if (hasAudio)
-				QuestionAudioVolume= (float)QAudVol.Value;
+				QuestionAudioVolume= ConvertVolume(QAudVol.Value);
 			Obs.SetAudioSource(Quiz, Source.QuestionAudio, questionAudioFilename);
 		}
 
@@ -1007,7 +1008,7 @@ namespace ZoomQuiz
 			HideLeaderboard();
 			VolumeMutex.With(() =>
 			{
-				BGMVolume = (float)BGMVol.Value;
+				BGMVolume = ConvertVolume(BGMVol.Value);
 				QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 			});
 			bool hasPic = m_currentQuestion.HasAnswerMedia(Quiz, MediaType.Image);
@@ -1211,7 +1212,7 @@ namespace ZoomQuiz
 		private void SetQuestionVideo(string filename)
 		{
 			Obs.SetVideoSource(Quiz, Source.QuestionVideo, filename);
-			QuestionVideoVolume = (float)QVidVol.Value;
+			QuestionVideoVolume = ConvertVolume(QVidVol.Value);
 		}
 
 		private void ReplayAudioButton_Click(object sender, RoutedEventArgs e)
@@ -1269,7 +1270,7 @@ namespace ZoomQuiz
 			m_questionShowing = false;
 			VolumeMutex.With(() =>
 			{
-				BGMVolume = (float)BGMVol.Value;
+				BGMVolume = ConvertVolume(BGMVol.Value);
 				QuestionBGMVolume = QuestionAudioVolume = QuestionVideoVolume = 0;
 			});
 			presentingButton.IsEnabled =
@@ -1343,31 +1344,32 @@ namespace ZoomQuiz
 
 		private void Window_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
 		{
-			if (e.Key == System.Windows.Input.Key.Escape)
-			{
-				Squelch = false;
-			}
+			Squelch = e.Key != System.Windows.Input.Key.Escape;
+		}
 
+		private float ConvertVolume(double value)
+		{
+			return (float)Math.Pow(value, 3);
 		}
 
 		private void BGMVol_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
 		{
 			if (BGMVolume != 0.0)
-				BGMVolume = (float)e.NewValue;
+				BGMVolume = ConvertVolume(e.NewValue);
 			if (QuestionBGMVolume != 0.0)
-				QuestionBGMVolume = (float)e.NewValue;
+				QuestionBGMVolume = ConvertVolume(e.NewValue);
 		}
 
 		private void QVidVol_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
 		{
 			if (QuestionVideoVolume != 0.0)
-				QuestionVideoVolume = (float)e.NewValue;
+				QuestionVideoVolume = ConvertVolume(e.NewValue);
 		}
 
 		private void QAudVol_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
 		{
 			if (QuestionAudioVolume != 0.0)
-				QuestionAudioVolume = (float)e.NewValue;
+				QuestionAudioVolume = ConvertVolume(e.NewValue);
 		}
 	}
 }

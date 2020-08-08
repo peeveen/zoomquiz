@@ -163,11 +163,11 @@
 			</StackPanel>
 			<StackPanel Orientation="Horizontal">
 				<Label Content="Q Audio" Margin="8,0,0,0" HorizontalAlignment="Left" Height="Auto" VerticalAlignment="Top" Width="58" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"/>
-				<Slider x:Name="QAudVol" Maximum="1" Width="186" Height="Auto" Margin="0,4,0,0" Value="0.8" ValueChanged="QAudVol_ValueChanged" Minimum="0.001"/>
+				<Slider x:Name="QAudVol" Width="186" Height="Auto" Margin="0,4,0,0" Value="0.8" ValueChanged="QAudVol_ValueChanged" Minimum="0.001" Maximum="1" SmallChange="0.01"/>
 				<Label Content="Video" Margin="8,0,0,0" HorizontalAlignment="Left" Height="Auto" VerticalAlignment="Top" Width="50" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"/>
-				<Slider x:Name="QVidVol" Maximum="1" Width="186" Height="Auto" Margin="0,4,0,0" Value="1" ValueChanged="QVidVol_ValueChanged" Minimum="0.001"/>
+				<Slider x:Name="QVidVol" Width="186" Height="Auto" Margin="0,4,0,0" Value="1" ValueChanged="QVidVol_ValueChanged" Minimum="0.001" Maximum="1" SmallChange="0.01"/>
 				<Label Content="BGM" Margin="8,0,0,0" HorizontalAlignment="Left" Height="Auto" VerticalAlignment="Top" Width="38" RenderTransformOrigin="3.92,2.949" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"/>
-				<Slider x:Name="BGMVol" Maximum="1" Width="186" Height="Auto" Margin="0,4,0,0" Value="0.05" ValueChanged="BGMVol_ValueChanged" Minimum="0.001"/>
+				<Slider x:Name="BGMVol" Width="186" Height="Auto" Margin="0,4,0,0" Value="0.5" ValueChanged="BGMVol_ValueChanged" Maximum="1" Minimum="0.001" SmallChange="0.01"/>
 			</StackPanel>
 			<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top">
 					<StackPanel Orientation="Horizontal" x:Name="LeaderboardControls">
