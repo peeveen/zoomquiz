@@ -98,55 +98,56 @@ namespace ZoomQuiz
 				MessageBox.Show("No config file specified.", "ZoomQuiz");
 				Shutdown();
 			}
-			try
-			{
-				Configuration config = new Configuration(e.Args[0]);
-				bool presentationOnly = e.Args.Length < 6;
-				quizControlPanelWindow = new QuizControlPanel(presentationOnly,config);
-				if (!presentationOnly)
+			else
+				try
 				{
-					string zoomDomain = e.Args[1];
-					string sdkKey = e.Args[2];
-					string sdkSecret = e.Args[3];
-					m_loginName = e.Args[4];
-					m_loginPassword = e.Args[5];
-					m_meetingID = e.Args[6];
-
-					if (quizControlPanelWindow.StartedOK)
+					Configuration config = new Configuration(e.Args[0]);
+					bool presentationOnly = e.Args.Length < 6;
+					quizControlPanelWindow = new QuizControlPanel(presentationOnly,config);
+					if (!presentationOnly)
 					{
-						InitParam initParam = new InitParam
+						string zoomDomain = e.Args[1];
+						string sdkKey = e.Args[2];
+						string sdkSecret = e.Args[3];
+						m_loginName = e.Args[4];
+						m_loginPassword = e.Args[5];
+						m_meetingID = e.Args[6];
+
+						if (quizControlPanelWindow.StartedOK)
 						{
-							web_domain = zoomDomain
-						};
-						SDKError err = CZoomSDKeDotNetWrap.Instance.Initialize(initParam);
-						if (SDKError.SDKERR_SUCCESS == err)
-						{
-							//register callback
-							CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onAuthenticationReturn(OnAuthenticationReturn);
-							AuthParam authParam = new AuthParam
+							InitParam initParam = new InitParam
 							{
-								appKey = sdkKey,
-								appSecret = sdkSecret
+								web_domain = zoomDomain
 							};
-							CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
+							SDKError err = CZoomSDKeDotNetWrap.Instance.Initialize(initParam);
+							if (SDKError.SDKERR_SUCCESS == err)
+							{
+								//register callback
+								CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().Add_CB_onAuthenticationReturn(OnAuthenticationReturn);
+								AuthParam authParam = new AuthParam
+								{
+									appKey = sdkKey,
+									appSecret = sdkSecret
+								};
+								CZoomSDKeDotNetWrap.Instance.GetAuthServiceWrap().SDKAuth(authParam);
+							}
+							else
+								MessageBox.Show("Failed to initialize Zoom SDK.", "ZoomQuiz");
 						}
 						else
-							MessageBox.Show("Failed to initialize Zoom SDK.", "ZoomQuiz");
+							Shutdown();
 					}
 					else
-						Shutdown();
+					{
+						if (quizControlPanelWindow.StartedOK)
+							quizControlPanelWindow.StartQuiz();
+					}
 				}
-				else
+				catch(Exception ex)
 				{
-					if (quizControlPanelWindow.StartedOK)
-						quizControlPanelWindow.StartQuiz();
+					MessageBox.Show(ex.Message, "ZoomQuiz");
+					Shutdown();
 				}
-			}
-			catch(Exception ex)
-			{
-				MessageBox.Show(ex.Message, "ZoomQuiz");
-				Shutdown();
-			}
 		}
 
 		private void Application_Exit(object sender, ExitEventArgs e)
