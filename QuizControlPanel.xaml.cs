@@ -899,6 +899,11 @@ namespace ZoomQuiz
 			});
 			restartMarking.IsEnabled = false;
 			ClearAnswerForMarking();
+			m_scoreReportMutex.With(() =>
+			{
+				m_scoreReport.Clear();
+			});
+			UpdateScoreReports();
 		}
 
 		private void Window_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -1370,6 +1375,11 @@ namespace ZoomQuiz
 		{
 			if (QuestionAudioVolume != 0.0)
 				QuestionAudioVolume = ConvertVolume(e.NewValue);
+		}
+
+		private void Window_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+		{
+			Squelch = false;
 		}
 	}
 }

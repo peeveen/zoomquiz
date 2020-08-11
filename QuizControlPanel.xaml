@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:zoom_sdk_demo"
         mc:Ignorable="d"
 				ResizeMode="NoResize"
-        Title="Quiz Control Panel" Closing="Window_Closing" Icon="quiz.ico" KeyDown="Window_KeyDown" SizeToContent="WidthAndHeight" KeyUp="Window_KeyUp">
+        Title="Quiz Control Panel" Closing="Window_Closing" Icon="quiz.ico" KeyDown="Window_KeyDown" SizeToContent="WidthAndHeight" KeyUp="Window_KeyUp" LostKeyboardFocus="Window_LostKeyboardFocus">
 	<StackPanel HorizontalAlignment="Left" Height="Auto" Margin="0,0,11,11" VerticalAlignment="Top" Width="729">
 		<StackPanel x:Name="OnlineMarkingControls" HorizontalAlignment="Center" VerticalAlignment="Top">
 			<Border BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Left" Height="118" Margin="11,10,0,0" VerticalAlignment="Top" Width="716">
@@ -73,7 +73,7 @@
 			</DockPanel>
 			<StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
 				<StackPanel Orientation="Vertical" x:Name="OnlineMainControls">
-					<Button x:Name="restartMarking" HorizontalAlignment="Left" Height="57" Margin="2,4,2,0" VerticalAlignment="Top" Width="197" Click="RestartMarking_Click" IsEnabled="False">
+					<Button x:Name="restartMarking" Background="LightGreen" HorizontalAlignment="Left" Height="57" Margin="2,4,2,0" VerticalAlignment="Top" Width="197" Click="RestartMarking_Click" IsEnabled="False">
 						<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
 							<TextBlock TextWrapping="Wrap" Foreground="DarkGreen" Text="⏪" HorizontalAlignment="Center" FontSize="18"/>
 							<TextBlock x:Name="presentingText1" TextWrapping="Wrap" Text="Redo Marking" HorizontalAlignment="Center" FontSize="18"/>
@@ -214,13 +214,13 @@
 					<StackPanel Orientation="Vertical" VerticalAlignment="Top" Margin="4,3,0,0">
 						<CheckBox x:Name="hideAnswersCheckbox" Content="Hide Answers UI" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Unchecked="HideAnswersCheckbox_Checked" IsChecked="False" Checked="HideAnswersCheckbox_Checked"/>
 						<CheckBox x:Name="muteBGM" Content="Mute BGM" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Checked="MuteBGM_Checked" Unchecked="MuteBGM_Unchecked"/>
-						<Button x:Name="dummyAnswersButton" Content="Dummy Answers" HorizontalAlignment="Left" Height="25" Margin="0,0,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="DummyAnswersButton_Click" Visibility="Hidden"/>
 						<StackPanel x:Name="ZoomChatControls" Orientation="Vertical" VerticalAlignment="Bottom">
 							<CheckBox x:Name="showTimeWarnings" Content="Show Time Warnings" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Checked="ShowTimeWarnings_Checked" Unchecked="ShowTimeWarnings_Unchecked"/>
 							<CheckBox x:Name="showChatWarnings" Content="Show Chat Warnings" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Checked="ShowChatWarnings_Checked" Unchecked="ShowChatWarnings_Unchecked"/>
 							<CheckBox x:Name="autoCountdown" Content="Auto Countdown" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158" Checked="ShowChatWarnings_Checked" Unchecked="ShowChatWarnings_Unchecked" IsChecked="True"/>
 							<CheckBox x:Name="muteDuringQuestions" Content="Mute During Questions" HorizontalAlignment="Left" Height="19" Margin="0,0,0,0" VerticalAlignment="Top" Width="158"/>
 						</StackPanel>
+						<Button x:Name="dummyAnswersButton" Content="Dummy Answers" HorizontalAlignment="Left" Height="25" Margin="0,0,0,0" VerticalAlignment="Top" Width="119" RenderTransformOrigin="0.58,0.52" Click="DummyAnswersButton_Click" Visibility="Visible"/>
 					</StackPanel>
 				</StackPanel>
 			</StackPanel>
