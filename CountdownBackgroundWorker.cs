@@ -19,6 +19,8 @@ namespace ZoomQuiz
 				if (((f % 5) == 0) && (f != COUNTDOWN_SECONDS))
 					ReportProgress(f);
 			}
+			// Add a second for lag.
+			Thread.Sleep(1000);
 		}
 		protected override void QuizProgressChanged(object sender, ProgressChangedEventArgs e)
 		{
