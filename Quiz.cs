@@ -144,7 +144,9 @@ namespace ZoomQuiz
 						nArray[f] = Answer.NormalizeAnswer(nArray[f]);
 					List<string> allAnswers = new List<string>();
 					allAnswers.AddRange(aaArray);
-					allAnswers.Add(Answer.NormalizeAnswer(a));
+					string normAnswer = Answer.NormalizeAnswer(a);
+					if(!string.IsNullOrEmpty(normAnswer))
+						allAnswers.Add(normAnswer);
 					string useLevStr = quizIni.Read("Lev", numSection).ToLower().Trim();
 					if (!bool.TryParse(useLevStr, out bool useLev))
 						useLev = !allAnswers.Any(answerString => answerString.Length < 4 || int.TryParse(answerString, out int unusedInt));
