@@ -14,7 +14,6 @@ using OBSWebsocketDotNet.Types;
 using Newtonsoft.Json.Linq;
 using System.Drawing;
 using System.Windows.Data;
-using System.Runtime.Remoting.Messaging;
 
 namespace ZoomQuiz
 {
@@ -96,7 +95,7 @@ namespace ZoomQuiz
 		private readonly System.Drawing.Size ScoreReportWithTimesSize;
 		private readonly System.Drawing.Size ScoreReportSize;
 
-		public QuizControlPanel(bool presentationOnly,Configuration config)
+		public QuizControlPanel(bool presentationOnly, Configuration config)
 		{
 			PresentationOnly = presentationOnly;
 			Configuration = config;
@@ -238,7 +237,7 @@ namespace ZoomQuiz
 			Logger.Log($"Loading a quiz from \"{quizFilePath}\"");
 			Quiz = new Quiz(quizFilePath, Obs.SourceNames.Concat(Obs.SceneNames));
 			UpdateQuizList();
-			if (Quiz.QuestionCount==0)
+			if (Quiz.QuestionCount == 0)
 				MessageBox.Show("Error: no questions found.", ZoomQuizTitle);
 			else if (Quiz.HasInvalidQuestions)
 				MessageBox.Show("Warning: invalid questions found.", ZoomQuizTitle);
@@ -252,7 +251,7 @@ namespace ZoomQuiz
 			quizList.ItemsSource = Quiz;
 			ICollectionView view = CollectionViewSource.GetDefaultView(quizList.ItemsSource);
 			view.Refresh();
-			if (Quiz.QuestionCount>0)
+			if (Quiz.QuestionCount > 0)
 			{
 				quizList.SelectedIndex = 0;
 				quizList.ScrollIntoView(Quiz[1]);
@@ -297,7 +296,7 @@ namespace ZoomQuiz
 				ValueType dlgParam = showDlgParam;
 				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetUIController().ShowChatDlg(ref dlgParam);
 
-				SetChatMode(ChatMode.EveryonePubliclyAndPrivately);
+				SetChatMode(ChatMode.Everyone);
 			}
 			Show();
 		}
@@ -322,21 +321,11 @@ namespace ZoomQuiz
 			if (!PresentationOnly)
 			{
 				Logger.Log($"Setting chat mode to {mode}");
-				IntPtr hChatWnd = FindWindowEx(IntPtr.Zero, IntPtr.Zero, "ZPConfChatWndClass", "Zoom Group Chat");
-				if (hChatWnd != IntPtr.Zero)
-				{
-					SetForegroundWindow(hChatWnd);
-					Keyboard kb = new Keyboard();
-
-					// Three down for HostOnly, four for Public chat
-					for (int f = 0; f < (int)mode + 3; ++f)
-						kb.Send(Keyboard.VirtualKeyShort.DOWN);
-					kb.Send(Keyboard.VirtualKeyShort.RETURN);
+				CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().
+					GetMeetingChatController().
+					SetParticipantsChatPriviledge(mode==ChatMode.HostOnly?SDKChatPriviledge.SDK_CHAT_PRIVILEDGE_HOST:SDKChatPriviledge.SDK_CHAT_PRIVILEDGE_ALL);
 					if (m_chatWarnings)
 						SendPublicChat(mode == ChatMode.HostOnly ? "💬 Public chat is now OFF until the answers are in." : "💬 Public chat is ON");
-				}
-				else
-					MessageBox.Show("Can't find chat window (it must be separated from the main app).");
 			}
 		}
 
@@ -374,7 +363,7 @@ namespace ZoomQuiz
 				string sender = chatMsg.GetSenderDisplayName();
 				// I've seen this return a blank string if the user has dropped connection.
 				// So just in case, try and get it through the participants list.
-				if(string.IsNullOrEmpty(sender))
+				if (string.IsNullOrEmpty(sender))
 					sender = CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingParticipantsController().GetUserByUserID(senderID).GetUserNameW();
 				string answer = chatMsg.GetContent();
 				Logger.Log($"Received answer \"{answer}\" from {sender} ({senderID})");
@@ -443,7 +432,7 @@ namespace ZoomQuiz
 			showPictureButton.IsEnabled =
 				replayAudioButton.IsEnabled =
 				skipQuestionButton.IsEnabled =
-				prevQuestionButton.IsEnabled=
+				prevQuestionButton.IsEnabled =
 				showAnswerButton.IsEnabled =
 				presentingButton.IsEnabled =
 				loadQuizButton.IsEnabled =
@@ -476,7 +465,7 @@ namespace ZoomQuiz
 			}
 			else
 			{
-				prevQuestionButton.IsEnabled=skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = false;
+				prevQuestionButton.IsEnabled = skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = false;
 				loadQuizButton.IsEnabled = true;
 			}
 		}
@@ -508,7 +497,7 @@ namespace ZoomQuiz
 			Logger.Log("Countdown is complete.");
 			CZoomSDKeDotNetWrap.Instance.GetMeetingServiceWrap().GetMeetingChatController().Remove_CB_onChatMsgNotifcation(OnAnswerReceived);
 			NextQuestion(m_nextQuestion);
-			SetChatMode(ChatMode.EveryonePublicly);
+			SetChatMode(ChatMode.Everyone);
 			AnswerForMarkingMutex.With(() => presentingButton.IsEnabled = m_answerForMarking == null);
 		}
 
@@ -992,7 +981,7 @@ namespace ZoomQuiz
 			}
 			else
 			{
-				prevQuestionButton.IsEnabled=loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = showAnswerButton.IsEnabled = true;
+				prevQuestionButton.IsEnabled = loadQuizButton.IsEnabled = skipQuestionButton.IsEnabled = newQuestionButton.IsEnabled = showAnswerButton.IsEnabled = true;
 				NextQuestion(m_nextQuestion);
 			}
 		}
@@ -1001,7 +990,7 @@ namespace ZoomQuiz
 		{
 			bool hasAudio = m_currentQuestion.HasQuestionMedia(Quiz, MediaType.Audio);
 			if (hasAudio)
-				QuestionAudioVolume= ConvertVolume(QAudVol.Value);
+				QuestionAudioVolume = ConvertVolume(QAudVol.Value);
 			Obs.SetAudioSource(Quiz, Source.QuestionAudio, questionAudioFilename);
 		}
 
@@ -1037,7 +1026,7 @@ namespace ZoomQuiz
 			Obs.SetCurrentScene(Scene.Camera);
 			HideFullScreenPicture(false);
 			showAnswerButton.Background = System.Windows.Media.Brushes.LightGreen;
-			showAnswerText.Text = hideAnswersCheckbox.IsChecked==true?"End Question":"Show Answer";
+			showAnswerText.Text = hideAnswersCheckbox.IsChecked == true ? "End Question" : "Show Answer";
 			showPictureButton.IsEnabled = false;
 			m_answerShowing = false;
 		}
@@ -1181,7 +1170,7 @@ namespace ZoomQuiz
 
 		private void LeaderboardList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
 		{
-			deletePlayerButton.IsEnabled=decreaseScoreButton.IsEnabled = increaseScoreButton.IsEnabled = (leaderboardList.SelectedItems.Count == 1);
+			deletePlayerButton.IsEnabled = decreaseScoreButton.IsEnabled = increaseScoreButton.IsEnabled = (leaderboardList.SelectedItems.Count == 1);
 		}
 
 		private void MuteBGM(bool mute)
@@ -1263,8 +1252,8 @@ namespace ZoomQuiz
 			if (openFileDialog.ShowDialog() == true)
 				LoadQuiz(openFileDialog.FileName);
 		}
-		
-		private void EndQuestion(bool setScene=true)
+
+		private void EndQuestion(bool setScene = true)
 		{
 			Logger.Log("EndQuestion called.");
 			if (setScene)
@@ -1283,7 +1272,7 @@ namespace ZoomQuiz
 				showAnswerButton.IsEnabled =
 				loadQuizButton.IsEnabled = true;
 			showPictureButton.IsEnabled =
-				replayAudioButton.IsEnabled=
+				replayAudioButton.IsEnabled =
 				restartMarking.IsEnabled = false;
 			skipQuestionButton.IsEnabled =
 				m_nextQuestion != Quiz.QuestionCount;
