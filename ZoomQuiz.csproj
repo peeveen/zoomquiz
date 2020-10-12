@@ -99,7 +99,6 @@
     <Compile Include="FunnyAnswerArgs.cs" />
     <Compile Include="INIReader.cs" />
     <Compile Include="IQuizContext.cs" />
-    <Compile Include="Keyboard.cs" />
     <Compile Include="LeaderboardBitmap.cs" />
     <Compile Include="Levenshtein.cs" />
     <Compile Include="Logger.cs" />
